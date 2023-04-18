@@ -804,7 +804,7 @@ static void* scr_menu() {
     } else if (opt == 1) {
       lv_img_set_src(icon, &img_folder);
     } else if (opt == 2) {
-      lv_img_set_src(icon, &img_file);
+      lv_img_set_src(icon, &img_file1);
     }
 
     // set fan
