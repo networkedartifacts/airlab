@@ -712,6 +712,10 @@ static void* scr_menu() {
   lv_obj_t* time = lv_label_create(lv_scr_act());
   lv_obj_align(time, LV_ALIGN_TOP_LEFT, 5, 5);
 
+  // add power
+  lv_obj_t* pwr = lv_img_create(lv_scr_act());
+  lv_obj_align(pwr, LV_ALIGN_TOP_LEFT, 50, 4);
+
   // add value
   lv_obj_t* value = lv_label_create(lv_scr_act());
   lv_obj_align(value, LV_ALIGN_TOP_RIGHT, -(20 - FNT_OFF), 5);
@@ -759,6 +763,9 @@ static void* scr_menu() {
     uint16_t hour, minute;
     sys_get_time(&hour, &minute);
 
+    // read power
+    pwr_state_t power = pwr_get();
+
     // read sensor
     sns_state_t sensor = sns_get();
 
@@ -767,6 +774,20 @@ static void* scr_menu() {
 
     // set time
     lv_label_set_text(time, scr_fmt("%02d:%02d", hour, minute));
+
+    // set power
+    if (power.usb) {
+      // TODO: Set powered icon.
+      lv_img_set_src(pwr, &img_bat3);
+    } else if (power.battery > 0.75) {
+      lv_img_set_src(pwr, &img_bat3);
+    } else if (power.battery > 0.5) {
+      lv_img_set_src(pwr, &img_bat2);
+    } else if (power.battery > 0.25) {
+      lv_img_set_src(pwr, &img_bat1);
+    } else {
+      lv_img_set_src(pwr, &img_bat0);
+    }
 
     // set info and value
     if (mode == 0) {
