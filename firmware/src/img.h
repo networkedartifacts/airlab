@@ -8,3 +8,7 @@ extern const lv_img_dsc_t img_file;
 extern const lv_img_dsc_t img_folder;
 extern const lv_img_dsc_t img_fan1;
 extern const lv_img_dsc_t img_fan2;
+extern const lv_img_dsc_t img_bat0;
+extern const lv_img_dsc_t img_bat1;
+extern const lv_img_dsc_t img_bat2;
+extern const lv_img_dsc_t img_bat3;
