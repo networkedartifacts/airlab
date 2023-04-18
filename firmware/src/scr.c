@@ -523,6 +523,10 @@ static void* scr_explore() {
     lvx_sign_create(&open, lv_scr_act());
   }
 
+  // add info
+  lv_obj_t* info = lv_label_create(lv_scr_act());
+  lv_obj_align(info, LV_ALIGN_BOTTOM_MID, 0, -5);
+
   // end draw
   gfx_end();
 
@@ -563,6 +567,9 @@ static void* scr_explore() {
         lv_obj_set_style_bg_color(rects[i], lv_color_white(), LV_PART_MAIN);
       }
     }
+
+    // update info
+    lv_label_set_text(info, scr_fmt("%d/%d", total > 0 ? selected + 1 : 0, (int)total));
 
     // end draw
     gfx_end();
