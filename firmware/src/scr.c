@@ -259,7 +259,7 @@ static void* scr_saver() {
   return scr_menu;
 }
 
-static void *scr_exit() {
+static void* scr_exit() {
   // begin draw
   gfx_begin(false, true);
 
@@ -280,7 +280,14 @@ static void *scr_exit() {
 
   // handle enter
   if (event == SIG_ENTER) {
+    // clear flag
     scr_record = false;
+
+    // prepare message
+    scr_message_text = scr_fmt("Messung %d\n gespeichert!", scr_file->head.num);
+    scr_message_next = scr_menu;
+
+    return scr_message;
   }
 
   return scr_menu;
