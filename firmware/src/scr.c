@@ -60,24 +60,6 @@ static void* scr_settings();
 static void* scr_date();
 static void* scr_intro();
 
-static void* scr_message() {
-  // show heart and title
-  gfx_begin(false, false);
-  lv_obj_t* lbl = lv_label_create(lv_scr_act());
-  lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
-  lv_label_set_text(lbl, scr_message_text);
-  lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  gfx_end();
-
-  // wait some time
-  naos_delay(2000);
-
-  // cleanup
-  scr_cleanup(false);
-
-  return scr_message_next;
-}
-
 static void* scr_debug() {
   // begin draw
   gfx_begin(false, false);
@@ -178,6 +160,24 @@ static void* scr_debug() {
       return scr_debug;
     }
   }
+}
+
+static void* scr_message() {
+  // show heart and title
+  gfx_begin(false, false);
+  lv_obj_t* lbl = lv_label_create(lv_scr_act());
+  lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+  lv_label_set_text(lbl, scr_message_text);
+  lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  gfx_end();
+
+  // wait some time
+  naos_delay(2000);
+
+  // cleanup
+  scr_cleanup(false);
+
+  return scr_message_next;
 }
 
 static void* scr_view() {
