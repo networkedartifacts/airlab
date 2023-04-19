@@ -10,14 +10,13 @@
 #include "img.h"
 #include "lvx.h"
 #include "sys.h"
-#include "dat.h"
+#include "rec.h"
 #include "epd.h"
 
 #define SCR_CHART_POINTS 72
 #define SCR_POSITION_STEP 300000
 
 static dat_file_t* scr_file = NULL;
-static bool scr_record = false;
 static dat_point_t scr_points[SCR_CHART_POINTS] = {0};
 
 /* Helpers */
@@ -191,13 +190,14 @@ static void* scr_saver() {
   // begin draw
   gfx_begin(false, false);
 
-  // TODO: Add record icon.
-
   // add icons
   lv_obj_t* lock = lv_img_create(lv_scr_act());
-  lv_obj_t* record = lv_img_create(lv_scr_act());
   lv_img_set_src(lock, &img_lock);
-  lv_img_set_src(record, &img_record);
+  lv_obj_t* record = NULL;
+  if (rec_running()) {
+    record = lv_img_create(lv_scr_act());
+    lv_img_set_src(record, &img_record);
+  }
 
   // add values
   lv_obj_t* time = lv_label_create(lv_scr_act());
@@ -228,11 +228,13 @@ static void* scr_saver() {
     // align objects
     lv_align_t align = right ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT;
     lv_obj_align(lock, align, right ? -19 : 19, 19);
-    lv_obj_align(record, align, right ? -39 : 39, 20);
     lv_obj_align(time, align, right ? -19 : 19, 41);
     lv_obj_align(co2, align, right ? -19 : 19, 59);
     lv_obj_align(tmp, align, right ? -19 : 19, 77);
     lv_obj_align(hum, align, right ? -19 : 19, 95);
+    if (record != NULL) {
+      lv_obj_align(record, align, right ? -39 : 39, 20);
+    }
 
     // end draw
     gfx_end();
@@ -276,13 +278,14 @@ static void* scr_exit() {
 
   // handle enter
   if (event == SIG_ENTER) {
-    // clear flag
-    scr_record = false;
+    // get file
+    dat_file_t* file = rec_file();
+
+    // stop recording
+    rec_stop();
 
     // show message
-    scr_message(scr_fmt("Messung %d\n gespeichert!", scr_file->head.num));
-
-    return scr_menu;
+    scr_message(scr_fmt("%s\n beendet!", file->title));
   }
 
   return scr_menu;
@@ -303,8 +306,9 @@ static void* scr_view() {
   lv_obj_t* time = lv_label_create(lv_scr_act());
   lv_obj_align(time, LV_ALIGN_TOP_LEFT, 5, 5);
 
-  // TODO: Show measurement number.
-  // TODO: Show record icon.
+  // TODO: Show battery icon.
+  // TODO: Show recording icon if viewing recording.
+  // TODO: Show mark number.
 
   // add info
   lv_obj_t* info = lv_label_create(lv_scr_act());
@@ -344,8 +348,8 @@ static void* scr_view() {
     // read sensor
     sns_state_t sensor = sns_get();
 
-    // adjust position to last 5m or less if recording
-    if (scr_record) {
+    // adjust position to last 5m or less if this is the recording file
+    if (rec_running() && rec_file() == scr_file) {
       position = (int32_t)(sys_get_timestamp() - scr_file->head.start - (5 * 60 * 1000));
       if (position < 0) {
         position = 0;
@@ -392,45 +396,27 @@ static void* scr_view() {
     gfx_end();
 
     // await event
-    sig_event_t event = sig_await(SIG_SENSOR | SIG_ARROWS | SIG_ESCAPE, 0);
+    sig_event_t filter = SIG_ARROWS | SIG_ESCAPE;
+    if (rec_running() && rec_file() == scr_file) {
+      filter |= SIG_APPEND;
+    }
+    sig_event_t event = sig_await(filter, 0);
 
     // handle escape
     if (event == SIG_ESCAPE) {
       // cleanup
       scr_cleanup(false);
 
-      // handle record
-      if (scr_record) {
+      // handle recording
+      if (rec_running() && rec_file() == scr_file) {
         return scr_exit;
       }
 
       return scr_edit;
     }
 
-    // loop on sensor
-    if (event == SIG_SENSOR) {
-      // skip if not recording
-      if (!scr_record) {
-        continue;
-      }
-
-      // get state
-      sns_state_t state = sns_get();
-
-      // calculate offset
-      int64_t offset = sys_get_timestamp() - scr_file->head.start;
-
-      // prepare point
-      dat_point_t point = {
-          .offset = (int32_t)offset,
-          .co2 = state.co2,
-          .hum = state.hum,
-          .tmp = state.tmp,
-      };
-
-      // append point
-      dat_append(scr_file->head.num, &point, 1);
-
+    // update on append
+    if (event == SIG_APPEND) {
       continue;
     }
 
@@ -509,8 +495,8 @@ static void* scr_create() {
     // create measurement
     scr_file = dat_create(sys_get_timestamp());
 
-    // set record mode
-    scr_record = true;
+    // start recording
+    rec_start(scr_file);
 
     return scr_view;
   }
@@ -604,9 +590,6 @@ static void* scr_edit() {
       case SIG_LEFT:
         return scr_delete;
       case SIG_ENTER:
-        // disable record
-        scr_record = false;
-
         return scr_view;
       default:
         ESP_ERROR_CHECK(ESP_FAIL);
@@ -625,6 +608,8 @@ static void* scr_explore() {
 
   // get total length
   size_t total = dat_num_files();
+
+  // TODO: Exclude current recording file.
 
   // handle empty
   if (total == 0) {
@@ -856,9 +841,16 @@ static void* scr_menu() {
   lv_obj_t* time = lv_label_create(lv_scr_act());
   lv_obj_align(time, LV_ALIGN_TOP_LEFT, 5, 5);
 
-  // add power
+  // add power icon
   lv_obj_t* pwr = lv_img_create(lv_scr_act());
-  lv_obj_align(pwr, LV_ALIGN_TOP_LEFT, 50, 3);
+  lv_obj_align(pwr, LV_ALIGN_TOP_LEFT, 60, 3);
+
+  // add record icon if recording
+  if (rec_running()) {
+    lv_obj_t* record = lv_img_create(lv_scr_act());
+    lv_img_set_src(record, &img_record);
+    lv_obj_align(record, LV_ALIGN_TOP_LEFT, 80, 3);
+  }
 
   // add value
   lv_obj_t* value = lv_label_create(lv_scr_act());
@@ -947,7 +939,7 @@ static void* scr_menu() {
     } else if (opt == 1) {
       lv_img_set_src(icon, &img_folder);
     } else if (opt == 2) {
-      lv_img_set_src(icon, &img_file1);
+      lv_img_set_src(icon, rec_running() ? &img_file2 : &img_file1);
     }
 
     // set fan
@@ -1009,8 +1001,13 @@ static void* scr_menu() {
           return scr_settings;
         case 1:  // explore
           return scr_explore;
-        case 2:  // create
-          return scr_create;
+        case 2:  // create or view
+          if (rec_running()) {
+            scr_file = rec_file();
+            return scr_view;
+          } else {
+            return scr_create;
+          }
         default:
           ESP_ERROR_CHECK(ESP_FAIL);
       }
