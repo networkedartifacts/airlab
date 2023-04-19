@@ -10,6 +10,7 @@
 #include "gfx.h"
 #include "sns.h"
 #include "dat.h"
+#include "rec.h"
 #include "scr.h"
 
 static void dev_init() {
@@ -54,6 +55,7 @@ static void setup() {
   gfx_init();
   sns_init();
   dat_init();
+  rec_init();
 
   // run screen
   scr_run();

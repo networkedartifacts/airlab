@@ -26,6 +26,8 @@ set(SOURCE_FILES
         src/main.c
         src/pwr.c
         src/pwr.h
+        src/rec.c
+        src/rec.h
         src/scr.c
         src/scr.h
         src/sig.c
