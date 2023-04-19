@@ -259,6 +259,33 @@ static void* scr_saver() {
   return scr_menu;
 }
 
+static void *scr_exit() {
+  // begin draw
+  gfx_begin(false, true);
+
+  // add signs
+  lvx_sign_t stop = {.title = "A", .text = "Messung beenden", .align = LV_ALIGN_CENTER, .offset = -15};
+  lvx_sign_t back = {.title = "B", .text = "Zurück zum Labor", .align = LV_ALIGN_CENTER, .offset = 15};
+  lvx_sign_create(&stop, lv_scr_act());
+  lvx_sign_create(&back, lv_scr_act());
+
+  // end draw
+  gfx_end();
+
+  // await event
+  sig_event_t event = sig_await(SIG_META, 0);
+
+  // cleanup
+  scr_cleanup(false);
+
+  // handle enter
+  if (event == SIG_ENTER) {
+    scr_record = false;
+  }
+
+  return scr_menu;
+}
+
 static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum
@@ -369,6 +396,11 @@ static void* scr_view() {
     if (event == SIG_ESCAPE) {
       // cleanup
       scr_cleanup(false);
+
+      // handle record
+      if (scr_record) {
+        return scr_exit;
+      }
 
       return scr_edit;
     }
