@@ -4,10 +4,13 @@
 #include <driver/spi_master.h>
 #include <esp_sleep.h>
 
+#include "dev.h"
 #include "sig.h"
 
 #define BTN_DEBUG false
+#define BTN_SELECT GPIO_NUM_25
 #define BTN_LOAD GPIO_NUM_26
+#define BTN_WAKE (DEV_V == 0 ? GPIO_NUM_36 : GPIO_NUM_33)
 
 static uint8_t btn_state = 0x00;
 static spi_device_handle_t btn_device = NULL;
@@ -64,7 +67,7 @@ void btn_init() {
       .address_bits = 0,
       .mode = 0b11,  // CPOL=1, CPHA=1
       .clock_speed_hz = SPI_MASTER_FREQ_20M,
-      .spics_io_num = 25,
+      .spics_io_num = BTN_SELECT,
       .flags = SPI_DEVICE_HALFDUPLEX,  // negative CS
       .queue_size = 1,
   };
@@ -75,11 +78,11 @@ void btn_init() {
 
   // configure gpio
   pin.mode = GPIO_MODE_INPUT;
-  pin.pin_bit_mask = GPIO_SEL_33;
+  pin.pin_bit_mask = BIT64(BTN_WAKE);
   ESP_ERROR_CHECK(gpio_config(&pin));
 
   // configure wakeup source
-  ESP_ERROR_CHECK(esp_sleep_enable_ext0_wakeup(GPIO_NUM_33, 0));
+  ESP_ERROR_CHECK(esp_sleep_enable_ext0_wakeup(BTN_WAKE, 0));
 
   // start timer
   naos_repeat("btn", 25, btn_check);  // 50 Hz
