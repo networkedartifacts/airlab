@@ -634,7 +634,10 @@ static void* scr_explore() {
   // get total length
   size_t total = dat_num_files();
 
-  // TODO: Exclude current recording file.
+  // ignore last if recording
+  if (rec_running()) {
+    total--;
+  }
 
   // handle empty
   if (total == 0) {
