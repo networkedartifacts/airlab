@@ -27,6 +27,6 @@ void sig_init();
 
 void sig_dispatch(sig_event_t event);
 
-sig_event_t sig_await(sig_event_t filter, uint32_t timeout);
+sig_event_t sig_await(sig_event_t filter, int64_t timeout);
 
 #endif  // SIG_H

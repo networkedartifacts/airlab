@@ -30,18 +30,23 @@ void sig_dispatch(sig_event_t event) {
   }
 }
 
-sig_event_t sig_await(sig_event_t filter, uint32_t timeout) {
-  // ensure timeout
-  if (timeout <= 0) {
+sig_event_t sig_await(sig_event_t filter, int64_t timeout) {
+  // handle timeout
+  if (timeout > 0) {
+    if (filter != SIG_ANY) {
+      filter |= SIG_TIMEOUT;
+    }
+  } else {
     timeout = portMAX_DELAY;
   }
 
+  // get deadline
+  int64_t deadline = naos_millis() + timeout;
+
   for (;;) {
     // get next event
-    sig_event_t event = {0};
-    if (!xQueueReceive(sig_queue, &event, timeout)) {
-      event = SIG_TIMEOUT;
-    }
+    sig_event_t event = SIG_TIMEOUT;
+    xQueueReceive(sig_queue, &event, timeout / portTICK_PERIOD_MS);
     if (SIG_DEBUG) {
       naos_log("sig: dequeued %d", event);
     }
@@ -49,8 +54,15 @@ sig_event_t sig_await(sig_event_t filter, uint32_t timeout) {
     // apply filter if provided
     if (filter != SIG_ANY && (event & filter) == 0) {
       if (SIG_DEBUG) {
-        naos_log("sig: skipped %d", event);
+        naos_log("sig: skipping %d", event);
       }
+
+      // update timeout
+      timeout = deadline - naos_millis();
+      if (timeout < 0) {
+        return SIG_TIMEOUT;
+      }
+
       continue;
     }
 
