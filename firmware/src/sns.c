@@ -19,12 +19,10 @@ static uint8_t sns_buffer[24];
 
 uint8_t sns_crc(const uint8_t* data, uint16_t count) {
   // crc-8 calculation as defined per datasheet
-  uint16_t byte;
   uint8_t crc = 0xFF;
-  uint8_t bit;
-  for (byte = 0; byte < count; ++byte) {
+  for (uint16_t byte = 0; byte < count; ++byte) {
     crc ^= (data[byte]);
-    for (bit = 8; bit > 0; --bit) {
+    for (uint8_t bit = 8; bit > 0; --bit) {
       if (crc & 0x80) {
         crc = (crc << 1) ^ 0x31;
       } else {
@@ -32,6 +30,7 @@ uint8_t sns_crc(const uint8_t* data, uint16_t count) {
       }
     }
   }
+
   return crc;
 }
 
@@ -171,13 +170,9 @@ void sns_set(bool on) {
 }
 
 sns_state_t sns_get() {
-  // acquire mutex
-  naos_lock(sns_mutex);
-
   // get state
+  naos_lock(sns_mutex);
   sns_state_t state = sns_state;
-
-  // release mutex
   naos_unlock(sns_mutex);
 
   return state;
