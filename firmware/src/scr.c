@@ -54,9 +54,9 @@ static const char* scr_ms2str(int32_t ms) {
   }
 }
 
-static void scr_cleanup(bool flush) {
+static void scr_cleanup(bool refresh) {
   // clear group and screen
-  gfx_begin(flush, false);
+  gfx_begin(refresh, false);
   lv_group_remove_all_objs(gfx_get_group());
   lv_obj_clean(lv_scr_act());
   gfx_end();

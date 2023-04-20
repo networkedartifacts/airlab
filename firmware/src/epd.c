@@ -341,7 +341,7 @@ void epd_update(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y
   if (x2 % 8) x2 = (x2 + 7) / 8 * 8;
   if (y2 % 8) y2 = (y2 + 7) / 8 * 8;
 
-  // copy data
+  // update frame
   if (partial) {
     size_t i = 0;
     for (size_t y = y1; y < y2; y++) {

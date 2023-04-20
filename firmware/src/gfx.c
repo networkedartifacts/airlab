@@ -25,7 +25,7 @@ static lv_disp_t* gfx_display;
 static lv_group_t* gfx_group = NULL;
 static uint8_t gfx_frame[EPD_FRAME] = {0};
 static lv_theme_t* gfx_theme;
-static bool gfx_force_full = false;
+static bool gfx_refresh = false;
 static bool gfx_invert = false;
 static bool gfx_deferred = false;
 static lv_area_t gfx_flush_area = {0};
@@ -36,7 +36,7 @@ static void gfx_task() {
     naos_lock(gfx_mutex);
 
     // update ticks
-    lv_tick_inc(25);
+    lv_tick_inc(50);
 
     // run timer handler
     lv_timer_handler();
@@ -45,7 +45,7 @@ static void gfx_task() {
     naos_unlock(gfx_mutex);
 
     // await delay
-    naos_delay(50);  // 25 Hz
+    naos_delay(50);  // 20 Hz
   }
 }
 
@@ -91,10 +91,10 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
   uint16_t y2 = EPD_HEIGHT - gfx_flush_area.x1;
 
   // display frame
-  epd_update(gfx_frame, x1, y1, x2, y2, !gfx_force_full);
+  epd_update(gfx_frame, x1, y1, x2, y2, !gfx_refresh);
 
   // clear flags
-  gfx_force_full = false;
+  gfx_refresh = false;
   gfx_deferred = false;
 
   // signal done
@@ -141,12 +141,12 @@ void gfx_init() {
   naos_run("gfx", 8192, 1, gfx_task);
 }
 
-void gfx_begin(bool flush, bool invert) {
+void gfx_begin(bool refresh, bool invert) {
   // acquire mutex
   naos_lock(gfx_mutex);
 
   // set flag
-  gfx_force_full = flush || invert;
+  gfx_refresh = refresh;
   gfx_invert = invert;
 }
 

@@ -6,9 +6,9 @@
 
 #include "pwr.h"
 
-#define PWR_USB_CC1 ADC1_CHANNEL_6 // 34
-#define PWR_USB_CC2 ADC1_CHANNEL_7 // 35
-#define PWR_BAT_LVL ADC1_CHANNEL_4 // 32
+#define PWR_USB_CC1 ADC1_CHANNEL_6  // 34
+#define PWR_USB_CC2 ADC1_CHANNEL_7  // 35
+#define PWR_BAT_LVL ADC1_CHANNEL_4  // 32
 #define PWR_CHG_SEL GPIO_NUM_27
 #define PWR_CHG_MOD GPIO_NUM_14
 #define PWR_ON_OFF GPIO_NUM_15
