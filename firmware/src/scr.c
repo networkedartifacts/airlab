@@ -25,11 +25,22 @@ static dat_point_t scr_points[SCR_CHART_POINTS] = {0};
 /* Helpers */
 
 static const char* scr_fmt(const char* fmt, ...) {
-  static char str[128];
+  // prepare global storage
+  static char buffers[8][64];
+  static uint8_t num = 0;
+
+  // select string
+  char* str = buffers[num];
+  if (++num >= 8) {
+    num = 0;
+  }
+
+  // format string
   va_list args;
   va_start(args, fmt);
-  vsnprintf(str, sizeof(str), fmt, args);
+  vsnprintf(str, 64, fmt, args);
   va_end(args);
+
   return str;
 }
 
