@@ -4,15 +4,45 @@
 #include "sns.h"
 
 stm_entry_t stm_entries[] = {
+    /* Exclaims */
     {
-        .text = "Guten Morgen! Heute wird ein herrlicher Tag!",
+        .text = "Mir ist übel!",
         .exclaim = true,
-        .action = STM_FROM_INTRO,
+        .co2_min = 3000,
     },
     {
         .text = "Ich kann hier kaum atmen!",
         .exclaim = true,
         .co2_min = 2000,
+        .co2_max = 3000,
+    },
+    {
+        .text = "Uuuu... ich bin müde.",
+        .exclaim = true,
+        .co2_min = 1700,
+        .co2_max = 2000,
+    },
+    {
+        .text = "Jo, ich kann mich voll nicht konzentrieren.",
+        .exclaim = true,
+        .co2_min = 1400,
+        .co2_max = 1700,
+    },
+    {
+        .text = "Boa ey, ist das kalt hier!",
+        .exclaim = true,
+        .tmp_max = 10,
+    },
+    {
+        .text = "Sag mal, sind wir im Regenwald?",
+        .exclaim = true,
+        .tmp_min = 25,
+        .hum_min = 70,
+    },
+    {
+        .text = "Ahem, mega trocken hier!",
+        .exclaim = true,
+        .hum_max = 40,
     },
     {
         .text = "Cool, du hast deine Messung abgeschlossen!",
@@ -20,18 +50,58 @@ stm_entry_t stm_entries[] = {
         .action = STM_COMP_MEASUREMENT,
     },
     {
+        .text = "Die Analyse ist der Anfang der Erkenntnis.",
+        .exclaim = true,
+        .action = STM_FROM_ANALYSIS,
+    },
+    {
+        .text = "Super, du hast gerade deine erste Messung gestartet!",
+        .exclaim = true,
+        .action = STM_START_FIRST_MEASUREMENT,
+    },
+    /* Fun Facts */
+    {
         .text = "Ahhh... Ich liebe frische Luft!",
-        .exclaim = false,
         .co2_max = 600,
     },
     {
-        .text = "Ich bin grad am rechnen...",
-        .exclaim = false,
-        .action = STM_FROM_MEASUREMENT,
+        .text = "Die Luft hier ist jetzt richtig nice!",
+        .co2_max = 600,
+        .hum_min = 40,
+        .hum_max = 60,
     },
     {
         .text = "Warme Luft kann mehr Feuchtigkeit aufnehmen als kalte Luft.",
-        .exclaim = false,
+    },
+    {
+        .text = "Pro Tag atmen wir 10'000 bis 20'000 Liter Luft.",
+    },
+    {
+        .text = "Die Luft ist ein Gemisch aus vielen verschiedenen Gasen.",
+    },
+    {
+        .text = "78% der Luft ist Stickstoff.",
+    },
+    {
+        .text = "21% der Luft ist Sauerstoff.",
+    },
+    {
+        .text = "Achtung! Luftschadstoffe können dich krank machen!",
+    },
+    {
+        .text = "1% der Luft sind ganz viel verschiedene Spurengase.",
+    },
+    {
+        .text = "Ich bin grad am rechnen...",
+        .action = STM_FROM_MEASUREMENT,
+    },
+    {
+        .text = "Hmmm...",
+        .action = STM_FROM_MEASUREMENT,
+    },
+    {
+        .text = "Ich mache gerade eine wichtige Messung...",
+        .action = STM_FROM_MEASUREMENT,
     },
 };
 

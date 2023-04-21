@@ -11,7 +11,8 @@ typedef enum {
   STM_FROM_ANALYSIS = 3,
   STM_FROM_MEASUREMENT = 4,
   STM_START_MEASUREMENT = 5,
-  STM_COMP_MEASUREMENT = 6,
+  STM_START_FIRST_MEASUREMENT = 6,
+  STM_COMP_MEASUREMENT = 7,
 } stm_action_t;
 
 typedef struct {

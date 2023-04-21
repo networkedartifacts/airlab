@@ -596,7 +596,11 @@ static void* scr_create() {
     rec_start(scr_file);
 
     // set action
-    scr_action = STM_START_MEASUREMENT;
+    if (scr_file->head.num == 1) {
+      scr_action = STM_START_FIRST_MEASUREMENT;
+    } else {
+      scr_action = STM_START_MEASUREMENT;
+    }
 
     return scr_view;
   }
