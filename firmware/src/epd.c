@@ -41,8 +41,8 @@ static naos_mutex_t epd_mutex;
 static spi_device_handle_t epd_device;
 static bool epd_awake = false;
 static uint32_t epd_updated = 0;
-static uint8_t epd_buffer[EPD_BUFFER] = {0};
-static uint8_t epd_frame[EPD_FRAME] = {0};
+static uint8_t * epd_buffer = NULL;
+static uint8_t * epd_frame = NULL;
 
 /* bitmap manipulation */
 
@@ -296,6 +296,10 @@ static void epd_check() {
 void epd_init() {
   // create mutex
   epd_mutex = naos_mutex();
+
+  // allocate buffers
+  epd_frame = calloc(EPD_FRAME, sizeof(uint8_t));
+  epd_buffer = calloc(EPD_BUFFER, sizeof(uint8_t));
 
   // initialize pins
   gpio_config_t pin = {

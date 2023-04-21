@@ -16,11 +16,11 @@
 
 static naos_mutex_t gfx_mutex;
 static lv_disp_draw_buf_t gfx_draw_buffer;
-static lv_color_t gfx_frame_buffer[GFX_WIDTH * GFX_HEIGHT];
+static lv_color_t * gfx_frame_buffer = NULL;
 static lv_disp_drv_t gfx_driver;
 static lv_disp_t* gfx_display;
 static lv_group_t* gfx_group = NULL;
-static uint8_t gfx_frame[EPD_FRAME] = {0};
+static uint8_t * gfx_frame = NULL;
 static lv_theme_t* gfx_theme;
 static bool gfx_refresh = false;
 static bool gfx_invert = false;
@@ -107,6 +107,10 @@ static void gfx_log(const char* _) {}
 void gfx_init() {
   // create mutex
   gfx_mutex = naos_mutex();
+
+  // allocate buffers
+  gfx_frame_buffer = calloc(GFX_WIDTH * GFX_HEIGHT, sizeof(lv_color_t));
+  gfx_frame = calloc(EPD_FRAME, sizeof(uint8_t));
 
   // initialize
   lv_init();
