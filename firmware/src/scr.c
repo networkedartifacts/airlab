@@ -465,7 +465,7 @@ static void* scr_view() {
     // update plot
     lv_chart_set_all_value(chart, series, 0);
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, mode == 0 ? 3000 : 100);
-    for (int i = 0; i < scr_file->size; i++) {
+    for (int i = 0; i < SCR_CHART_POINTS; i++) {
       if (mode == 0) {
         lv_chart_set_value_by_id(chart, series, i, (lv_coord_t)scr_points[i].co2);
       } else if (mode == 1) {
