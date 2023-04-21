@@ -54,6 +54,18 @@ typedef struct {
 void lvx_bar_create(lvx_bar_t *bar, lv_obj_t *parent);
 void lvx_bar_update(lvx_bar_t *bar);
 
+/* Bubble */
+
+typedef struct {
+  const char *text;
+  // ---
+  lv_obj_t *_frame;
+  lv_obj_t *_label;
+} lvx_bubble_t;
+
+void lvx_bubble_create(lvx_bubble_t *bubble, lv_obj_t *parent);
+void lvx_bubble_update(lvx_bubble_t *bubble);
+
 /* Helpers */
 
 bool lvx_handle(sig_event_t event, bool focus);

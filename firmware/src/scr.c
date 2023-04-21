@@ -97,6 +97,7 @@ static void scr_power_off() {
 
 /* Screens */
 
+static void* scr_debug();
 static void* scr_saver();
 static void* scr_view();
 static void* scr_edit();
@@ -105,6 +106,58 @@ static void* scr_menu();
 static void* scr_settings();
 static void* scr_date();
 static void* scr_intro();
+
+static void* scr_test() {
+  // begin draw
+  gfx_begin(false, false);
+
+  // add bubble
+  lvx_bubble_t bubble = {};
+  lvx_bubble_create(&bubble, lv_scr_act());
+
+  // add signs
+  lvx_sign_t back = {.title = "B", .text = "Back", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t next = {.title = ">", .text = "Next", .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_create(&back, lv_scr_act());
+  lvx_sign_create(&next, lv_scr_act());
+
+  // end draw
+  gfx_end();
+
+  // prepare index
+  int index = 0;
+
+  for (;;) {
+    // begin draw
+    gfx_begin(false, false);
+
+    // set bubble
+    bubble.text = stm_get(index)->text;
+    lvx_bubble_update(&bubble);
+
+    // end draw
+    gfx_end();
+
+    // await event
+    sig_event_t event = sig_await(SIG_ESCAPE | SIG_RIGHT, 0);
+
+    // handle right
+    if (event == SIG_RIGHT) {
+      index++;
+      if (!stm_get(index)) {
+        index = 0;
+      }
+      continue;
+    }
+
+    /* handle escape */
+
+    // cleanup screen
+    scr_cleanup(false);
+
+    return scr_debug;
+  }
+}
 
 static void* scr_debug() {
   // begin draw
@@ -117,8 +170,8 @@ static void* scr_debug() {
   lv_obj_set_style_text_line_space(label, 6, LV_PART_MAIN);
 
   // add signs
-  lvx_sign_t start = {.title = "A", .text = "Menu", .align = LV_ALIGN_BOTTOM_LEFT};
-  lvx_sign_t white = {.title = "B", .text = "White", .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t start = {.title = "B", .text = "Menu", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t white = {.title = "A", .text = "Test", .align = LV_ALIGN_BOTTOM_RIGHT};
   lvx_sign_t light = {.title = "↑", .text = "Light", .align = LV_ALIGN_BOTTOM_LEFT, .offset = -50};
   lvx_sign_t deep = {.title = "↓", .text = "Deep", .align = LV_ALIGN_BOTTOM_LEFT, .offset = -25};
   lvx_sign_t save = {.title = "<", .text = "Save", .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -50};
@@ -203,13 +256,14 @@ static void* scr_debug() {
       return scr_saver;
     }
 
-    // handle enter and escape
+    // handle enter
     if (event == SIG_ENTER) {
-      return scr_menu;
-    } else {  // SIG_ESCAPE
-      naos_delay(5000);
-      return scr_debug;
+      return scr_test;
     }
+
+    /* handle escape */
+
+    return scr_menu;
   }
 }
 
@@ -918,15 +972,8 @@ static void* scr_menu() {
   lv_obj_align(fan, LV_ALIGN_BOTTOM_RIGHT, -19, -35);
 
   // add bubble
-  lv_obj_t* bubble = lv_img_create(lv_scr_act());
-  lv_obj_t* message = lv_label_create(lv_scr_act());
-  lv_obj_set_width(message, 200);
-  lv_obj_align(bubble, LV_ALIGN_BOTTOM_LEFT, 60, -30);
-  lv_obj_align(message, LV_ALIGN_BOTTOM_LEFT, 72, -38);
-  lv_label_set_text(message, "");
-  lv_obj_set_style_text_line_space(message, 4, LV_PART_MAIN);
-  lv_obj_add_flag(bubble, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(message, LV_OBJ_FLAG_HIDDEN);
+  lvx_bubble_t bubble = {};
+  lvx_bubble_create(&bubble, lv_scr_act());
 
   // end draw
   gfx_end();
@@ -986,19 +1033,8 @@ static void* scr_menu() {
     }
 
     // set bubble
-    if (statement != NULL) {
-      lv_obj_clear_flag(bubble, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_clear_flag(message, LV_OBJ_FLAG_HIDDEN);
-      lv_label_set_text(message, statement->text);
-      lv_point_t size = {0};
-      lv_txt_get_size(&size, statement->text, &fnt_big, 0, 0, 200, 0);
-      lv_img_set_src(bubble, size.y >= 48 ? &img_bubble3 : &img_bubble2);
-    } else {
-      lv_obj_add_flag(bubble, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_add_flag(message, LV_OBJ_FLAG_HIDDEN);
-      lv_label_set_text(message, "");
-      lv_img_set_src(bubble, NULL);
-    }
+    bubble.text = statement ? statement->text : NULL;
+    lvx_bubble_update(&bubble);
 
     // end draw
     gfx_end();

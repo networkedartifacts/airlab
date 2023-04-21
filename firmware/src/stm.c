@@ -25,7 +25,7 @@ stm_entry_t stm_entries[] = {
         .co2_max = 600,
     },
     {
-        .text = "Ich bin grad am rechnen…",
+        .text = "Ich bin grad am rechnen...",
         .exclaim = false,
         .action = STM_FROM_MEASUREMENT,
     },
@@ -36,6 +36,8 @@ stm_entry_t stm_entries[] = {
 };
 
 size_t stm_num = sizeof(stm_entries) / sizeof(stm_entry_t);
+
+stm_entry_t* stm_get(size_t i) { return i < stm_num ? &stm_entries[i] : NULL; }
 
 stm_entry_t* stm_query(bool exclaim, stm_action_t action) {
   // get sensor data

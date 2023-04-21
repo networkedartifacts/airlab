@@ -28,6 +28,7 @@ typedef struct {
   bool selected;
 } stm_entry_t;
 
+stm_entry_t *stm_get(size_t i);
 stm_entry_t *stm_query(bool exclaim, stm_action_t action);
 
 #endif  // STM_H

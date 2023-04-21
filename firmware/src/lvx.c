@@ -275,6 +275,49 @@ void lvx_bar_update(lvx_bar_t* bar) {
   lv_label_set_text(bar->_val, bar->value);
 }
 
+/* Bubble */
+
+// TODO: Fix spacing.
+
+void lvx_bubble_create(lvx_bubble_t* bubble, lv_obj_t* parent) {
+  // create frame
+  bubble->_frame = lv_img_create(parent);
+  lv_obj_align(bubble->_frame, LV_ALIGN_BOTTOM_LEFT, 60, -30);
+  lv_obj_add_flag(bubble->_frame, LV_OBJ_FLAG_HIDDEN);
+
+  // create label
+  bubble->_label = lv_label_create(parent);
+  lv_obj_set_width(bubble->_label, 208);
+  lv_obj_align(bubble->_label, LV_ALIGN_BOTTOM_LEFT, 72, -38);
+  lv_label_set_text(bubble->_label, "");
+  lv_obj_set_style_text_line_space(bubble->_label, 2, LV_PART_MAIN);
+  lv_obj_add_flag(bubble->_label, LV_OBJ_FLAG_HIDDEN);
+}
+
+void lvx_bubble_update(lvx_bubble_t* bubble) {
+  if (bubble->text != NULL) {
+    // calculate height
+    lv_point_t size = {0};
+    lv_txt_get_size(&size, bubble->text, &fnt_big, 0, 0, lv_obj_get_width(bubble->_label), 0);
+
+    // update frame
+    lv_obj_clear_flag(bubble->_frame, LV_OBJ_FLAG_HIDDEN);
+    lv_img_set_src(bubble->_frame, size.y >= 48 ? &img_bubble3 : &img_bubble2);
+
+    // update label
+    lv_obj_clear_flag(bubble->_label, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(bubble->_label, bubble->text);
+  } else {
+    // update frame
+    lv_obj_add_flag(bubble->_frame, LV_OBJ_FLAG_HIDDEN);
+    lv_img_set_src(bubble->_frame, NULL);
+
+    // update label
+    lv_obj_add_flag(bubble->_label, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(bubble->_label, "");
+  }
+}
+
 /* Helpers */
 
 static uint32_t lvx_keys[] = {
