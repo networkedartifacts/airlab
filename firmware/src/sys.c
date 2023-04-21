@@ -48,8 +48,8 @@ void sys_get_time(uint16_t *hour, uint16_t *minute) {
   struct tm *cal = gmtime(&t);
 
   // set hour and minute
-  *hour = cal->tm_hour + 1;
-  *minute = cal->tm_min + 1;
+  *hour = cal->tm_hour;
+  *minute = cal->tm_min;
 }
 
 void sys_set_time(uint16_t hour, uint16_t minute) {
@@ -57,9 +57,9 @@ void sys_set_time(uint16_t hour, uint16_t minute) {
   time_t t = time(NULL);
   struct tm *cal = gmtime(&t);
 
-  // set day, month and year
-  cal->tm_hour = hour - 1;
-  cal->tm_min = minute - 1;
+  // set hour and minute
+  cal->tm_hour = hour;
+  cal->tm_min = minute;
 
   // make time
   t = mktime(cal);
