@@ -535,14 +535,14 @@ static void* scr_view() {
     // change position on left/right
     if (event == SIG_LEFT) {
       position -= SCR_POSITION_STEP;
-      if (position < 0) {
-        position = 0;
-      }
     } else if (event == SIG_RIGHT) {
       position += SCR_POSITION_STEP;
-      if (position > scr_file->stop - SCR_POSITION_STEP) {
-        position = scr_file->stop - SCR_POSITION_STEP;
-      }
+    }
+    if (position > scr_file->stop - SCR_POSITION_STEP) {
+      position = scr_file->stop - SCR_POSITION_STEP;
+    }
+    if (position < 0) {
+      position = 0;
     }
   }
 }
