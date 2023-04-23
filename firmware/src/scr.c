@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <naos_sys.h>
+#include <art32/numbers.h>
 #include <lvgl.h>
 
 #include "gfx.h"
@@ -982,6 +983,20 @@ static void* scr_menu() {
   lv_obj_t* fan = lv_img_create(lv_scr_act());
   lv_obj_align(fan, LV_ALIGN_BOTTOM_RIGHT, -19, -35);
 
+  // add chart
+  lv_obj_t* chart = lv_canvas_create(lv_scr_act());
+  lv_color_t chart_buffer[LV_CANVAS_BUF_SIZE_TRUE_COLOR(24, 16)] = {0};
+  lv_canvas_set_buffer(chart, chart_buffer, 24, 16, LV_IMG_CF_TRUE_COLOR);
+  lv_obj_align(chart, LV_ALIGN_BOTTOM_RIGHT, -87, -53);
+  lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
+
+  // add drain
+  lv_obj_t* drain = lv_canvas_create(lv_scr_act());
+  lv_color_t drain_buffer[LV_CANVAS_BUF_SIZE_TRUE_COLOR(22, 11)] = {0};
+  lv_canvas_set_buffer(drain, drain_buffer, 22, 11, LV_IMG_CF_TRUE_COLOR);
+  lv_obj_align(drain, LV_ALIGN_BOTTOM_RIGHT, -21, -71);
+  lv_canvas_fill_bg(drain, lv_color_white(), LV_OPA_COVER);
+
   // add bubble
   lvx_bubble_t bubble = {};
   lvx_bubble_create(&bubble, lv_scr_act());
@@ -1006,6 +1021,9 @@ static void* scr_menu() {
 
     // read sensor
     sns_state_t sensor = sns_get();
+
+    // query sensor
+    sns_hist_t hist = sns_query(mode == 0 ? SNS_CO2 : mode == 1 ? SNS_TMP : SNS_HUM);
 
     // query statement
     if (statement == NULL && (exclaim || fun)) {
@@ -1044,6 +1062,22 @@ static void* scr_menu() {
     } else {
       lv_img_set_src(fan, &img_fan1);
     }
+
+    // draw chart
+    lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
+    lv_point_t points[SNS_HIST] = {0};
+    for (size_t i = 0; i < SNS_HIST; i++) {
+      points[i].x = (lv_coord_t)a32_safe_map_i(i, 0, SNS_HIST - 1, 0, 24);
+      points[i].y = (lv_coord_t)a32_map_f(hist.values[i], hist.min, hist.max, 14, 2);
+    }
+    lv_draw_line_dsc_t line = {.color = lv_color_black(), .width = 2, .opa = LV_OPA_COVER};
+    lv_canvas_draw_line(chart, points, SNS_HIST, &line);
+
+    // draw drain
+    lv_canvas_fill_bg(drain, lv_color_white(), LV_OPA_COVER);
+    lv_coord_t drain_height = (lv_coord_t)a32_map_f(hist.values[SNS_HIST - 1], hist.min, hist.max, 0, 9);
+    lv_draw_rect_dsc_t rect = {.bg_opa = LV_OPA_COVER, .bg_color = lv_color_black()};
+    lv_canvas_draw_rect(drain, 1, 1 + 9 - drain_height, 20, drain_height, &rect);
 
     // set bubble
     bubble.text = statement ? statement->text : NULL;
