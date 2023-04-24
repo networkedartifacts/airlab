@@ -402,6 +402,7 @@ static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum
   static int32_t position = 0;
+  static bool advanced = false;
 
   // clear position
   position = 0;
@@ -454,7 +455,7 @@ static void* scr_view() {
     }
 
     // begin draw
-    gfx_begin(false, false);
+    gfx_begin(false, advanced);
 
     // update bar
     bar.time = scr_fmt("%02d:%02d", hour, minute);
@@ -507,9 +508,9 @@ static void* scr_view() {
     gfx_end();
 
     // await event
-    sig_event_t filter = SIG_ARROWS | SIG_ESCAPE;
+    sig_event_t filter = SIG_KEYS;
     if (rec_running() && rec_file() == scr_file) {
-      filter |= SIG_APPEND | SIG_ENTER;
+      filter |= SIG_APPEND;
     }
     sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
 
@@ -526,6 +527,12 @@ static void* scr_view() {
 
     // handle escape
     if (event == SIG_ESCAPE) {
+      // handle advanced
+      if (advanced) {
+        advanced = false;
+        continue;
+      }
+
       // cleanup
       scr_cleanup(false);
 
@@ -542,7 +549,12 @@ static void* scr_view() {
 
     // add mark on enter
     if (event == SIG_ENTER) {
-      rec_mark();
+      if (rec_running() && rec_file() == scr_file) {
+        rec_mark();
+      } else {
+        advanced = true;
+      }
+      continue;
     }
 
     // update on append
