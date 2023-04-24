@@ -491,10 +491,9 @@ static void* scr_view() {
       float pos = (float)start + step + (float)(i) * (step * 2);
       pos = roundf(pos / 60000) * 60000;
 
-      // TODO: Show absolute timestamp.
-
       // format label
-      const char* str = scr_ms2ts((int32_t)pos);
+      sys_conv_timestamp(scr_file->head.start + (int64_t)(pos), &hour, &minute, NULL);
+      const char* str = scr_fmt("%02d:%02d", hour, minute);
 
       // calculate coordinate
       lv_coord_t x = (lv_coord_t)a32_map_f(pos, (float)start, (float)end, 0, 288);
