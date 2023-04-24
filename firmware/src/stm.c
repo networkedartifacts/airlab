@@ -86,10 +86,10 @@ stm_entry_t stm_entries[] = {
         .text = "21% der Luft ist Sauerstoff.",
     },
     {
-        .text = "Achtung! Luftschadstoffe können dich krank machen!",
+        .text = "Achtung! Luftschad- stoffe können dich krank machen!",
     },
     {
-        .text = "1% der Luft sind ganz viel verschiedene Spurengase.",
+        .text = "1% der Luft sind ganz viele verschiedene Spurengase.",
     },
     {
         .text = "Ich bin grad am rechnen...",
