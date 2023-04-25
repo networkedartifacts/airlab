@@ -423,8 +423,6 @@ static void* scr_view() {
   lv_obj_align(chart, LV_ALIGN_BOTTOM_LEFT, 5, -5);
   lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
 
-  // TODO: Add markers.
-
   // end draw
   gfx_end();
 
@@ -468,7 +466,7 @@ static void* scr_view() {
     }
     lvx_bar_update(&bar);
 
-    // draw chart bars
+    // draw chart bars and marks
     lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
     float range = mode == 0 ? 3000 : 100;
     lv_draw_line_dsc_t bar_desc = {.color = lv_color_black(), .width = 2, .opa = LV_OPA_COVER};
@@ -477,6 +475,11 @@ static void* scr_view() {
       lv_coord_t h = 2 + a32_safe_map_f(value, 0, range, 0, 78);
       lv_point_t points[2] = {{.x = 1 + i * 4, .y = 80}, {.x = 1 + i * 4, .y = 80 - h}};
       lv_canvas_draw_line(chart, points, 2, &bar_desc);
+      if (scr_points[i].mark > 0) {
+        points[0].y = points[1].y - 6;
+        points[1].y += -4;
+        lv_canvas_draw_line(chart, points, 2, &bar_desc);
+      }
     }
 
     // draw chart labels
