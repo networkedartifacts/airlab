@@ -1005,7 +1005,11 @@ static void* scr_settings() {
 
         return scr_menu;
       case SIG_ENTER:
+#if DEV_DEV == 1
         return scr_debug;
+#else
+        continue
+#endif
       default:
         ESP_ERROR_CHECK(ESP_FAIL);
     }
@@ -1431,15 +1435,17 @@ void scr_task() {
   // prepare handler
   void* (*handler)() = scr_menu;
 
-  //    // check settings
-  //    if (!sys_has_date() || !sys_has_time()) {
-  //      handler = scr_intro;
-  //    }
-  //
-  //    // handle return
-  //    if (scr_return != NULL) {
-  //      handler = scr_return;
-  //    }
+  // check settings
+#if DEV_DEV == 0
+  if ((!sys_has_date() || !sys_has_time())) {
+    handler = scr_intro;
+  }
+#endif
+
+  // handle return
+  if (scr_return != NULL) {
+    handler = scr_return;
+  }
 
   // call handlers
   for (;;) {
