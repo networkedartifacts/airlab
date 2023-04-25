@@ -4,7 +4,6 @@
 
 #include "gfx.h"
 #include "epd.h"
-#include "btn.h"
 #include "fnt.h"
 
 #define GFX_WIDTH EPD_HEIGHT
@@ -13,6 +12,8 @@
 #define GFX_TRACE false
 
 // Docs: https://docs.lvgl.io/master/index.html
+
+// TODO: Move inverting to EPD?
 
 static naos_mutex_t gfx_mutex;
 static lv_disp_draw_buf_t gfx_draw_buffer;
