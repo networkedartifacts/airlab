@@ -418,8 +418,6 @@ static void* scr_view() {
   lvx_bar_t bar = {0};
   lvx_bar_create(&bar, lv_scr_act());
 
-  // TODO: Show current mark.
-
   // add chart
   lv_obj_t* chart = lv_canvas_create(lv_scr_act());
   static lv_color_t chart_buffer[LV_CANVAS_BUF_SIZE_TRUE_COLOR(288, 96)] = {0};
@@ -439,7 +437,7 @@ static void* scr_view() {
     sns_state_t sensor = sns_get();
 
     // prepare resolution
-    int32_t resolution = 0;
+    int32_t resolution;
     if (recording) {
       resolution = 5000;
     } else if (advanced) {
@@ -448,21 +446,25 @@ static void* scr_view() {
       resolution = scr_file->stop / SCR_CHART_POINTS;
     }
 
-    // adjust position to last 5m or less if this is the recording file
+    // adjust position if recording
     if (recording) {
-      position = (int32_t)(sys_get_timestamp() - scr_file->head.start - (5 * 60 * 1000));
-      if (position < 0) {
-        position = 0;
+      position = scr_file->stop;
+      if (position < (SCR_CHART_POINTS / 3 * 2) * resolution) {
+        position = (SCR_CHART_POINTS / 3 * 2) * resolution;
       }
     }
 
     // calculate range
     int32_t start = position - SCR_CHART_POINTS / 2 * resolution;
     int32_t end = position + SCR_CHART_POINTS / 2 * resolution;
-    if (!advanced || start < 0) {
+    if (recording) {
+      start = position - SCR_CHART_POINTS / 3 * 2 * resolution;
+      end = position + SCR_CHART_POINTS / 3 * resolution;
+    }
+    if (start < 0) {
       start = 0;
     }
-    if (!advanced || end > scr_file->stop) {
+    if (!recording && (!advanced || end > scr_file->stop)) {
       end = scr_file->stop;
     }
 
@@ -525,10 +527,12 @@ static void* scr_view() {
       lv_canvas_draw_text(chart, x, 88, 99, &lbl_desc, str);
     }
 
-    // draw chart position
-    lv_coord_t x = a32_map_f(position, start, end, 0, 288);
-    lv_point_t points[2] = {{.x = x, .y = 88}, {.x = x, .y = 96}};
-    lv_canvas_draw_line(chart, points, 2, &bar_desc);
+    // draw chart position if not recording
+    if (!recording) {
+      lv_coord_t x = a32_map_f(position, start, end, 0, 288);
+      lv_point_t points[2] = {{.x = x, .y = 88}, {.x = x, .y = 96}};
+      lv_canvas_draw_line(chart, points, 2, &bar_desc);
+    }
 
     // end draw
     gfx_end();
@@ -603,17 +607,19 @@ static void* scr_view() {
       continue;
     }
 
-    // change position on left/right
-    if (event == SIG_LEFT) {
-      position -= resolution;
-    } else if (event == SIG_RIGHT) {
-      position += resolution;
-    }
-    if (position > scr_file->stop) {
-      position = scr_file->stop;
-    }
-    if (position < 0) {
-      position = 0;
+    // change position on left/right if not recording
+    if (!recording) {
+      if (event == SIG_LEFT) {
+        position -= resolution;
+      } else if (event == SIG_RIGHT) {
+        position += resolution;
+      }
+      if (position > scr_file->stop) {
+        position = scr_file->stop;
+      }
+      if (position < 0) {
+        position = 0;
+      }
     }
   }
 }
