@@ -120,7 +120,9 @@ static void sns_check() {
     naos_trigger(sns_signal, 1, false);
 
     // dispatch event
-    sig_dispatch(SIG_SENSOR);
+    sig_dispatch((sig_event_t){
+        .type = SIG_SENSOR,
+    });
   }
 }
 

@@ -320,7 +320,7 @@ void lvx_bubble_update(lvx_bubble_t* bubble) {
 
 /* Helpers */
 
-static uint32_t lvx_keys[] = {
+static uint32_t lvx_key_map[] = {
     [SIG_ENTER] = LV_KEY_ENTER, [SIG_ESCAPE] = LV_KEY_ESC, [SIG_UP] = LV_KEY_UP,
     [SIG_DOWN] = LV_KEY_DOWN,   [SIG_LEFT] = LV_KEY_LEFT,  [SIG_RIGHT] = LV_KEY_RIGHT,
 };
@@ -328,17 +328,17 @@ static uint32_t lvx_keys[] = {
 bool lvx_handle(sig_event_t event, bool focus) {
   // handle focus
   if (focus) {
-    if (event == SIG_LEFT) {
+    if (event.type == SIG_LEFT) {
       lv_group_focus_prev(gfx_get_group());
       return true;
-    } else if (event == SIG_RIGHT) {
+    } else if (event.type == SIG_RIGHT) {
       lv_group_focus_next(gfx_get_group());
       return true;
     }
   }
 
   // send event as key to group
-  lv_group_send_data(gfx_get_group(), lvx_keys[event]);
+  lv_group_send_data(gfx_get_group(), lvx_key_map[event.type]);
 
   return false;
 }

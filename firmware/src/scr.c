@@ -150,7 +150,7 @@ static void* scr_test() {
     sig_event_t event = sig_await(SIG_ESCAPE | SIG_RIGHT, 0);
 
     // handle right
-    if (event == SIG_RIGHT) {
+    if (event.type == SIG_RIGHT) {
       index++;
       if (!stm_get(index)) {
         index = 0;
@@ -217,20 +217,20 @@ static void* scr_debug() {
     sig_event_t event = sig_await(SIG_SENSOR | SIG_KEYS, 0);
 
     // loop on sensor
-    if (event == SIG_SENSOR) {
+    if (event.type == SIG_SENSOR) {
       continue;
     }
 
     // power off on right (with fallback)
-    if (event == SIG_RIGHT) {
+    if (event.type == SIG_RIGHT) {
       scr_power_off();
       return scr_debug;
     }
 
     // handle up and down
-    if (event == SIG_UP || event == SIG_DOWN) {
+    if (event.type == SIG_UP || event.type == SIG_DOWN) {
       // log sleep
-      naos_log("sleeping... (deep=%d)", event == SIG_DOWN);
+      naos_log("sleeping... (deep=%d)", event.type == SIG_DOWN);
 
       // disable sensor
       sns_set(false);
@@ -242,7 +242,7 @@ static void* scr_debug() {
       scr_return = scr_debug;
 
       // perform sleep
-      pwr_sleep(event == SIG_DOWN);
+      pwr_sleep(event.type == SIG_DOWN);
 
       // log wakeup
       naos_log("woke up!");
@@ -256,16 +256,16 @@ static void* scr_debug() {
     /* handle meta keys */
 
     // cleanup
-    scr_cleanup(event == SIG_ESCAPE);
+    scr_cleanup(event.type == SIG_ESCAPE);
 
     // handle left
-    if (event == SIG_LEFT) {
+    if (event.type == SIG_LEFT) {
       scr_return = scr_debug;
       return scr_saver;
     }
 
     // handle enter
-    if (event == SIG_ENTER) {
+    if (event.type == SIG_ENTER) {
       return scr_test;
     }
 
@@ -337,7 +337,7 @@ static void* scr_saver() {
     sig_event_t event = sig_await(SIG_ENTER, 15000);
 
     // handle enter
-    if (event == SIG_ENTER) {
+    if (event.type == SIG_ENTER) {
       break;
     }
 
@@ -371,7 +371,7 @@ static void* scr_exit() {
   scr_cleanup(false);
 
   // go back to view on timeout
-  if (event == SIG_TIMEOUT) {
+  if (event.type == SIG_TIMEOUT) {
     return scr_view;
   }
 
@@ -381,7 +381,7 @@ static void* scr_exit() {
   }
 
   // handle enter
-  if (event == SIG_ENTER) {
+  if (event.type == SIG_ENTER) {
     // get file
     dat_file_t* file = rec_file();
 
@@ -561,14 +561,14 @@ static void* scr_view() {
     gfx_end(false);
 
     // await event
-    sig_event_t filter = SIG_KEYS;
+    sig_type_t filter = SIG_KEYS;
     if (recording) {
       filter |= SIG_APPEND;
     }
     sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
 
     // handle idle timeout
-    if (event == SIG_TIMEOUT) {
+    if (event.type == SIG_TIMEOUT) {
       // cleanup
       scr_cleanup(false);
 
@@ -579,7 +579,7 @@ static void* scr_view() {
     }
 
     // handle escape
-    if (event == SIG_ESCAPE) {
+    if (event.type == SIG_ESCAPE) {
       // handle advanced
       if (advanced) {
         advanced = false;
@@ -601,7 +601,7 @@ static void* scr_view() {
     }
 
     // add mark on enter
-    if (event == SIG_ENTER) {
+    if (event.type == SIG_ENTER) {
       if (recording) {
         rec_mark();
       } else {
@@ -611,18 +611,18 @@ static void* scr_view() {
     }
 
     // update on append
-    if (event == SIG_APPEND) {
+    if (event.type == SIG_APPEND) {
       continue;
     }
 
     // change mode on up/down
-    if (event == SIG_UP) {
+    if (event.type == SIG_UP) {
       mode++;
       if (mode > 2) {
         mode = 0;
       }
       continue;
-    } else if (event == SIG_DOWN) {
+    } else if (event.type == SIG_DOWN) {
       mode--;
       if (mode < 0) {
         mode = 2;
@@ -632,9 +632,9 @@ static void* scr_view() {
 
     // change position on left/right if not recording
     if (!recording) {
-      if (event == SIG_LEFT) {
+      if (event.type == SIG_LEFT) {
         position -= resolution;
-      } else if (event == SIG_RIGHT) {
+      } else if (event.type == SIG_RIGHT) {
         position += resolution;
       }
       if (position > scr_file->stop) {
@@ -683,7 +683,7 @@ static void* scr_create() {
     scr_cleanup(false);
 
     // handle escape and timeout
-    if (event == SIG_ESCAPE || event == SIG_TIMEOUT) {
+    if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
       return scr_menu;
     }
 
@@ -732,7 +732,7 @@ static void* scr_delete() {
   scr_cleanup(false);
 
   // handle escape and timeout
-  if (event == SIG_ESCAPE || event == SIG_TIMEOUT) {
+  if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
     return scr_edit;
   }
 
@@ -788,7 +788,7 @@ static void* scr_edit() {
     scr_cleanup(false);
 
     // handle event
-    switch (event) {
+    switch (event.type) {
       case SIG_ESCAPE:
       case SIG_TIMEOUT:
         return scr_explore;
@@ -907,7 +907,7 @@ static void* scr_explore() {
     sig_event_t event = sig_await(SIG_VERT | SIG_META, SCR_ACTION_TIMEOUT);
 
     // handle arrows
-    if (event == SIG_UP) {
+    if (event.type == SIG_UP) {
       if (selected > 0) {
         selected--;
       }
@@ -916,7 +916,7 @@ static void* scr_explore() {
       }
       continue;
     }
-    if (event == SIG_DOWN) {
+    if (event.type == SIG_DOWN) {
       if (selected < total - 1) {
         selected++;
       }
@@ -932,7 +932,7 @@ static void* scr_explore() {
     scr_cleanup(false);
 
     // handle escape and timeout
-    if (event == SIG_ESCAPE || event == SIG_TIMEOUT) {
+    if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
       return scr_menu;
     }
 
@@ -971,7 +971,7 @@ static void* scr_reset() {
   scr_cleanup(false);
 
   // handle escape
-  if (event == SIG_ESCAPE || event == SIG_TIMEOUT) {
+  if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
     return scr_settings;
   }
 
@@ -1014,7 +1014,7 @@ static void* scr_settings() {
     scr_cleanup(false);
 
     // handle event
-    switch (event) {
+    switch (event.type) {
       case SIG_UP:
         return scr_date;
       case SIG_LEFT:
@@ -1188,20 +1188,20 @@ static void* scr_menu() {
     sig_event_t event = sig_await(SIG_SENSOR | SIG_ENTER | SIG_ARROWS, 0);
 
     // handle deadline
-    if (event == SIG_SENSOR && naos_millis() > deadline) {
-      event = SIG_TIMEOUT;
-    } else if (event != SIG_SENSOR) {
+    if (event.type == SIG_SENSOR && naos_millis() > deadline) {
+      event.type = SIG_TIMEOUT;
+    } else if (event.type != SIG_SENSOR) {
       deadline = naos_millis() + SCR_IDLE_TIMEOUT;
     }
 
     // clear statement on any key
-    if (statement != NULL && (event & SIG_KEYS) != 0) {
+    if (statement != NULL && (event.type & SIG_KEYS) != 0) {
       statement = NULL;
       continue;
     }
 
     // loop on sensor
-    if (event == SIG_SENSOR) {
+    if (event.type == SIG_SENSOR) {
       // show fun fact after half of deadline expired
       if (deadline - naos_millis() < SCR_IDLE_TIMEOUT / 2) {
         fun = true;
@@ -1211,13 +1211,13 @@ static void* scr_menu() {
     }
 
     // change mode on up/down
-    if (event == SIG_UP) {
+    if (event.type == SIG_UP) {
       mode++;
       if (mode > 2) {
         mode = 0;
       }
       continue;
-    } else if (event == SIG_DOWN) {
+    } else if (event.type == SIG_DOWN) {
       mode--;
       if (mode < 0) {
         mode = 2;
@@ -1226,13 +1226,13 @@ static void* scr_menu() {
     }
 
     // change opt left/right
-    if (event == SIG_LEFT) {
+    if (event.type == SIG_LEFT) {
       opt--;
       if (opt < 0) {
         opt = 2;
       }
       continue;
-    } else if (event == SIG_RIGHT) {
+    } else if (event.type == SIG_RIGHT) {
       opt++;
       if (opt > 2) {
         opt = 0;
@@ -1247,7 +1247,7 @@ static void* scr_menu() {
     scr_action = 0;
 
     // enter screen saver on timeout
-    if (event == SIG_TIMEOUT) {
+    if (event.type == SIG_TIMEOUT) {
       // set return
       scr_return = scr_menu;
 
@@ -1255,7 +1255,7 @@ static void* scr_menu() {
     }
 
     // handle enter
-    if (event == SIG_ENTER) {
+    if (event.type == SIG_ENTER) {
       switch (opt) {
         case 0:  // settings
           return scr_settings;
@@ -1318,7 +1318,7 @@ static void* scr_time() {
     sig_event_t event = sig_await(SIG_KEYS, SCR_ACTION_TIMEOUT);
 
     // forward arrows
-    if ((event & SIG_ARROWS) != 0) {
+    if ((event.type & SIG_ARROWS) != 0) {
       lvx_handle(event, true);
       continue;
     }
@@ -1332,7 +1332,7 @@ static void* scr_time() {
     scr_cleanup(false);
 
     // handle escape event
-    if (event == SIG_ESCAPE || event == SIG_TIMEOUT) {
+    if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
       return scr_date;
     }
 
@@ -1391,7 +1391,7 @@ static void* scr_date() {
     sig_event_t event = sig_await(SIG_META | SIG_ARROWS, SCR_ACTION_TIMEOUT);
 
     // handle arrows
-    if ((event & SIG_ARROWS) != 0) {
+    if ((event.type & SIG_ARROWS) != 0) {
       lvx_handle(event, true);
       continue;
     }
@@ -1400,7 +1400,7 @@ static void* scr_date() {
     scr_cleanup(false);
 
     // power off on escape (with fallback)
-    if (event == SIG_ESCAPE || event == SIG_TIMEOUT) {
+    if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
       if (!sys_has_date() || !sys_has_time()) {
         scr_power_off();
         return scr_intro;

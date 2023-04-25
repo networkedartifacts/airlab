@@ -41,7 +41,9 @@ static void rec_task() {
     dat_append(file->head.num, &point, 1);
 
     // dispatch event
-    sig_dispatch(SIG_APPEND);
+    sig_dispatch((sig_event_t){
+        .type = SIG_APPEND,
+    });
   }
 }
 

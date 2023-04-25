@@ -21,12 +21,16 @@ typedef enum {
   SIG_HOR = SIG_LEFT | SIG_RIGHT,
   SIG_ARROWS = SIG_VERT | SIG_HOR,
   SIG_KEYS = SIG_META | SIG_ARROWS,
+} sig_type_t;
+
+typedef struct {
+  sig_type_t type;
 } sig_event_t;
 
 void sig_init();
 
 void sig_dispatch(sig_event_t event);
 
-sig_event_t sig_await(sig_event_t filter, int64_t timeout);
+sig_event_t sig_await(sig_type_t filter, int64_t timeout);
 
 #endif  // SIG_H

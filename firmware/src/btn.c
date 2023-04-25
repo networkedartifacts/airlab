@@ -15,7 +15,7 @@
 static uint8_t btn_state = 0x00;
 static spi_device_handle_t btn_device = NULL;
 
-static sig_event_t btn_events[] = {
+static sig_type_t btn_map[] = {
     SIG_ESCAPE, SIG_LEFT, SIG_RIGHT, SIG_DOWN, SIG_UP, SIG_ENTER,
 };
 
@@ -41,7 +41,9 @@ static void btn_check() {
   for (int8_t i = 0; i < 6; i++) {
     if (changed & (1 << i)) {
       if ((state & (1 << i)) != 0) {
-        sig_dispatch(btn_events[i]);
+        sig_dispatch((sig_event_t){
+            .type = btn_map[i],
+        });
       }
       if (BTN_DEBUG) {
         naos_log("btn: changed %d=%d", i, (btn_state & (1 << i)) != 0);

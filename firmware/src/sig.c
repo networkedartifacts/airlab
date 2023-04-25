@@ -14,23 +14,23 @@ void sig_init() {
 
 void sig_dispatch(sig_event_t event) {
   // safety check
-  if (event == SIG_ANY) {
+  if (event.type == SIG_ANY) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
   // add event to queue or drop if full
   if (xQueueSendToBack(sig_queue, &event, 0)) {
     if (SIG_DEBUG) {
-      naos_log("sig: queued %d", event);
+      naos_log("sig: queued %d", event.type);
     }
   } else {
     if (SIG_DEBUG) {
-      naos_log("sig: dropped: %d", event);
+      naos_log("sig: dropped: %d", event.type);
     }
   }
 }
 
-sig_event_t sig_await(sig_event_t filter, int64_t timeout) {
+sig_event_t sig_await(sig_type_t filter, int64_t timeout) {
   // handle timeout
   if (timeout > 0) {
     if (filter != SIG_ANY) {
@@ -45,22 +45,23 @@ sig_event_t sig_await(sig_event_t filter, int64_t timeout) {
 
   for (;;) {
     // get next event
-    sig_event_t event = SIG_TIMEOUT;
+    sig_event_t event = {.type = SIG_TIMEOUT};
     xQueueReceive(sig_queue, &event, timeout / portTICK_PERIOD_MS);
     if (SIG_DEBUG) {
-      naos_log("sig: dequeued %d", event);
+      naos_log("sig: dequeued %d", event.type);
     }
 
     // apply filter if provided
-    if (filter != SIG_ANY && (event & filter) == 0) {
+    if (filter != SIG_ANY && (event.type & filter) == 0) {
       if (SIG_DEBUG) {
-        naos_log("sig: skipping %d", event);
+        naos_log("sig: skipping %d", event.type);
       }
 
       // update timeout
       timeout = deadline - naos_millis();
       if (timeout < 0) {
-        return SIG_TIMEOUT;
+        event.type = SIG_TIMEOUT;
+        return event;
       }
 
       continue;
