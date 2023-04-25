@@ -20,7 +20,6 @@
 #define SCR_ACTION_TIMEOUT 10000
 #define SCR_IDLE_TIMEOUT 30000
 #define SCR_CHART_POINTS 72
-#define SCR_POSITION_STEP 300000
 
 static stm_action_t scr_action = 0;
 static dat_file_t* scr_file = NULL;
@@ -401,11 +400,16 @@ static void* scr_exit() {
 static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum
-  static int32_t position = 0;
   static bool advanced = false;
 
-  // clear position
-  position = 0;
+  // check recording
+  bool recording = rec_running() && rec_file() == scr_file;
+
+  // prepare position
+  int32_t position = 0;
+  if (!recording) {
+    position = scr_file->stop / 2;
+  }
 
   // begin draw
   gfx_begin(false, false);
@@ -434,22 +438,37 @@ static void* scr_view() {
     // read sensor
     sns_state_t sensor = sns_get();
 
+    // prepare resolution
+    int32_t resolution = 0;
+    if (recording) {
+      resolution = 5000;
+    } else if (advanced) {
+      resolution = scr_file->stop / (SCR_CHART_POINTS * 10);
+    } else {
+      resolution = scr_file->stop / SCR_CHART_POINTS;
+    }
+
     // adjust position to last 5m or less if this is the recording file
-    if (rec_running() && rec_file() == scr_file) {
+    if (recording) {
       position = (int32_t)(sys_get_timestamp() - scr_file->head.start - (5 * 60 * 1000));
       if (position < 0) {
         position = 0;
       }
     }
 
-    // calculate resolution and range
-    int32_t resolution = 5000;
-    int32_t start = position;
-    int32_t end = position + 72 * resolution;
+    // calculate range
+    int32_t start = position - SCR_CHART_POINTS / 2 * resolution;
+    int32_t end = position + SCR_CHART_POINTS / 2 * resolution;
+    if (!advanced || start < 0) {
+      start = 0;
+    }
+    if (!advanced || end > scr_file->stop) {
+      end = scr_file->stop;
+    }
 
     // query points
     if (scr_file->size > 0) {
-      dat_query(scr_file->head.num, scr_points, SCR_CHART_POINTS, position, resolution);
+      dat_query(scr_file->head.num, scr_points, SCR_CHART_POINTS, start, resolution);
     }
 
     // begin draw
@@ -506,12 +525,17 @@ static void* scr_view() {
       lv_canvas_draw_text(chart, x, 88, 99, &lbl_desc, str);
     }
 
+    // draw chart position
+    lv_coord_t x = a32_map_f(position, start, end, 0, 288);
+    lv_point_t points[2] = {{.x = x, .y = 88}, {.x = x, .y = 96}};
+    lv_canvas_draw_line(chart, points, 2, &bar_desc);
+
     // end draw
     gfx_end();
 
     // await event
     sig_event_t filter = SIG_KEYS;
-    if (rec_running() && rec_file() == scr_file) {
+    if (recording) {
       filter |= SIG_APPEND;
     }
     sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
@@ -539,7 +563,7 @@ static void* scr_view() {
       scr_cleanup(false);
 
       // handle recording
-      if (rec_running() && rec_file() == scr_file) {
+      if (recording) {
         return scr_exit;
       }
 
@@ -551,7 +575,7 @@ static void* scr_view() {
 
     // add mark on enter
     if (event == SIG_ENTER) {
-      if (rec_running() && rec_file() == scr_file) {
+      if (recording) {
         rec_mark();
       } else {
         advanced = true;
@@ -581,12 +605,12 @@ static void* scr_view() {
 
     // change position on left/right
     if (event == SIG_LEFT) {
-      position -= SCR_POSITION_STEP;
+      position -= resolution;
     } else if (event == SIG_RIGHT) {
-      position += SCR_POSITION_STEP;
+      position += resolution;
     }
-    if (position > scr_file->stop - SCR_POSITION_STEP) {
-      position = scr_file->stop - SCR_POSITION_STEP;
+    if (position > scr_file->stop) {
+      position = scr_file->stop;
     }
     if (position < 0) {
       position = 0;
@@ -1401,15 +1425,15 @@ void scr_task() {
   // prepare handler
   void* (*handler)() = scr_menu;
 
-  // check settings
-  if (!sys_has_date() || !sys_has_time()) {
-    handler = scr_intro;
-  }
-
-  // handle return
-  if (scr_return != NULL) {
-    handler = scr_return;
-  }
+  //    // check settings
+  //    if (!sys_has_date() || !sys_has_time()) {
+  //      handler = scr_intro;
+  //    }
+  //
+  //    // handle return
+  //    if (scr_return != NULL) {
+  //      handler = scr_return;
+  //    }
 
   // call handlers
   for (;;) {
