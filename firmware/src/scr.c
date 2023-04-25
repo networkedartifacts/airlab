@@ -476,6 +476,8 @@ static void* scr_view() {
     // begin draw
     gfx_begin(false, advanced);
 
+    // TODO: Use current point for showing time, value and mark.
+
     // update bar
     bar.time = scr_fmt("%02d:%02d", hour, minute);
     if (mode == 0) {
@@ -533,6 +535,8 @@ static void* scr_view() {
       lv_point_t points[2] = {{.x = x, .y = 88}, {.x = x, .y = 96}};
       lv_canvas_draw_line(chart, points, 2, &bar_desc);
     }
+
+    // TODO: Draw advanced mode arrows.
 
     // end draw
     gfx_end();
