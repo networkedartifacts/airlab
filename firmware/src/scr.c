@@ -502,6 +502,7 @@ static void* scr_view() {
 
     // update bar
     bar.time = scr_fmt("%02d:%02d", hour, minute);
+    bar.mark = current.mark > 0 ? scr_fmt("(M%d)", current.mark) : "";
     if (mode == 0) {
       bar.value = scr_fmt("%.0f ppm CO2", current.co2);
     } else if (mode == 1) {
