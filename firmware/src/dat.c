@@ -26,10 +26,11 @@
 #define DAT_COUNTER "COUNTER.BIN"
 #define DAT_NAME_FMT "FILE%04u.BIN"
 
+#define DAT_FILES 128
 #define DAT_QUERY_BATCH 32
 
 static uint16_t dat_counter;
-static dat_file_t dat_files[128] = {0};
+static dat_file_t *dat_files;
 static size_t dat_files_length = 0;
 
 float lerp(float a, float b, float f) { return a * (1.f - f) + (b * f); }
@@ -153,6 +154,9 @@ static void dat_delete_file(const char *name) {
 }
 
 void dat_init() {
+  // allocate files
+  dat_files = calloc(DAT_FILES, sizeof(dat_file_t));
+
 #ifndef DAT_TEST
   // mount FAT file system
   wl_handle_t wl_handle;
