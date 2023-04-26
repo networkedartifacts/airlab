@@ -21,5 +21,7 @@ extern const lv_img_dsc_t img_lock;
 extern const lv_img_dsc_t img_record;
 extern const lv_img_dsc_t img_bubble2;
 extern const lv_img_dsc_t img_bubble3;
+extern const lv_img_dsc_t img_arrow_left;
+extern const lv_img_dsc_t img_arrow_right;
 
 #endif  // IMG_H

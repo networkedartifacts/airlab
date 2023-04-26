@@ -658,3 +658,37 @@ const lv_img_dsc_t img_bubble3 = {
     .data_size = 1772,
     .data = img_bubble3_map,
 };
+
+static const uint8_t img_arrow_left_map[] = {
+    0xff, 0xff, 0xff, 0xff, /* color of index 0 */
+    0x00, 0x00, 0x00, 0xff, /* color of index 1 */
+
+    0x20, 0x00, 0x40, 0x00, 0xff, 0x80, 0x40, 0x00, 0x20, 0x00,
+};
+
+const lv_img_dsc_t img_arrow_left = {
+    .header.cf = LV_IMG_CF_INDEXED_1BIT,
+    .header.always_zero = 0,
+    .header.reserved = 0,
+    .header.w = 9,
+    .header.h = 5,
+    .data_size = 18,
+    .data = img_arrow_left_map,
+};
+
+static const uint8_t img_arrow_right_map[] = {
+    0xff, 0xff, 0xff, 0xff, /* color of index 0 */
+    0x00, 0x00, 0x00, 0xff, /* color of index 1 */
+
+    0x02, 0x00, 0x01, 0x00, 0xff, 0x80, 0x01, 0x00, 0x02, 0x00,
+};
+
+const lv_img_dsc_t img_arrow_right = {
+    .header.cf = LV_IMG_CF_INDEXED_1BIT,
+    .header.always_zero = 0,
+    .header.reserved = 0,
+    .header.w = 9,
+    .header.h = 5,
+    .data_size = 18,
+    .data = img_arrow_right_map,
+};
