@@ -5,6 +5,8 @@
 
 #define DEV_KEEP RTC_DATA_ATTR
 
+#define DEV_VERSION "0.1.0"
+
 // Board Type Selection:
 // 0: Single Board Prototype
 // 1: AL2304-1 Boards
@@ -13,7 +15,7 @@
 // Development Mode
 // 0: Off
 // 1: On
-#define DEV_MODE 1
+#define DEV_MODE 0
 
 void dev_init();
 

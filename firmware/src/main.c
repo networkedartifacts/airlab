@@ -32,7 +32,7 @@ static void setup() {
 
 static naos_config_t config = {
     .device_type = "airlab",
-    .device_version = "0.1.0",
+    .device_version = DEV_VERSION,
     .setup_callback = setup,
 };
 

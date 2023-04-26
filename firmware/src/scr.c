@@ -1007,6 +1007,11 @@ static void* scr_settings() {
   lv_label_set_text(title, "Einstellungen");
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 5, 5);
 
+  // add info
+  lv_obj_t* info = lv_label_create(lv_scr_act());
+  lv_label_set_text(info, "Firmware: " DEV_VERSION);
+  lv_obj_align(info, LV_ALIGN_TOP_LEFT, 5, 26);
+
   // add signs
   lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
   lvx_sign_t reset = {.title = "<", .text = "Reset", .align = LV_ALIGN_BOTTOM_LEFT, .offset = -25};
