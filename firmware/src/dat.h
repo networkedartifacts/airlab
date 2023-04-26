@@ -4,12 +4,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define DAT_MARKS 99
+
 #define DAT_ATTR __attribute__((packed, aligned(2)))
 
 typedef struct {
   uint16_t num;
-  int64_t start;  // ms since 1970
-  uint16_t marks;
+  int64_t start;             // ms since 1970
+  int32_t marks[DAT_MARKS];  // ms since start
 } DAT_ATTR dat_head_t;
 
 typedef struct {
@@ -17,13 +19,13 @@ typedef struct {
   float co2;       // ppm
   float tmp;       // °C
   float hum;       // %rH
-  uint16_t mark;
 } DAT_ATTR dat_point_t;
 
 typedef struct {
   dat_head_t head;
   size_t size;     // points
   int32_t stop;    // ms since start
+  int8_t marks;    // num marks
   char title[14];  // "Messung XXX"
   char date[12];   // "01.01.2023"
 } dat_file_t;
@@ -36,6 +38,7 @@ dat_file_t *dat_file_list();
 uint16_t dat_next();
 dat_file_t *dat_create(int64_t start);
 
+void dat_mark(uint16_t num, int32_t offset);
 void dat_append(uint16_t num, dat_point_t *points, size_t count);
 void dat_read(uint16_t num, dat_point_t *points, size_t count, size_t start);
 void dat_delete(uint16_t num);

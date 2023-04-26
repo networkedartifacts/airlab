@@ -220,6 +220,15 @@ void dat_init() {
       file.stop = point.offset;
     }
 
+    // count marks
+    for (size_t i = 0; i < DAT_MARKS; i++) {
+      if (file.head.marks[i] != 0) {
+        file.marks++;
+      } else {
+        break;
+      }
+    }
+
     // add file
     dat_files[dat_files_length] = file;
     dat_files_length++;
@@ -264,6 +273,30 @@ dat_file_t *dat_create(int64_t start) {
   dat_counter = head.num;
 
   return &dat_files[dat_files_length - 1];
+}
+
+void dat_mark(uint16_t num, int32_t offset) {
+  // find file
+  dat_file_t *file = dat_find_file(num, NULL);
+  if (file == NULL) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // check marks
+  if (file->marks >= DAT_MARKS) {
+    return;
+  }
+
+  // add mark
+  file->head.marks[file->marks] = offset;
+  file->marks++;
+
+  // encode name
+  char name[32];
+  snprintf(name, sizeof(name), DAT_NAME_FMT, num);
+
+  // update head
+  dat_write_file(name, &file->head, 0, sizeof(dat_head_t), false);
 }
 
 void dat_append(uint16_t num, dat_point_t *points, size_t count) {
@@ -450,9 +483,6 @@ size_t dat_query(uint16_t num, dat_point_t *points, size_t count, int32_t start,
         points[i].co2 = lerp(batch[batch_pos].co2, batch[batch_pos + 1].co2, factor);
         points[i].tmp = lerp(batch[batch_pos].tmp, batch[batch_pos + 1].tmp, factor);
         points[i].hum = lerp(batch[batch_pos].hum, batch[batch_pos + 1].hum, factor);
-
-        // copy mark
-        points[i].mark = batch[batch_pos + 1].mark ? batch[batch_pos + 1].mark : batch[batch_pos].mark;
 
         break;
       }

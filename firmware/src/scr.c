@@ -489,6 +489,17 @@ static void* scr_view() {
       }
     }
 
+    // find marks
+    uint8_t marks[SCR_CHART_POINTS] = {0};
+    for (uint8_t i = 0; i < DAT_MARKS; i++) {
+      if (scr_file->head.marks[i] > 0) {
+        int32_t mark = roundf(a32_map_f(scr_file->head.marks[i], start, end, 0, SCR_CHART_POINTS - 1));
+        if (mark >= 0 && mark <= SCR_CHART_POINTS - 1) {
+          marks[(size_t)mark] = i + 1;
+        }
+      }
+    }
+
     // select current point
     dat_point_t current = scr_points[index];
 
@@ -502,7 +513,7 @@ static void* scr_view() {
 
     // update bar
     bar.time = scr_fmt("%02d:%02d", hour, minute);
-    bar.mark = current.mark > 0 ? scr_fmt("(M%d)", current.mark) : "";
+    bar.mark = marks[index] > 0 ? scr_fmt("(M%d)", marks[index]) : "";
     if (mode == 0) {
       bar.value = scr_fmt("%.0f ppm CO2", current.co2);
     } else if (mode == 1) {
@@ -521,7 +532,7 @@ static void* scr_view() {
       lv_coord_t h = 2 + a32_safe_map_f(value, 0, range, 0, 78);
       lv_point_t points[2] = {{.x = 1 + i * 4, .y = 80}, {.x = 1 + i * 4, .y = 80 - h}};
       lv_canvas_draw_line(chart, points, 2, &bar_desc);
-      if (scr_points[i].mark > 0) {
+      if (marks[i] > 0) {
         points[0].y = points[1].y - 6;
         points[1].y += -4;
         lv_canvas_draw_line(chart, points, 2, &bar_desc);

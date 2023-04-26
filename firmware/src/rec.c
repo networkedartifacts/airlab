@@ -8,17 +8,19 @@
 static naos_mutex_t rec_mutex = NULL;
 static naos_task_t rec_handle = NULL;
 static dat_file_t* rec_current = NULL;
-static bool rec_marked = false;
 
 static void rec_task() {
+  // acquire mutex
+  naos_lock(rec_mutex);
+
   for (;;) {
-    // await next state
+    // await next state (without mutex)
+    naos_unlock(rec_mutex);
     sns_state_t state = sns_next();
+    naos_lock(rec_mutex);
 
     // get file
-    naos_lock(rec_mutex);
     dat_file_t* file = rec_current;
-    naos_unlock(rec_mutex);
 
     // calculate offset
     int64_t offset = sys_get_timestamp() - file->head.start;
@@ -30,12 +32,6 @@ static void rec_task() {
         .hum = state.hum,
         .tmp = state.tmp,
     };
-
-    // handle mark
-    if (rec_marked) {
-      point.mark = ++file->head.marks;
-      rec_marked = false;
-    }
 
     // append point
     dat_append(file->head.num, &point, 1);
@@ -69,13 +65,17 @@ void rec_start(dat_file_t* file) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // set file
+  // acquire mutex
   naos_lock(rec_mutex);
+
+  // set file
   rec_current = file;
-  naos_unlock(rec_mutex);
 
   // run task
   rec_handle = naos_run("rec", 4096, 1, rec_task);
+
+  // release mutex
+  naos_unlock(rec_mutex);
 }
 
 void rec_mark() {
@@ -84,8 +84,17 @@ void rec_mark() {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // set mark
-  rec_marked = true;
+  // acquire mutex
+  naos_lock(rec_mutex);
+
+  // calculate offset
+  int64_t offset = sys_get_timestamp() - rec_current->head.start;
+
+  // mark offset
+  dat_mark(rec_current->head.num, (int32_t)offset);
+
+  // release mutex
+  naos_unlock(rec_mutex);
 }
 
 void rec_stop() {
@@ -94,12 +103,16 @@ void rec_stop() {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // clear file
+  // acquire mutex
   naos_lock(rec_mutex);
+
+  // clear file
   rec_current = NULL;
-  naos_unlock(rec_mutex);
 
   // kill task
   naos_kill(rec_handle);
   rec_handle = NULL;
+
+  // release mutex
+  naos_unlock(rec_mutex);
 }
