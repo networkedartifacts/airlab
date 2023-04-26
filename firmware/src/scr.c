@@ -524,7 +524,9 @@ static void* scr_view() {
     // draw chart bars and marks
     lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
     float range = mode == 0 ? 3000 : 100;
-    lv_draw_line_dsc_t bar_desc = {.color = lv_color_black(), .width = 2, .opa = LV_OPA_COVER};
+    lv_draw_line_dsc_t bar_desc;
+    lv_draw_line_dsc_init(&bar_desc);
+    bar_desc.width = 2;
     for (size_t i = 0; i < SCR_CHART_POINTS; i++) {
       float value = mode == 0 ? scr_points[i].co2 : mode == 1 ? scr_points[i].tmp : scr_points[i].hum;
       lv_coord_t h = 2 + a32_safe_map_f(value, 0, range, 0, 78);
@@ -550,8 +552,10 @@ static void* scr_view() {
     }
 
     // draw chart labels
-    lv_draw_label_dsc_t lbl_desc = {
-        .font = &fnt_small, .color = lv_color_black(), .opa = LV_OPA_COVER, .align = LV_TEXT_ALIGN_LEFT};
+    lv_draw_label_dsc_t lbl_desc;
+    lv_draw_label_dsc_init(&lbl_desc);
+    lbl_desc.font = &fnt_small;
+    lbl_desc.align = LV_TEXT_ALIGN_LEFT;
     for (size_t i = 0; i < 3; i++) {
       // labels are position on the nearest minute mark using the following grid
       // < 1/6 |   1/3   |   1/3   |   1/3   | 1/6 >
@@ -1199,14 +1203,18 @@ static void* scr_menu() {
       points[i].x = (lv_coord_t)a32_safe_map_i(i, 0, SNS_HIST - 1, 0, 24);
       points[i].y = (lv_coord_t)a32_safe_map_f(hist.values[i], hist.min, hist.max, 14, 2);
     }
-    lv_draw_line_dsc_t line = {.color = lv_color_black(), .width = 2, .opa = LV_OPA_COVER};
-    lv_canvas_draw_line(chart, points, SNS_HIST, &line);
+    lv_draw_line_dsc_t line_dsc;
+    lv_draw_line_dsc_init(&line_dsc);
+    line_dsc.width = 2;
+    lv_canvas_draw_line(chart, points, SNS_HIST, &line_dsc);
 
     // draw drain
     lv_canvas_fill_bg(drain, lv_color_white(), LV_OPA_COVER);
     lv_coord_t drain_height = (lv_coord_t)a32_safe_map_f(hist.values[SNS_HIST - 1], hist.min, hist.max, 0, 9);
-    lv_draw_rect_dsc_t rect = {.bg_opa = LV_OPA_COVER, .bg_color = lv_color_black()};
-    lv_canvas_draw_rect(drain, 1, 1 + 9 - drain_height, 20, drain_height, &rect);
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.bg_color = lv_color_black();
+    lv_canvas_draw_rect(drain, 1, 1 + 9 - drain_height, 20, drain_height, &rect_dsc);
 
     // set bubble
     bubble.text = statement ? statement->text : NULL;
