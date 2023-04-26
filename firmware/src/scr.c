@@ -1023,7 +1023,7 @@ static void* scr_settings() {
   for (;;) {
     // await event
     sig_type_t filter = SIG_UP | SIG_LEFT | SIG_RIGHT | SIG_ESCAPE;
-#if DEV_DEV == 1
+#if DEV_MODE == 1
     filter |= SIG_ENTER;
 #endif
     sig_event_t event = sig_await(filter, SCR_ACTION_TIMEOUT);
@@ -1474,7 +1474,7 @@ void scr_task() {
   void* (*handler)() = scr_menu;
 
   // check settings
-#if DEV_DEV == 0
+#if DEV_MODE == 0
   if ((!sys_has_date() || !sys_has_time())) {
     handler = scr_intro;
   }

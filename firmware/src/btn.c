@@ -10,7 +10,7 @@
 #define BTN_DEBUG false
 #define BTN_SELECT GPIO_NUM_25
 #define BTN_LOAD GPIO_NUM_26
-#define BTN_WAKE (DEV_V == 0 ? GPIO_NUM_36 : GPIO_NUM_33)
+#define BTN_WAKE (DEV_BOARD == 0 ? GPIO_NUM_36 : GPIO_NUM_33)
 #define BTN_REPEAT 750
 
 static uint8_t btn_state = 0x00;
