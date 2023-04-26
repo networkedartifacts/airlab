@@ -6,6 +6,9 @@
 
 #include "pwr.h"
 
+// TODO: Read out charger information (charging, charged, low power).
+//  => Just run another shift register transaction.
+
 #define PWR_USB_CC1 ADC1_CHANNEL_6  // 34
 #define PWR_USB_CC2 ADC1_CHANNEL_7  // 35
 #define PWR_BAT_LVL ADC1_CHANNEL_4  // 32
