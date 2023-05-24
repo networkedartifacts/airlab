@@ -6,6 +6,11 @@
 stm_entry_t stm_entries[] = {
     /* Exclaims */
     {
+        .text = "Willkommen im Air Lab! Sieh dich doch einmal um. Berühren ist erlaubt!",
+        .exclaim = true,
+        .action = STM_FROM_INTRO,
+    },
+    {
         .text = "Mir ist übel!",
         .exclaim = true,
         .co2_min = 3000,
