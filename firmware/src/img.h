@@ -1,7 +1,6 @@
 #ifndef IMG_H
 #define IMG_H
 
-extern const lv_img_dsc_t img_heart;
 extern const lv_img_dsc_t img_robin;
 extern const lv_img_dsc_t img_arrow_down;
 extern const lv_img_dsc_t img_arrow_up;

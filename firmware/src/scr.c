@@ -67,8 +67,8 @@ static void scr_cleanup(bool refresh) {
   gfx_end(false);
 }
 
-static void scr_message(const char* text) {
-  // show heart and title
+static void scr_message(const char* text, uint32_t timeout) {
+  // show message
   gfx_begin(false, false);
   lv_obj_t* lbl = lv_label_create(lv_scr_act());
   lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
@@ -78,7 +78,7 @@ static void scr_message(const char* text) {
   gfx_end(false);
 
   // wait some time
-  naos_delay(2000);
+  naos_delay(timeout);
 
   // cleanup
   scr_cleanup(false);
@@ -383,7 +383,7 @@ static void* scr_exit() {
     rec_stop();
 
     // show message
-    scr_message(scr_fmt("%s\n beendet!", file->title));
+    scr_message(scr_fmt("%s\n beendet!", file->title), 2000);
 
     // set action
     scr_action = STM_COMP_MEASUREMENT;
@@ -771,7 +771,7 @@ static void* scr_delete() {
   dat_delete(scr_file->head.num);
 
   // show message
-  scr_message(scr_fmt("Messung %d\nerfolgreich gelöscht!", num));
+  scr_message(scr_fmt("Messung %d\nerfolgreich gelöscht!", num), 2000);
 
   return scr_explore;
 }
@@ -848,7 +848,7 @@ static void* scr_explore() {
   // handle empty
   if (total == 0) {
     // show message
-    scr_message("Keine gespeicherte\nMessungen...");
+    scr_message("Keine gespeicherte\nMessungen...", 2000);
 
     return scr_menu;
   }
@@ -1010,7 +1010,7 @@ static void* scr_reset() {
   sys_reset();
 
   // show message
-  scr_message("Air Lab\nerfolgreich zurückgesetzt!");
+  scr_message("Air Lab\nerfolgreich zurückgesetzt!", 2000);
 
   return scr_intro;
 }
@@ -1320,7 +1320,7 @@ static void* scr_menu() {
 
 static void* scr_time() {
   // show message
-  scr_message("Und was ist die\ngenaue Zeit gerade?");
+  scr_message("Und wie spät ist es gerade?", 5000);
 
   // begin draw
   gfx_begin(false, false);
@@ -1380,7 +1380,7 @@ static void* scr_time() {
     sys_set_time(hour.value, minute.value);
 
     // show message
-    scr_message("Einstellungen\ngespeichert!");
+    scr_message("Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen.", 5000);
 
     // section action
     scr_action = STM_FROM_INTRO;
@@ -1391,7 +1391,7 @@ static void* scr_time() {
 
 static void* scr_date() {
   // show message
-  scr_message("Welches Datum\nhaben wir heute?");
+  scr_message("Ich habe zieeemlich\nlang geschlafen!\nWelcher Tag ist heute?", 5000);
 
   // begin draw
   gfx_begin(false, false);
@@ -1475,17 +1475,18 @@ static void* scr_intro() {
   // wait a bit
   naos_delay(2000);
 
-  // show heart and title
+  // show text
   gfx_begin(false, false);
-  lv_img_set_src(img, &img_heart);
-  lv_obj_align(img, LV_ALIGN_CENTER, 0, -15);
+  lv_obj_add_flag(img, LV_OBJ_FLAG_HIDDEN);
   lv_obj_t* lbl = lv_label_create(lv_scr_act());
-  lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 15);
-  lv_label_set_text(lbl, "Willkomen im Air Lab!");
+  lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_style_text_line_space(lbl, 6, LV_PART_MAIN);
+  lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_label_set_text(lbl, "Hi! Ich bin Robin,\nProfessor für Luftwiss-\nenschaften im Air Lab.");
   gfx_end(false);
 
   // wait a bit
-  naos_delay(2000);
+  naos_delay(3000);
 
   // cleanup
   scr_cleanup(false);
