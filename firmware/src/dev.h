@@ -19,4 +19,6 @@
 
 void dev_init();
 
+uint8_t dev_shift();
+
 #endif  // DEV_H
