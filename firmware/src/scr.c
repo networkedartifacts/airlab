@@ -533,8 +533,8 @@ static void* scr_view() {
       lv_point_t points[2] = {{.x = 1 + i * 4, .y = 80}, {.x = 1 + i * 4, .y = 80 - h}};
       lv_canvas_draw_line(chart, points, 2, &bar_desc);
       if (marks[i] > 0) {
-        points[0].y = points[1].y - 6;
-        points[1].y += -4;
+        points[0].y = 82;
+        points[1].y = 84;
         lv_canvas_draw_line(chart, points, 2, &bar_desc);
       }
     }
