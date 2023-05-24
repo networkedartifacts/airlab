@@ -5,6 +5,7 @@
 #include <art32/numbers.h>
 
 #include "pwr.h"
+#include "dev.h"
 
 // TODO: Read out charger information (charging, charged, low power).
 //  => Just run another shift register transaction.
@@ -32,10 +33,19 @@ void pwr_check() {
     naos_log("bat: inputs cc1=%dmV cc2=%dmV bat=%dmV", cc1, cc2, bat);
   }
 
+  // read shift register
+  uint8_t shift = dev_shift();
+  bool charging = (shift >> 6) & 1;
+  bool charged = (shift >> 7) & 1;
+  if (PWR_DEBUG) {
+    naos_log("pwr: charging/low=%d charged=%d", charging, charged);
+  }
+
   // set state
   pwr_state.battery = a32_safe_map_f((float)bat, 3000.f, 4000.f, 0.f, 1.f);
   pwr_state.usb = cc1 || cc2;
   pwr_state.fast = (cc1 ? cc1 : cc2) > 350;
+  pwr_state.charging = charging;
   if (PWR_DEBUG) {
     naos_log("pwr: battery=%f usb=%d fast=%d", pwr_state.battery, pwr_state.usb, pwr_state.fast);
   }

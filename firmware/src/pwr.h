@@ -5,6 +5,7 @@ typedef struct {
   float battery;
   bool usb;
   bool fast;
+  bool charging;
 } pwr_state_t;
 
 void pwr_init();
