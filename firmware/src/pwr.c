@@ -7,9 +7,6 @@
 #include "pwr.h"
 #include "dev.h"
 
-// TODO: Read out charger information (charging, charged, low power).
-//  => Just run another shift register transaction.
-
 #define PWR_USB_CC1 ADC1_CHANNEL_6  // 34
 #define PWR_USB_CC2 ADC1_CHANNEL_7  // 35
 #define PWR_BAT_LVL ADC1_CHANNEL_4  // 32
@@ -50,7 +47,7 @@ void pwr_check() {
     naos_log("pwr: battery=%f usb=%d fast=%d", pwr_state.battery, pwr_state.usb, pwr_state.fast);
   }
 
-  // TODO: Something wrong here: chip gets hot when fast charging...
+  // TODO: Chip gets very hot when enabling fast charging, figure out if this is ok.
 
   // select charging
   // ESP_ERROR_CHECK(gpio_set_level(PWR_CHG_SEL, pwr_state.fast ? 1 : 0));  // 1A / 500mA
