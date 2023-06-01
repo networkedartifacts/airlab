@@ -456,6 +456,9 @@ static void* scr_view() {
   static bool advanced = false;
   static dat_point_t scr_points[SCR_CHART_POINTS];
 
+  // zero points
+  memset(scr_points, 0, sizeof(scr_points));
+
   // get file
   dat_file_t* file = dat_get_file(scr_file);
 
@@ -467,9 +470,6 @@ static void* scr_view() {
   if (!recording) {
     position = file->stop / 2;
   }
-
-  // zero points
-  memset(scr_points, 0, sizeof(scr_points));
 
   // begin draw
   gfx_begin(false, false);
@@ -498,21 +498,19 @@ static void* scr_view() {
     }
 
     // calculate resolution
-    int32_t resolution;
+    int32_t resolution = file->stop / SCR_CHART_POINTS;
     if (recording) {
       resolution = SCR_MIN_RESOLUTION;
     } else if (advanced) {
       resolution = file->stop / 10 / SCR_CHART_POINTS;
-    } else {  // overview
-      resolution = file->stop / SCR_CHART_POINTS;
     }
     if (resolution < SCR_MIN_RESOLUTION) {
       resolution = SCR_MIN_RESOLUTION;
     }
 
     // calculate range
-    int32_t start;
-    int32_t end;
+    int32_t start = 0;
+    int32_t end = SCR_CHART_POINTS * resolution;
     if (recording) {
       start = position - SCR_CHART_POINTS / 3 * 2 * resolution;
       end = position + SCR_CHART_POINTS / 3 * resolution;
@@ -532,9 +530,6 @@ static void* scr_view() {
         end -= shift;
         start -= shift;
       }
-    } else {  // overview
-      start = 0;
-      end = SCR_CHART_POINTS * resolution;
     }
 
     // calculate index
