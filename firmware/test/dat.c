@@ -8,7 +8,6 @@ int main() {
   // initialize
   dat_init();
   assert(dat_num_files() == 0);
-  assert(dat_file_list() != NULL);
   assert(dat_next() == 1);
 
   // create file
@@ -105,9 +104,8 @@ int main() {
   // re-initialize
   dat_init();
   assert(dat_num_files() == 1);
-  assert(dat_file_list() != NULL);
   assert(dat_next() == 2);
-  file = dat_file_list();
+  file = dat_get_file(0);
   assert(file->head.num == 1);
   assert(file->head.start == 42);
   assert(file->size == 8);

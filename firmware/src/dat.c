@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 #include <dirent.h>
@@ -240,7 +241,7 @@ void dat_init() {
 
 size_t dat_num_files() { return dat_files_length; }
 
-dat_file_t *dat_file_list() { return dat_files; }
+dat_file_t *dat_get_file(size_t num) { return &dat_files[num]; }
 
 uint16_t dat_next() { return dat_counter + 1; }
 

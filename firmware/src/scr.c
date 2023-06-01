@@ -967,7 +967,7 @@ static void* scr_explore() {
       }
 
       // get file
-      dat_file_t* file = dat_file_list() + index;
+      dat_file_t* file = dat_get_file(index);
 
       // update labels
       lv_label_set_text(names[i], file->title);
@@ -1027,7 +1027,7 @@ static void* scr_explore() {
     /* handle enter */
 
     // set file
-    scr_file = dat_file_list() + selected;
+    scr_file = dat_get_file(selected);
 
     return scr_edit;
   }

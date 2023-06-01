@@ -33,7 +33,7 @@ typedef struct {
 void dat_init();
 
 size_t dat_num_files();
-dat_file_t *dat_file_list();
+dat_file_t *dat_get_file(size_t num);
 
 uint16_t dat_next();
 dat_file_t *dat_create(int64_t start);
