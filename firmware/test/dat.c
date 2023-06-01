@@ -101,7 +101,7 @@ int main() {
   for (int i = 0; i < 8; i++) {
     printf("- %u: %.1f %.1f %.1f\n", result[i].offset, result[i].co2,
            result[i].tmp, result[i].hum);
-  };
+  }
 
   // re-initialize
   dat_init();
