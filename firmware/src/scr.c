@@ -1319,7 +1319,7 @@ static void* scr_menu() {
           break;
         case STM_POINTING:
           lv_img_set_src(robin, &img_robin_pointing);
-          lv_obj_align(robin, LV_ALIGN_BOTTOM_LEFT, 19, -10);
+          lv_obj_align(robin, LV_ALIGN_BOTTOM_LEFT, 20, -10);
           break;
         case STM_WORKING:
           lv_img_set_src(robin, &img_robin_working);
