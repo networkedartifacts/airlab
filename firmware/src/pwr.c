@@ -101,18 +101,40 @@ void pwr_off() {
   naos_delay(2000);
 
   // fall back to deep sleep
-  pwr_sleep(true);
+  pwr_sleep(true, 0);
 }
 
-void pwr_sleep(bool deep) {
+pwr_cause_t pwr_sleep(bool deep, uint64_t timeout) {
   // configure sleep hold
   ESP_ERROR_CHECK(gpio_hold_en(PWR_ON_OFF));
   gpio_deep_sleep_hold_en();
+
+  // configure timeout
+  if (timeout > 0) {
+    ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timeout * 1000));
+  } else {
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+  }
 
   // perform sleep
   if (deep) {
     esp_deep_sleep_start();
   } else {
     ESP_ERROR_CHECK(esp_light_sleep_start());
+  }
+
+  return pwr_cause();
+}
+
+pwr_cause_t pwr_cause() {
+  // get cause
+  esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+  switch (cause) {
+    case ESP_SLEEP_WAKEUP_TIMER:
+      return PWR_TIMEOUT;
+    case ESP_SLEEP_WAKEUP_EXT0:
+      return PWR_UNLOCK;
+    default:
+      return PWR_NONE;
   }
 }

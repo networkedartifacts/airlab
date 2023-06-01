@@ -25,7 +25,8 @@
 static stm_action_t scr_action = 0;
 static dat_file_t* scr_file = NULL;
 static dat_point_t scr_points[SCR_CHART_POINTS] = {0};
-DEV_KEEP static void* scr_return = NULL;
+DEV_KEEP static void* scr_return_timeout = NULL;
+DEV_KEEP static void* scr_return_unlock = NULL;
 
 /* Helpers */
 
@@ -89,8 +90,9 @@ static void scr_power_off() {
   scr_cleanup(true);
   naos_delay(7500);
 
-  // clear return
-  scr_return = NULL;
+  // clear returns
+  scr_return_timeout = NULL;
+  scr_return_unlock = NULL;
 
   // power off
   pwr_off();
@@ -233,10 +235,10 @@ static void* scr_debug() {
       epd_sleep();
 
       // set return
-      scr_return = scr_debug;
+      scr_return_unlock = scr_debug;
 
       // perform sleep
-      pwr_sleep(event.type == SIG_DOWN);
+      pwr_sleep(event.type == SIG_DOWN, 0);
 
       // log wakeup
       naos_log("woke up!");
@@ -254,7 +256,9 @@ static void* scr_debug() {
 
     // handle left
     if (event.type == SIG_LEFT) {
-      scr_return = scr_debug;
+      // set return
+      scr_return_unlock = scr_debug;
+
       return scr_saver;
     }
 
@@ -271,7 +275,10 @@ static void* scr_debug() {
 
 static void* scr_saver() {
   // prepare variables
-  bool right = false;
+  DEV_KEEP static bool right = true;
+
+  // set timeout return
+  scr_return_timeout = scr_saver;
 
   // begin draw
   gfx_begin(false, false);
@@ -303,8 +310,17 @@ static void* scr_saver() {
     // read sensor
     sns_state_t sensor = sns_get();
 
+    // await sensor if missing (deep sleep return)
+    if (!sensor.ok) {
+      sig_await(SIG_SENSOR, 0);
+      sensor = sns_get();
+    }
+
     // read power
     pwr_state_t power = pwr_get();
+
+    // flip side
+    right = !right;
 
     // begin draw
     gfx_begin(false, false);
@@ -333,34 +349,52 @@ static void* scr_saver() {
     // align objects
     lv_align_t align = right ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT;
     lv_obj_align(lock, align, right ? -19 : 19, 19);
-    lv_obj_align(battery, align, right ? -40 : 40, 19);
+    lv_obj_align(battery, align, right ? -39 : 39, 19);
     lv_obj_align(time, align, right ? -19 : 19, 41);
     lv_obj_align(co2, align, right ? -19 : 19, 59);
     lv_obj_align(tmp, align, right ? -19 : 19, 77);
     lv_obj_align(hum, align, right ? -19 : 19, 95);
     if (record != NULL) {
-      lv_obj_align(record, align, right ? -39 : 39, 20);
+      lv_obj_align(record, align, right ? -55 : 55, 20);
     }
 
     // end draw
     gfx_end(false);
 
-    // wait some time
-    sig_event_t event = sig_await(SIG_ENTER, 15000);
+    // await draw
+    naos_delay(1000);
 
-    // handle enter
-    if (event.type == SIG_ENTER) {
+    /* Sleep Control */
+
+    // power off is battery is low and not charging
+    if (power.battery < 0.10 && !power.usb && !power.charging) {
+      naos_log("turing off due to low battery");  // TODO: Test!
+      scr_power_off();
+    }
+
+    // deep sleep for 15s if not recording
+    if (!rec_running()) {
+      // TODO: Increase the longer we are in screen saver?
+      pwr_sleep(true, 15000);
+    }
+
+    // otherwise, light sleep for 5s
+    // TODO: Use adaptive sleeping for long measurements.
+    pwr_cause_t cause = pwr_sleep(false, 5000);
+
+    // handle unlock
+    if (cause == PWR_UNLOCK) {
       break;
     }
 
-    // flip side
-    right = !right;
+    // await next measurement
+    sig_await(SIG_APPEND, 0);
   }
 
   // cleanup
   scr_cleanup(false);
 
-  return scr_return;
+  return scr_return_unlock;
 }
 
 static void* scr_exit() {
@@ -611,13 +645,15 @@ static void* scr_view() {
     }
     sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
 
+    // TODO: Timeout does not work.
+
     // handle idle timeout
     if (event.type == SIG_TIMEOUT) {
       // cleanup
       scr_cleanup(false);
 
       // set return
-      scr_return = scr_view;
+      scr_return_unlock = scr_view;
 
       return scr_saver;
     }
@@ -1347,7 +1383,7 @@ static void* scr_menu() {
     // enter screen saver on timeout
     if (event.type == SIG_TIMEOUT) {
       // set return
-      scr_return = scr_menu;
+      scr_return_unlock = scr_menu;
 
       return scr_saver;
     }
@@ -1562,9 +1598,14 @@ void scr_task() {
   }
 #endif
 
+  // get wake up cause
+  pwr_cause_t cause = pwr_cause();
+
   // handle return
-  if (scr_return != NULL) {
-    handler = scr_return;
+  if (cause == PWR_UNLOCK && scr_return_unlock != NULL) {
+    handler = scr_return_unlock;
+  } else if (cause == PWR_TIMEOUT && scr_return_timeout != NULL) {
+    handler = scr_return_timeout;
   }
 
   // call handlers
