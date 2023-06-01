@@ -478,6 +478,9 @@ static void* scr_view() {
   // end draw
   gfx_end(true);
 
+  // prepare deadline
+  int64_t deadline = naos_millis() + SCR_IDLE_TIMEOUT;
+
   for (;;) {
     // adjust position if recording
     if (recording) {
@@ -645,7 +648,17 @@ static void* scr_view() {
     }
     sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
 
-    // TODO: Timeout does not work.
+    // handle deadline
+    if (event.type == SIG_APPEND && naos_millis() > deadline) {
+      event.type = SIG_TIMEOUT;
+    } else if ((event.type & SIG_KEYS) != 0) {
+      deadline = naos_millis() + SCR_IDLE_TIMEOUT;
+    }
+
+    // update on append
+    if (event.type == SIG_APPEND) {
+      continue;
+    }
 
     // handle idle timeout
     if (event.type == SIG_TIMEOUT) {
@@ -687,11 +700,6 @@ static void* scr_view() {
       } else {
         advanced = true;
       }
-      continue;
-    }
-
-    // update on append
-    if (event.type == SIG_APPEND) {
       continue;
     }
 
