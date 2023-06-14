@@ -10,7 +10,7 @@
 // Board Type Selection:
 // 0: Single Board Prototype
 // 1: AL2304-1 Boards
-#define DEV_BOARD 0
+#define DEV_BOARD 1
 
 // Development Mode
 // 0: Off
