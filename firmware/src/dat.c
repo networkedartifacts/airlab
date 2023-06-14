@@ -65,22 +65,6 @@ static dat_file_t *dat_find_file(uint16_t num, int *index) {
   return NULL;
 }
 
-static size_t dat_read_size(const char *name) {
-  // prepare path
-  char path[32] = {0};
-  strcat(path, DAT_ROOT "/");
-  strcat(path, name);
-
-  // stat file
-  struct stat info = {0};
-  int ret = stat(path, &info);
-  if (ret != 0) {
-    ESP_ERROR_CHECK(errno);
-  }
-
-  return info.st_size;
-}
-
 static void dat_read_file(const char *name, void *buf, size_t offset, size_t length) {
   // prepare path
   char path[32] = {0};
@@ -149,7 +133,7 @@ static void dat_delete_file(const char *name) {
 
   // remove file
   int ret = remove(path);
-  if (ret != 0) {
+  if (ret != 0 && ret != ENOENT) {
     ESP_ERROR_CHECK(errno);
   }
 }
@@ -201,8 +185,22 @@ void dat_init() {
 
     /* otherwise, handle files "FILE0001.BIN" */
 
+    // prepare path
+    char path[32] = {0};
+    strcat(path, DAT_ROOT "/");
+    strcat(path, entry->d_name);
+
+    // stat file
+    struct stat info = {0};
+    int ret = stat(path, &info);
+    if (ret == ENOENT) {
+      continue;
+    } else if (ret != 0) {
+      ESP_ERROR_CHECK(errno);
+    }
+
     // read size
-    size_t size = dat_read_size(entry->d_name);
+    size_t size = info.st_size;
 
     // read head
     dat_head_t head = {0};
