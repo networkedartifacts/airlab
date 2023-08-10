@@ -374,7 +374,7 @@ static void* scr_saver() {
 
     // power off is battery is low and not charging
     if (power.battery < 0.10 && !power.usb && !power.charging) {
-      naos_log("turing off due to low battery");  // TODO: Test!
+      naos_log("turing off due to low battery");
       scr_power_off();
     }
 
