@@ -378,10 +378,13 @@ static void* scr_saver() {
       scr_power_off();
     }
 
-    // deep sleep for 15-45s (0-5min) if not recording
+    // deep sleep for 1min if not recording
     if (!rec_running()) {
-      int64_t timeout = a32_safe_map_l(duration, 0, 300000, 15000, 45000);
-      pwr_sleep(true, timeout);
+      // turn off sensor
+      sns_set(false);
+
+      // perform deep sleep
+      pwr_sleep(true, 60 * 1000);
     }
 
     // otherwise, light sleep for 5s-30s (0-5min) if recording
