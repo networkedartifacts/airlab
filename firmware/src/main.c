@@ -26,6 +26,10 @@ static void setup() {
   dat_init();
   rec_init();
 
+  // check storage
+  dat_info_t info = dat_info();
+  naos_log("dat_info: total=%lu free=%lu usage=%.1f%%", info.total, info.free, info.usage * 100.f);
+
   // run screen
   scr_run();
 }

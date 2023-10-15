@@ -30,10 +30,17 @@ typedef struct {
   char date[12];   // "01.01.2023"
 } dat_file_t;
 
+typedef struct {
+  uint32_t total;
+  uint32_t free;
+  float usage;
+} dat_info_t;
+
 void dat_init();
 
 size_t dat_num_files();
 dat_file_t *dat_get_file(size_t num);
+dat_info_t dat_info();
 
 uint16_t dat_next();
 size_t dat_create(int64_t start);

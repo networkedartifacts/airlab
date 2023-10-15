@@ -241,6 +241,30 @@ size_t dat_num_files() { return dat_files_length; }
 
 dat_file_t *dat_get_file(size_t num) { return &dat_files[num]; }
 
+dat_info_t dat_info() {
+  // get free FATFS clusters
+  FATFS *fs;
+  uint32_t free_clusters;
+  FRESULT res = f_getfree(DAT_ROOT, &free_clusters, &fs);
+  if (res != FR_OK) {
+    ESP_ERROR_CHECK(res);
+  }
+
+  // calculate total and free sectors
+  uint32_t total_sectors = (fs->n_fatent - 2) * fs->csize;
+  uint32_t free_sectors = free_clusters * fs->csize;
+
+  // calculate total and free bytes
+  uint32_t total_bytes = total_sectors * CONFIG_WL_SECTOR_SIZE;
+  uint32_t free_bytes = free_sectors * CONFIG_WL_SECTOR_SIZE;
+
+  return (dat_info_t){
+      .total = total_bytes,
+      .free = free_bytes,
+      .usage = (float)(total_bytes - free_bytes) / (float)total_bytes,
+  };
+}
+
 uint16_t dat_next() { return dat_counter + 1; }
 
 size_t dat_create(int64_t start) {
