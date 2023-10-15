@@ -53,12 +53,16 @@ static void lvx_wheel_key(lv_event_t* event) {
   // handle key
   switch (lv_event_get_key(event)) {
     case LV_KEY_UP:
-      if (wheel->value < wheel->max) {
+      if (wheel->value >= wheel->max) {
+        wheel->value = wheel->min;
+      } else {
         wheel->value++;
       }
       break;
     case LV_KEY_DOWN:
-      if (wheel->value > wheel->min) {
+      if (wheel->value <= wheel->min) {
+        wheel->value = wheel->max;
+      } else {
         wheel->value--;
       }
       break;

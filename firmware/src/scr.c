@@ -1040,20 +1040,28 @@ static void* scr_explore() {
 
     // handle arrows
     if (event.type == SIG_UP) {
-      if (selected > 0) {
+      if (selected == 0) {
+        selected = (int)total - 1;
+        if (selected > offset + 3) {
+          offset = selected - 3;
+        }
+      } else {
         selected--;
-      }
-      if (offset > selected) {
-        offset = selected;
+        if (offset > selected) {
+          offset = selected;
+        }
       }
       continue;
     }
     if (event.type == SIG_DOWN) {
-      if (selected < total - 1) {
+      if (selected >= total - 1) {
+        selected = 0;
+        offset = 0;
+      } else {
         selected++;
-      }
-      if (selected > offset + 3) {
-        offset = selected - 3;
+        if (selected > offset + 3) {
+          offset = selected - 3;
+        }
       }
       continue;
     }
