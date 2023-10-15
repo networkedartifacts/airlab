@@ -15,6 +15,7 @@ typedef enum {
   SIG_RIGHT = (1 << 7),
   SIG_SENSOR = (1 << 8),
   SIG_APPEND = (1 << 9),
+  SIG_STOP = (1 << 10),
 
   SIG_META = SIG_ENTER | SIG_ESCAPE,
   SIG_VERT = SIG_UP | SIG_DOWN,

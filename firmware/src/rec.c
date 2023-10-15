@@ -22,6 +22,23 @@ static void rec_task() {
     sns_state_t state = sns_next();
     naos_lock(rec_mutex);
 
+    // check free space
+    if (!rec_free(false)) {
+      // clear state
+      rec_handle = 0;
+      rec_current = 0;
+
+      // dispatch event
+      sig_dispatch((sig_event_t){
+          .type = SIG_STOP,
+      });
+
+      // release mutex
+      naos_unlock(rec_mutex);
+
+      return;
+    }
+
     // get file
     dat_file_t* file = dat_get_file(rec_current);
 
@@ -90,6 +107,11 @@ bool rec_running() {
 void rec_start(size_t file) {
   // check file
   if (rec_running()) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // check free space
+  if (!rec_free(false)) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 

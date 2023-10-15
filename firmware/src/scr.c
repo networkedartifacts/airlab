@@ -399,8 +399,8 @@ static void* scr_saver() {
       break;
     }
 
-    // await next measurement
-    sig_await(SIG_APPEND, 0);
+    // await next measurement or stop
+    sig_await(SIG_APPEND | SIG_STOP, 0);
   }
 
   // cleanup
@@ -498,6 +498,9 @@ static void* scr_view() {
   int64_t deadline = naos_millis() + SCR_IDLE_TIMEOUT;
 
   for (;;) {
+    // update recording
+    recording = rec_running() && rec_file() == scr_file;
+
     // adjust position if recording
     if (recording) {
       position = file->stop;
@@ -655,7 +658,7 @@ static void* scr_view() {
     // await event
     sig_type_t filter = SIG_KEYS;
     if (recording) {
-      filter |= SIG_APPEND;
+      filter |= SIG_APPEND | SIG_STOP;
     }
     sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
 
@@ -666,8 +669,8 @@ static void* scr_view() {
       deadline = naos_millis() + SCR_IDLE_TIMEOUT;
     }
 
-    // update on append
-    if (event.type == SIG_APPEND) {
+    // update on append or stop
+    if (event.type == SIG_APPEND || event.type == SIG_STOP) {
       continue;
     }
 
