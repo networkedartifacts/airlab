@@ -5,7 +5,7 @@
 
 #define DEV_KEEP RTC_DATA_ATTR
 
-#define DEV_VERSION "0.1.1"
+#define DEV_VERSION "0.1.2"
 
 // Board Type Selection:
 // 0: Single Board Prototype
