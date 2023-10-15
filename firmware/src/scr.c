@@ -750,6 +750,19 @@ static void* scr_view() {
 }
 
 static void* scr_create() {
+  // get free points
+  uint32_t points = rec_free(true);
+
+  // handle no space
+  if (!points) {
+    scr_message("Speicher voll!", 2000);
+    return scr_menu;
+  }
+
+  // calculate min and max time
+  uint32_t min_hours = points / 12 / 60;  // 12 points per minute
+  uint32_t max_hours = points / 2 / 60;   // 2 points per minute
+
   // begin draw
   gfx_begin(false, false);
 
@@ -767,6 +780,11 @@ static void* scr_create() {
   lv_obj_t* mode = lv_label_create(lv_scr_act());
   lv_label_set_text(mode, "CO2, TEMP, RH");
   lv_obj_align(mode, LV_ALIGN_TOP_LEFT, 5, 47);
+
+  // add length
+  lv_obj_t* length = lv_label_create(lv_scr_act());
+  lv_label_set_text(length, scr_fmt("Länge ca. %d-%d Stunden", min_hours, max_hours));
+  lv_obj_align(length, LV_ALIGN_TOP_LEFT, 5, 68);
 
   // add signs
   lvx_sign_t start = {.title = "A", .text = "Start", .align = LV_ALIGN_BOTTOM_RIGHT};
