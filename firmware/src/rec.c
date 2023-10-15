@@ -5,6 +5,9 @@
 #include "sns.h"
 #include "sig.h"
 
+#define REC_MIN_FREE_NEW (3 * CONFIG_WL_SECTOR_SIZE)
+#define REC_MIN_FREE_CONT (2 * CONFIG_WL_SECTOR_SIZE)
+
 static naos_mutex_t rec_mutex = NULL;
 static naos_task_t rec_handle = NULL;
 static size_t rec_current = 0;
@@ -46,6 +49,24 @@ static void rec_task() {
 void rec_init() {
   // create mutex
   rec_mutex = naos_mutex();
+}
+
+uint32_t rec_free(bool new) {
+  // get info
+  dat_info_t info = dat_info();
+
+  // check free space
+  if (info.free < (new ? REC_MIN_FREE_NEW : REC_MIN_FREE_CONT)) {
+    return 0;
+  }
+
+  // adjust free space
+  info.free -= new ? REC_MIN_FREE_NEW : REC_MIN_FREE_CONT;
+
+  // calculate free points
+  uint32_t points = info.free / sizeof(dat_point_t);
+
+  return points;
 }
 
 size_t rec_file() {
