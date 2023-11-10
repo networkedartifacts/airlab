@@ -196,7 +196,7 @@ void dat_init() {
     // stat file
     struct stat info = {0};
     int ret = stat(path, &info);
-    if (ret == ENOENT) {
+    if (ret != 0 && errno == ENOENT) {
       continue;
     } else if (ret != 0) {
       ESP_ERROR_CHECK(errno);
