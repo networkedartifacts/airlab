@@ -1,5 +1,5 @@
 #include <naos.h>
-#include <naos_sys.h>
+#include <naos/sys.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <memory.h>

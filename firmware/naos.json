@@ -1,6 +1,5 @@
 {
-  "version": "278df0c8",
-  "fix_serial": true,
+  "version": "v0.12.0",
   "overrides": {
     "CONFIG_ESPTOOLPY_FLASHSIZE_4MB": null,
     "CONFIG_ESPTOOLPY_FLASHSIZE_8MB": "y",
@@ -18,7 +17,7 @@
   "components": {
     "lvgl": {
       "repository": "https://github.com/lvgl/lvgl.git",
-      "version": "v8.3.4"
+      "version": "v8.4.0"
     },
     "art32": {
       "repository": "https://github.com/256dpi/art32.git",

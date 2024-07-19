@@ -1,5 +1,5 @@
 #include <naos.h>
-#include <naos_sys.h>
+#include <naos/sys.h>
 #include <driver/adc.h>
 #include <esp_adc_cal.h>
 #include <esp_sleep.h>

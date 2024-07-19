@@ -1,5 +1,5 @@
 #include <naos.h>
-#include <naos_sys.h>
+#include <naos/sys.h>
 #include <lvgl/src/misc/lv_log.h>
 
 #include "gfx.h"

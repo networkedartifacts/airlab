@@ -1,5 +1,5 @@
 #include <naos.h>
-#include <naos_sys.h>
+#include <naos/sys.h>
 
 #include "sig.h"
 

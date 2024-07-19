@@ -1,4 +1,4 @@
-#include <naos_sys.h>
+#include <naos/sys.h>
 
 #include "rec.h"
 #include "sys.h"
