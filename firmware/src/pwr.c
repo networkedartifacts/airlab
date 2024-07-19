@@ -1,30 +1,35 @@
 #include <naos.h>
 #include <naos/sys.h>
+#include <driver/i2c.h>
 #include <driver/adc.h>
 #include <esp_adc_cal.h>
-#include <esp_sleep.h>
 #include <art32/numbers.h>
+#include <esp_sleep.h>
 
 #include "pwr.h"
 #include "sig.h"
 
-#define PWR_USB_CC1 ADC1_CHANNEL_6  // 34
-#define PWR_USB_CC2 ADC1_CHANNEL_7  // 35
-#define PWR_BAT_LVL ADC1_CHANNEL_4  // 32
-#define PWR_CHG_SEL GPIO_NUM_27
-#define PWR_CHG_MOD GPIO_NUM_14
-#define PWR_ON_OFF GPIO_NUM_15
+#define PWR_ADDR 0x68
+#define PWR_HOLD GPIO_NUM_21
+#define PWR_USB_CC1 ADC1_CHANNEL_5  // IO6
+#define PWR_USB_CC2 ADC1_CHANNEL_6  // IO7
+#define PWR_BAT_LVL ADC1_CHANNEL_7  // IO8
 #define PWR_DEBUG false
 
 static naos_mutex_t pwr_mutex;
 static esp_adc_cal_characteristics_t pwr_calib;
 static pwr_state_t pwr_state = {0};
 
+static void pwr_read(uint8_t reg, uint8_t *buf, size_t len) {
+  // read data
+  ESP_ERROR_CHECK(i2c_master_write_read_device(I2C_NUM_0, PWR_ADDR, &reg, 1, buf, len, 1000));
+}
+
 void pwr_check() {
   // acquire mutex
   naos_lock(pwr_mutex);
 
-  // read inputs
+  // read voltages
   int cc1 = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(PWR_USB_CC1), &pwr_calib);
   int cc2 = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(PWR_USB_CC2), &pwr_calib);
   int bat = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(PWR_BAT_LVL), &pwr_calib) * 2;
@@ -47,10 +52,7 @@ void pwr_check() {
     naos_log("pwr: battery=%f usb=%d fast=%d", pwr_state.battery, pwr_state.usb, pwr_state.fast);
   }
 
-  // TODO: Chip gets very hot when enabling fast charging, figure out if this is ok.
-
-  // select charging
-  // ESP_ERROR_CHECK(gpio_set_level(PWR_CHG_SEL, pwr_state.fast ? 1 : 0));  // 1A / 500mA
+  // TODO: Adjust charging current.
 
   // release mutex
   naos_unlock(pwr_mutex);
@@ -60,24 +62,27 @@ void pwr_init() {
   // create mutex
   pwr_mutex = naos_mutex();
 
+  // read status
+  uint8_t status;
+  pwr_read(0x08, &status, 1);
+  naos_log("pwr: status=%02x", status);
+
   // configure ADC (4096 = ~2.45V)
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(PWR_USB_CC1, ADC_ATTEN_DB_11));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(PWR_USB_CC2, ADC_ATTEN_DB_11));
-  ESP_ERROR_CHECK(adc1_config_channel_atten(PWR_BAT_LVL, ADC_ATTEN_DB_11));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(PWR_USB_CC1, ADC_ATTEN_DB_12));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(PWR_USB_CC2, ADC_ATTEN_DB_12));
+  ESP_ERROR_CHECK(adc1_config_channel_atten(PWR_BAT_LVL, ADC_ATTEN_DB_12));
 
   // characterize ADC
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &pwr_calib);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &pwr_calib);
 
-  // configure pins
+  // hold power
   gpio_config_t cfg = {
       .mode = GPIO_MODE_OUTPUT,
-      .pin_bit_mask = BIT64(PWR_CHG_SEL) | BIT64(PWR_CHG_MOD) | BIT64(PWR_ON_OFF),
+      .pin_bit_mask = BIT64(PWR_HOLD),
   };
   ESP_ERROR_CHECK(gpio_config(&cfg));
-  ESP_ERROR_CHECK(gpio_set_level(PWR_CHG_SEL, 0));  // USB
-  ESP_ERROR_CHECK(gpio_set_level(PWR_CHG_MOD, 1));  // 500mA
-  ESP_ERROR_CHECK(gpio_set_level(PWR_ON_OFF, 1));   // on
+  ESP_ERROR_CHECK(gpio_set_level(PWR_HOLD, 1));
 
   // run check
   naos_repeat("pwr", 1000, pwr_check);
@@ -98,7 +103,7 @@ pwr_state_t pwr_get() {
 
 void pwr_off() {
   // set pin
-  gpio_set_level(PWR_ON_OFF, 0);  // off
+  gpio_set_level(PWR_HOLD, 0);  // off
 
   // delay
   naos_delay(2000);
@@ -109,7 +114,7 @@ void pwr_off() {
 
 pwr_cause_t pwr_sleep(bool deep, uint64_t timeout) {
   // configure sleep hold
-  ESP_ERROR_CHECK(gpio_hold_en(PWR_ON_OFF));
+  ESP_ERROR_CHECK(gpio_hold_en(PWR_HOLD));
   gpio_deep_sleep_hold_en();
 
   // configure timeout
