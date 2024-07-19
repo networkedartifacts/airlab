@@ -3,6 +3,7 @@
 
 #include "dev.h"
 #include "sig.h"
+#include "rtc.h"
 #include "pwr.h"
 #include "btn.h"
 #include "epd.h"
@@ -29,6 +30,7 @@ static void setup() {
   sig_init();
   // pwr_init();
   // btn_init();
+  rtc2_init();
   epd_init();
   gfx_init();
   sns_init();

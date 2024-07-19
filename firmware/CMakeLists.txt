@@ -30,6 +30,8 @@ set(SOURCE_FILES
         src/pwr.h
         src/rec.c
         src/rec.h
+        src/rtc.c
+        src/rtc.h
         src/scr.c
         src/scr.h
         src/sig.c
