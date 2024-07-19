@@ -1,4 +1,5 @@
 #include <naos.h>
+#include <driver/gpio.h>
 
 #include "dev.h"
 #include "sig.h"
@@ -15,11 +16,19 @@ static void setup() {
   // log
   naos_log("setup");
 
+  // hold power
+  gpio_config_t cfg = {
+      .mode = GPIO_MODE_OUTPUT,
+      .pin_bit_mask = BIT64(GPIO_NUM_21),
+  };
+  ESP_ERROR_CHECK(gpio_config(&cfg));
+  ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_21, 1));
+
   // initialize
   dev_init();
   sig_init();
-  pwr_init();
-  btn_init();
+  // pwr_init();
+  // btn_init();
   epd_init();
   gfx_init();
   sns_init();

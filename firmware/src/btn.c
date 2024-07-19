@@ -3,25 +3,24 @@
 #include <driver/gpio.h>
 #include <esp_sleep.h>
 
-#include "dev.h"
 #include "sig.h"
 
 #define BTN_DEBUG false
-#define BTN_WAKE (DEV_BOARD == 0 ? GPIO_NUM_36 : GPIO_NUM_33)
+#define BTN_WAKE GPIO_NUM_36
 #define BTN_REPEAT 750
 
 static uint8_t btn_state = 0x00;
 
 static sig_type_t btn_map[] = {
-#if DEV_BOARD == 0
     SIG_ESCAPE, SIG_LEFT, SIG_RIGHT, SIG_DOWN, SIG_UP, SIG_ENTER,
-#elif DEV_BOARD == 1
-    SIG_LEFT, SIG_DOWN, SIG_RIGHT, SIG_UP, SIG_ESCAPE, SIG_ENTER,
-#endif
 };
 
 static int64_t btn_times[8] = {0};
 static int8_t btn_counts[8] = {0};
+
+static uint8_t dev_shift() {
+  return 0;
+}
 
 static void btn_check() {
   // read shift register (inverted)

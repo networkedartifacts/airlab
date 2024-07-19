@@ -6,9 +6,9 @@
 
 #include "epd.h"
 
-#define EPD_RST GPIO_NUM_16
-#define EPD_BSY GPIO_NUM_4
-#define EPD_SEL GPIO_NUM_17
+#define EPD_RST GPIO_NUM_39
+#define EPD_BSY GPIO_NUM_38
+#define EPD_SEL GPIO_NUM_40
 #define EPD_DEBUG false
 #define EPD_OTP_LUT true
 #define EPD_BUFFER (EPD_FRAME / 8 * 9 + 2)

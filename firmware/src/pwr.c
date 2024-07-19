@@ -6,7 +6,6 @@
 #include <art32/numbers.h>
 
 #include "pwr.h"
-#include "dev.h"
 #include "sig.h"
 
 #define PWR_USB_CC1 ADC1_CHANNEL_6  // 34
@@ -33,10 +32,8 @@ void pwr_check() {
     naos_log("bat: inputs cc1=%dmV cc2=%dmV bat=%dmV", cc1, cc2, bat);
   }
 
-  // read shift register (inverted)
-  uint8_t shift = dev_shift() ^ 0xFF;
-  bool charging = (shift >> 6) & 1;
-  bool charged = (shift >> 7) & 1;
+  bool charging = 0; // TODO: Read from charger.
+  bool charged = 0; // TODO: Read from charger.
   if (PWR_DEBUG) {
     naos_log("pwr: charging/low=%d charged=%d", charging, charged);
   }
