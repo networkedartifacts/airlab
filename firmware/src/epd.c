@@ -6,10 +6,12 @@
 
 #include "epd.h"
 
-#define EPD_RST GPIO_NUM_39
-#define EPD_BSY GPIO_NUM_38
-#define EPD_SEL GPIO_NUM_40
-#define EPD_DEBUG false
+#define EPD_4W true
+#define EPD_DC GPIO_NUM_17
+#define EPD_RST GPIO_NUM_16
+#define EPD_BSY GPIO_NUM_4
+#define EPD_SEL GPIO_NUM_5
+#define EPD_DEBUG true
 #define EPD_OTP_LUT true
 #define EPD_BUFFER (EPD_FRAME / 8 * 9 + 2)
 #define EPD_SLEEP 5000
@@ -95,31 +97,56 @@ static void epd_write_buffer(uint8_t cmd, size_t len, const uint8_t *buf) {
   }
 
   // check length
-  if ((len + 1) * 9 > EPD_BUFFER * 8) {
+  if ((1 + len) * (EPD_4W ? 8 : 9) > EPD_BUFFER * 8) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // write command
-  epd_bmp_set(epd_buffer, 0, 0);
-  epd_bmp_write(epd_buffer, 1, cmd);
-
-  // remap data to 9 bits as 1+byte
-  for (size_t i = 0; i < len; i++) {
-    epd_bmp_set(epd_buffer, (i + 1) * 9, 1);
-    epd_bmp_write(epd_buffer, (i + 1) * 9 + 1, buf[i]);
+  // prepare command
+  if (EPD_4W) {
+    epd_buffer[0] = cmd;
+    for (size_t i = 0; i < len; i++) {
+      epd_buffer[i + 1] = buf[i];
+    }
+  } else {
+    epd_bmp_set(epd_buffer, 0, 0);
+    epd_bmp_write(epd_buffer, 1, cmd);
+    for (size_t i = 0; i < len; i++) {
+      epd_bmp_set(epd_buffer, (i + 1) * 9, 1);
+      epd_bmp_write(epd_buffer, (i + 1) * 9 + 1, buf[i]);
+    }
   }
+
+  //  if (len < 8) {
+  //    ESP_LOG_BUFFER_HEX("EPD", epd_buffer, 1 + len);
+  //  } else {
+  //    ESP_LOGI("EPD", "DATA len=%zu", len);
+  //  }
 
   // print buffer
   if (EPD_DEBUG) {
-    epd_bmp_print(epd_buffer, 16);
+    // epd_bmp_print(epd_buffer, 16);
   }
 
-  // run transaction
-  spi_transaction_t tx = {
-      .length = (len + 1) * 9,
-      .tx_buffer = epd_buffer,
-  };
-  ESP_ERROR_CHECK(spi_device_transmit(epd_device, &tx));
+  // run transactions
+  if (EPD_4W) {
+    ESP_ERROR_CHECK(gpio_set_level(EPD_DC, 0));
+    for (size_t i = 0; i < (1 + len); i++) {
+      spi_transaction_t tx = {
+          .length = 8,
+          .tx_buffer = epd_buffer + i,
+      };
+      ESP_ERROR_CHECK(spi_device_transmit(epd_device, &tx));
+      if (i == 0) {
+        ESP_ERROR_CHECK(gpio_set_level(EPD_DC, 1));
+      }
+    }
+  } else {
+    spi_transaction_t tx = {
+        .length = (1 + len) * 9,
+        .tx_buffer = epd_buffer,
+    };
+    ESP_ERROR_CHECK(spi_device_transmit(epd_device, &tx));
+  }
 }
 
 static void epd_write_word(uint8_t cmd, uint8_t n, uint8_t w1, uint8_t w2, uint8_t w3, uint8_t w4) {
@@ -141,7 +168,7 @@ static void epd_wait(uint16_t delay) {
   // wait while busy
   uint32_t start = naos_millis();
   while (gpio_get_level(EPD_BSY) > 0) {
-    if (start + 5000 < naos_millis()) {
+    if (start + 15000 < naos_millis()) {
       ESP_ERROR_CHECK(ESP_FAIL);
     } else {
       naos_delay(1);
@@ -176,8 +203,14 @@ static void epd_reset() {
   // set data entry sequence (Y+, X+)
   epd_write_word(0x11, 1, 0x03, 0, 0, 0);
 
+  // disable border control
+  epd_write_word(0x3C, 1, 0xC0, 0, 0, 0);
+
   // set display update control
   epd_write_word(0x21, 2, 0x00, 0x80, 0, 0);
+
+  // use internal temperature sensor
+  epd_write_word(0x18, 1, 0x80, 0, 0, 0);
 }
 
 static void epd_prepare(bool partial) {
@@ -304,25 +337,31 @@ void epd_init() {
   // initialize pins
   gpio_config_t pin = {
       .mode = GPIO_MODE_OUTPUT,
-      .pin_bit_mask = BIT64(EPD_RST),
+      .pin_bit_mask = BIT64(EPD_SEL) | BIT64(EPD_RST) | BIT64(EPD_DC),
   };
   ESP_ERROR_CHECK(gpio_config(&pin));
+  ESP_ERROR_CHECK(gpio_set_level(EPD_SEL, 1));
+  ESP_ERROR_CHECK(gpio_set_level(EPD_RST, 1));
+  ESP_ERROR_CHECK(gpio_set_level(EPD_DC, EPD_4W ? 1 : 0));
   pin.mode = GPIO_MODE_INPUT;
   pin.pin_bit_mask = BIT64(EPD_BSY);
   ESP_ERROR_CHECK(gpio_config(&pin));
+  naos_delay(10);
 
   // initialize device
   spi_device_interface_config_t dev = {
       .mode = 0,  // CPOL=0, CPHA=0
-      .clock_speed_hz = SPI_MASTER_FREQ_20M,
+      .clock_speed_hz = SPI_MASTER_FREQ_8M,
       .spics_io_num = EPD_SEL,
       .flags = SPI_DEVICE_HALFDUPLEX,
+      .cs_ena_pretrans = 10,
+      .cs_ena_posttrans = 10,
       .queue_size = 1,
   };
   ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &dev, &epd_device));
 
   // run periodic check
-  naos_repeat("epd", 500, epd_check);
+  // naos_repeat("epd", 500, epd_check);
 }
 
 void epd_set(uint8_t *data, uint16_t x, uint16_t y, bool black) {
@@ -350,7 +389,7 @@ void epd_update(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y
       }
     }
   } else {
-    memcpy(epd_frame, data, EPD_FRAME / 8);
+    memcpy(epd_frame, data, EPD_FRAME);
   }
 
   // awake display
@@ -366,7 +405,7 @@ void epd_update(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y
   if (partial) {
     epd_display_partial(epd_frame, x1, y1, x2, y2);
   } else {
-    epd_display_full(data);
+    epd_display_full(epd_frame);
   }
 
   // set time
