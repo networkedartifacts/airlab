@@ -26,7 +26,7 @@ static void setup() {
   sig_init();
   pwr_init();
   // btn_init();
-  // rtc2_init();
+  rtc_sync();
   acc_init();
   // cap_init();
   // epd_init();
