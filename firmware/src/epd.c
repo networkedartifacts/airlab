@@ -11,7 +11,7 @@
 #define EPD_RST GPIO_NUM_39
 #define EPD_BSY GPIO_NUM_38
 #define EPD_SEL GPIO_NUM_40
-#define EPD_DEBUG true
+#define EPD_DEBUG false
 #define EPD_OTP_LUT true
 #define EPD_BUFFER (EPD_FRAME / 8 * 9 + 2)
 #define EPD_SLEEP 5000
@@ -136,6 +136,7 @@ static void epd_bmp_print(const uint8_t *data, size_t length) {
 /* low-level helpers */
 
 static void epd_write_buffer(uint8_t cmd, size_t len, const uint8_t *buf) {
+  // log commands
   if (EPD_DEBUG) {
     naos_log("epd: write cmd=0x%x len=%ld", cmd, len);
   }
@@ -158,17 +159,6 @@ static void epd_write_buffer(uint8_t cmd, size_t len, const uint8_t *buf) {
       epd_bmp_set(epd_buffer, (i + 1) * 9, 1);
       epd_bmp_write(epd_buffer, (i + 1) * 9 + 1, buf[i]);
     }
-  }
-
-  //  if (len < 8) {
-  //    ESP_LOG_BUFFER_HEX("EPD", epd_buffer, 1 + len);
-  //  } else {
-  //    ESP_LOGI("EPD", "DATA len=%zu", len);
-  //  }
-
-  // print buffer
-  if (EPD_DEBUG) {
-    // epd_bmp_print(epd_buffer, 16);
   }
 
   // run transactions
