@@ -1,5 +1,7 @@
+#include <naos.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <time.h>
 #include <dirent.h>
 #include <errno.h>
@@ -24,11 +26,14 @@
 #define DAT_ROOT "/fs"
 #endif
 
+#define DAT_TAG "TAG.BIN"
 #define DAT_COUNTER "COUNTER.BIN"
 #define DAT_NAME_FMT "FILE%04u.BIN"
 
 #define DAT_FILES 128
 #define DAT_QUERY_BATCH 32
+
+#define DAT_DEBUG false
 
 static uint16_t dat_counter;
 static dat_file_t *dat_files;
@@ -74,6 +79,11 @@ static void dat_read_file(const char *name, void *buf, size_t offset, size_t len
   strcat(path, DAT_ROOT "/");
   strcat(path, name);
 
+  // log
+  if (DAT_DEBUG) {
+    naos_log("dat: read %s %d %d", path, offset, length);
+  }
+
   // open file
   FILE *file = fopen(path, "r");
   if (file == NULL) {
@@ -103,6 +113,11 @@ static void dat_write_file(const char *name, void *buf, size_t offset, size_t le
   char path[32] = {0};
   strcat(path, DAT_ROOT "/");
   strcat(path, name);
+
+  // log
+  if (DAT_DEBUG) {
+    naos_log("dat: write %s %d %d %d", path, offset, length, truncate);
+  }
 
   // open file
   FILE *file = fopen(path, offset == 0 && truncate ? "w" : "r+");
@@ -134,6 +149,11 @@ static void dat_delete_file(const char *name) {
   strcat(path, DAT_ROOT "/");
   strcat(path, name);
 
+  // log
+  if (DAT_DEBUG) {
+    naos_log("dat: delete %s", path);
+  }
+
   // remove file
   int ret = remove(path);
   if (ret != 0 && ret != ENOENT) {
@@ -153,8 +173,16 @@ void dat_init() {
       .format_if_mount_failed = true,
       .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
   };
-  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount(DAT_ROOT, "storage", &mount_config, &wl_handle));
+  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(DAT_ROOT, "storage", &mount_config, &wl_handle));
 #endif
+
+  // check for tag
+  if (access(DAT_ROOT "/" DAT_TAG, F_OK) != 0) {
+    naos_log("dat: missing tag, formatting storage...");
+    ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(DAT_ROOT, "storage"));
+    dat_write_file(DAT_TAG, NULL, 0, 0, true);
+    naos_log("dat: storage formatted!");
+  }
 
   // clear list
   dat_files_length = 0;
@@ -173,8 +201,18 @@ void dat_init() {
       break;
     }
 
+    // log
+    if (DAT_DEBUG) {
+      naos_log("dat: found '%s'", entry->d_name);
+    }
+
     // handle specials
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+
+    // skip tag
+    if (strcmp(entry->d_name, DAT_TAG) == 0) {
       continue;
     }
 
