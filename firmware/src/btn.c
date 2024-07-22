@@ -12,7 +12,7 @@
 #define BTN_E GPIO_NUM_9
 #define BTN_F GPIO_NUM_13
 #define BTN_REPEAT 750
-#define BTN_DEBUG true
+#define BTN_DEBUG false
 
 static uint8_t btn_state = 0x00;
 
@@ -23,7 +23,7 @@ static sig_type_t btn_map[] = {
 static int64_t btn_times[8] = {0};
 static int8_t btn_counts[8] = {0};
 
-static void btn_check() {
+static uint8_t btn_read() {
   // read buttons
   uint8_t a = gpio_get_level(BTN_A) == 0;
   uint8_t b = gpio_get_level(BTN_B) == 0;
@@ -33,7 +33,12 @@ static void btn_check() {
   uint8_t f = gpio_get_level(BTN_F) == 0;
 
   // set state
-  uint8_t state = (a << 0) | (b << 1) | (c << 2) | (d << 3) | (e << 4) | (f << 5);
+  return (a << 0) | (b << 1) | (c << 2) | (d << 3) | (e << 4) | (f << 5);
+}
+
+static void btn_check() {
+  // set state
+  uint8_t state = btn_read();
 
   // get changed buttons
   uint8_t changed = state ^ btn_state;
@@ -107,6 +112,9 @@ void btn_init() {
 
   // configure wakeup source
   ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(cfg.pin_bit_mask, ESP_EXT1_WAKEUP_ANY_LOW));
+
+  // initialize button state
+  btn_state = btn_read();
 
   // start timer
   naos_repeat("btn", 25, btn_check);  // 50 Hz

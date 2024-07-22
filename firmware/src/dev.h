@@ -10,7 +10,7 @@
 // Development Mode
 // 0: Off
 // 1: On
-#define DEV_MODE 1
+#define DEV_MODE 0
 
 void dev_init();
 
