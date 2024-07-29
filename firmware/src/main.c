@@ -25,7 +25,7 @@ static void setup() {
   pwr_init();
   btn_init();
   acc_init();
-  // cap_init();
+  cap_init();
   epd_init();
   gfx_init();
   sns_init();
