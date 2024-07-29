@@ -113,6 +113,15 @@ void btn_init() {
   // configure wakeup source
   ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(cfg.pin_bit_mask, ESP_EXT1_WAKEUP_ANY_LOW));
 
+  // hold GPIOs during sleep
+  ESP_ERROR_CHECK(gpio_hold_en(BTN_A));
+  ESP_ERROR_CHECK(gpio_hold_en(BTN_B));
+  ESP_ERROR_CHECK(gpio_hold_en(BTN_C));
+  ESP_ERROR_CHECK(gpio_hold_en(BTN_D));
+  ESP_ERROR_CHECK(gpio_hold_en(BTN_E));
+  ESP_ERROR_CHECK(gpio_hold_en(BTN_F));
+  gpio_deep_sleep_hold_en();
+
   // initialize button state
   btn_state = btn_read();
 
