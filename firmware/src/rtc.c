@@ -6,6 +6,7 @@
 #include "sys.h"
 
 #define RTC_ADDR 0x68
+#define RTC_DEBUG false
 
 static struct {
   union {
@@ -89,6 +90,11 @@ rtc_state_t rtc_get() {
   uint8_t month = rtc_bq32000.months + (rtc_bq32000.ten_months * 10);
   uint8_t year = rtc_bq32000.years + (rtc_bq32000.ten_years * 10);
 
+  // log RTC state
+  if (RTC_DEBUG) {
+    naos_log("rtc: get %02d:%02d:%02d %02d/%02d/%02d", hours, minutes, seconds, date, month, year);
+  }
+
   return (rtc_state_t){
       .hours = hours,
       .minutes = minutes,
@@ -103,6 +109,12 @@ rtc_state_t rtc_get() {
 void rtc_set(rtc_state_t state) {
   // trim years
   state.year = state.year % 100;
+
+  // log RTC state
+  if (RTC_DEBUG) {
+    naos_log("rtc: set %02d:%02d:%02d %02d/%02d/%02d", state.hours, state.minutes, state.seconds, state.day,
+             state.month, state.year);
+  }
 
   // convert DEC to BCD
   rtc_bq32000.seconds = state.seconds % 10;

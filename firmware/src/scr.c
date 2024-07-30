@@ -1547,6 +1547,12 @@ static void* scr_time() {
     // save time
     sys_set_time(hour.value, minute.value, 0);
 
+    // sync RTC
+    rtc_state_t rtc = rtc_get();
+    rtc.hours = hour.value;
+    rtc.minutes = minute.value;
+    rtc_set(rtc);
+
     // show message
     scr_message("Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen.", 5000);
 
@@ -1617,6 +1623,12 @@ static void* scr_date() {
 
     // save date
     sys_set_date(year.value, month.value, day.value);
+
+    // sync RTC
+    rtc_state_t rtc = rtc_get();
+    rtc.year = year.value;
+    rtc.month = month.value;
+    rtc_set(rtc);
 
     return scr_time;
   }
