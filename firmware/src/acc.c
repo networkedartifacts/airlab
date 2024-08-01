@@ -8,6 +8,7 @@
 #define ACC_INT GPIO_NUM_16
 #define ACC_DEBUG true
 
+static acc_state_t acc_state = {0};
 static uint16_t acc_rot_map[] = {180, 0, 90, 270};
 
 static void acc_write(uint8_t reg, uint8_t val) {
@@ -30,6 +31,10 @@ static void acc_check() {
   if (ACC_DEBUG) {
     naos_log("acc: front=%d rot=%d", front, rot);
   }
+
+  // update state
+  acc_state.front = front;
+  acc_state.rot = rot;
 }
 
 static void acc_signal() {
@@ -67,4 +72,9 @@ void acc_init() {
 
   // clear interrupt
   acc_check();
+}
+
+acc_state_t acc_get() {
+  // return state
+  return acc_state;
 }
