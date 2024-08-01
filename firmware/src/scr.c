@@ -273,7 +273,7 @@ static void* scr_debug() {
 
     /* handle escape */
 
-    return scr_menu;
+    return scr_settings;
   }
 }
 
