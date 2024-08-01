@@ -5,7 +5,10 @@
 #include "acc.h"
 
 #define ACC_ADDR 0x18
-#define ACC_DEBUG false
+#define ACC_INT GPIO_NUM_16
+#define ACC_DEBUG true
+
+static uint16_t acc_rot_map[] = {180, 0, 90, 270};
 
 static void acc_write(uint8_t reg, uint8_t val) {
   // write data
@@ -13,34 +16,55 @@ static void acc_write(uint8_t reg, uint8_t val) {
   ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_NUM_0, ACC_ADDR, data, 2, 1000));
 }
 
-static void acc_read(uint8_t reg, uint8_t *buf, size_t len) {
-  // read data
-  ESP_ERROR_CHECK(i2c_master_write_read_device(I2C_NUM_0, ACC_ADDR, &reg, 1, buf, len, 1000));
+static uint8_t acc_read(uint8_t reg) {
+  uint8_t val;
+  ESP_ERROR_CHECK(i2c_master_write_read_device(I2C_NUM_0, ACC_ADDR, &reg, 1, &val, 1, 1000));
+  return val;
 }
 
 static void acc_check() {
   // read orientation
-  uint8_t orientation;
-  acc_read(0x28, &orientation, 1);
+  uint8_t orientation = acc_read(0x28);
+  bool front = orientation & 0b1;
+  uint16_t rot = acc_rot_map[(orientation >> 1) & 0b11];
   if (ACC_DEBUG) {
-    acc_face_t face = orientation & 0b1;
-    acc_mode_t orient = (orientation >> 1) & 0b11;
-    naos_log("acc: face=%d mode=%d", face, orient);
+    naos_log("acc: front=%d rot=%d", front, rot);
   }
+}
+
+static void acc_signal() {
+  // defer check
+  naos_defer_isr(acc_check);
 }
 
 void acc_init() {
   // reset device
   acc_write(0x15, 0b10000000);
-  naos_delay(20);
 
-  // enable orientation detection
-  acc_write(0x30, 1);
-  acc_write(0x29, 0b11000000);
+  // configure interrupt polarity and wake from sleep
+  acc_write(0x18, 0b00010000);
+
+  // enable orientation interrupt
+  acc_write(0x20, 0b00001000);
+
+  // enable orientation detection with debounce
+  acc_write(0x29, 0b01000000);
+  acc_write(0x2A, 50);
 
   // activate device
   acc_write(0x15, 0b00000001);
 
-  // run check
-  naos_repeat("acc", 100, acc_check);
+  // setup interrupt
+  gpio_config_t cfg = {
+      .pin_bit_mask = BIT64(ACC_INT),
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_NEGEDGE,
+  };
+  ESP_ERROR_CHECK(gpio_config(&cfg));
+  ESP_ERROR_CHECK(gpio_isr_handler_add(ACC_INT, acc_signal, NULL));
+
+  // clear interrupt
+  acc_check();
 }
