@@ -125,6 +125,7 @@ void gfx_init() {
   gfx_driver.flush_cb = gfx_flush;
   gfx_driver.hor_res = GFX_WIDTH;
   gfx_driver.ver_res = GFX_HEIGHT;
+  gfx_driver.sw_rotate = 1;
   gfx_display = lv_disp_drv_register(&gfx_driver);
 
   // create group
