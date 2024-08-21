@@ -21,7 +21,7 @@ void led_init() {
   led_write(0x09, 0b00000110, false);
 
   // turn LEDs off
-  led_set(0.5f, 0, 0);
+  led_set(0, 0, 0);
 }
 
 void led_set(float r, float g, float b) {

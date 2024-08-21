@@ -169,7 +169,7 @@ void cap_check() {
   }
 
   // calculate position
-  naos_log("cap: middle=%f", cap_middle(touches));
+  // naos_log("cap: middle=%f", cap_middle(touches));
 }
 
 void static cap_signal() {
