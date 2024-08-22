@@ -1484,6 +1484,11 @@ static void* scr_menu() {
 
     // enter screen saver on timeout
     if (event.type == SIG_TIMEOUT) {
+      // skip in dev mode
+      if (DEV_MODE) {
+        return scr_menu;
+      }
+
       // set return
       scr_return_unlock = scr_menu;
 
