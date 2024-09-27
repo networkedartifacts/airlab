@@ -63,4 +63,6 @@ void dat_reset();
 void dat_enable_usb();
 void dat_disable_usb();
 
+void dat_dump(const char *name, const void *data, size_t size);
+
 #endif  // DAT_H

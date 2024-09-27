@@ -695,3 +695,8 @@ void dat_disable_usb() {
   };
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(DAT_ROOT, "storage", &mount_config, &dat_wl_handle));
 }
+
+void dat_dump(const char *name, const void *data, size_t size) {
+  // truncate and write file
+  dat_write_file(name, (void *)data, 0, size, true);
+}
