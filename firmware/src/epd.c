@@ -44,7 +44,6 @@ static spi_device_handle_t epd_device;
 static bool epd_awake = false;
 static uint32_t epd_updated = 0;
 static uint8_t *epd_buffer = NULL;
-static uint8_t *epd_frame = NULL;
 
 /* SPI helper */
 
@@ -361,7 +360,6 @@ void epd_init() {
   epd_mutex = naos_mutex();
 
   // allocate buffers
-  epd_frame = calloc(EPD_FRAME, sizeof(uint8_t));
   epd_buffer = calloc(EPD_BUFFER, sizeof(uint8_t));
 
   // initialize pins
@@ -400,27 +398,9 @@ void epd_set(uint8_t *data, uint16_t x, uint16_t y, bool black) {
   epd_bmp_set(data, pos, !black);
 }
 
-void epd_update(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, bool partial) {
+void epd_update(uint8_t *frame, bool partial) {
   // lock mutex
   naos_lock(epd_mutex);
-
-  // round area to 8 pixels
-  if (x1 % 8) x1 = x1 / 8 * 8;
-  if (y1 % 8) y1 = y1 / 8 * 8;
-  if (x2 % 8) x2 = (x2 + 7) / 8 * 8;
-  if (y2 % 8) y2 = (y2 + 7) / 8 * 8;
-
-  // update frame
-  if (partial) {
-    size_t i = 0;
-    for (size_t y = y1; y < y2; y++) {
-      for (size_t x = x1; x < x2; x++) {
-        epd_bmp_set(epd_frame, i++, epd_bmp_get(data, y * EPD_WIDTH + x));
-      }
-    }
-  } else {
-    memcpy(epd_frame, data, EPD_FRAME);
-  }
 
   // awake display
   if (!epd_awake) {
@@ -433,9 +413,9 @@ void epd_update(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y
 
   // update display
   if (partial) {
-    epd_display_partial(epd_frame, x1, y1, x2, y2);
+    epd_display_partial(frame, 0, 0, EPD_WIDTH, EPD_HEIGHT);
   } else {
-    epd_display_full(epd_frame);
+    epd_display_full(frame);
   }
 
   // set time

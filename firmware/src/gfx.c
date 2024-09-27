@@ -25,7 +25,6 @@ static bool gfx_refresh = false;
 static bool gfx_invert = false;
 static bool gfx_deferred = false;
 static bool gfx_skip = false;
-static lv_area_t gfx_flush_area = {0};
 
 static void gfx_task() {
   for (;;) {
@@ -56,7 +55,7 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     for (size_t x = area->x1; x <= area->x2; x++) {
       // calculate physical coordinates
       size_t px = y;
-      size_t py = EPD_HEIGHT - 1 - x;
+      size_t py = EPD_HEIGHT - x - 1;
 
       // set physical pixel
       bool black = (*buffer).full == 0;
@@ -70,9 +69,6 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
   // set or extend flush area
   if (!gfx_deferred) {
     gfx_deferred = true;
-    gfx_flush_area = *area;
-  } else {
-    _lv_area_join(&gfx_flush_area, &gfx_flush_area, area);
   }
 
   // defer update if not last
@@ -81,15 +77,9 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     return;
   }
 
-  // calculate physical area (exclusive)
-  uint16_t x1 = gfx_flush_area.y1;
-  uint16_t y1 = EPD_HEIGHT - gfx_flush_area.x2;
-  uint16_t x2 = gfx_flush_area.y2;
-  uint16_t y2 = EPD_HEIGHT - gfx_flush_area.x1;
-
   // display frame
   if (!gfx_skip) {
-    epd_update(gfx_frame, x1, y1, x2, y2, !gfx_refresh);
+    epd_update(gfx_frame, !gfx_refresh);
   }
 
   // clear flags

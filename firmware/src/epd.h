@@ -9,7 +9,7 @@ void epd_init();
 
 void epd_set(uint8_t *data, uint16_t x, uint16_t y, bool black);
 
-void epd_update(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, bool partial);
+void epd_update(uint8_t *frame, bool partial);
 
 void epd_sleep();
 
