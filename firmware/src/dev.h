@@ -8,6 +8,7 @@
 #define DEV_VERSION "0.2.0"
 
 #define DEV_DEBUG_MENU false
+#define DEV_RECORD_SCREEN false
 
 void dev_init();
 

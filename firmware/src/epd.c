@@ -5,6 +5,8 @@
 #include <memory.h>
 
 #include "epd.h"
+#include "dev.h"
+#include "dat.h"
 
 #define EPD_4W false
 #define EPD_DC GPIO_NUM_46
@@ -420,6 +422,13 @@ void epd_update(uint8_t *frame, bool partial) {
 
   // set time
   epd_updated = naos_millis();
+
+  // record screen, if enabled
+  if (DEV_RECORD_SCREEN) {
+    char name[32];
+    snprintf(name, sizeof(name), "screen-%lu.bin", epd_updated);
+    dat_dump(name, frame, EPD_FRAME);
+  }
 
   // unlock mutex
   naos_unlock(epd_mutex);
