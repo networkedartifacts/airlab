@@ -234,18 +234,23 @@ void sns_init() {
 
 void sns_set(bool on) {
   if (on) {
-    // wake up
+    // wake up SCD
     sns_transfer(SNS_SCD, 0x36f6, 0, 0, false);
 
-    // start periodic measurement
+    // start SCD periodic measurement
     sns_transfer(SNS_SCD, 0x21b1, 0, 0, false);
   } else {
     // stop periodic measurement
     sns_transfer(SNS_SCD, 0x3f86, 0, 0, false);
     naos_delay(500);
 
-    // power down
+    // power down SCD
     sns_transfer(SNS_SCD, 0x36e0, 0, 0, false);
+
+    // TODO: Is turn off the SGP sensor ok?
+
+    // turn off SGP
+    sns_transfer(SNS_SGP, 0x3615, 0, 0, false);
   }
 }
 
