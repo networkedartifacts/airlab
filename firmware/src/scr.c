@@ -1659,10 +1659,10 @@ static void* scr_time() {
 
   for (;;) {
     // await event
-    sig_event_t event = sig_await(SIG_KEYS, SCR_ACTION_TIMEOUT);
+    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, SCR_ACTION_TIMEOUT);
 
     // forward arrows
-    if ((event.type & SIG_ARROWS) != 0) {
+    if ((event.type & (SIG_ARROWS | SIG_SCROLL)) != 0) {
       lvx_handle(event, true);
       continue;
     }
@@ -1736,10 +1736,10 @@ static void* scr_date() {
 
   for (;;) {
     // await event
-    sig_event_t event = sig_await(SIG_META | SIG_ARROWS, SCR_ACTION_TIMEOUT);
+    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, SCR_ACTION_TIMEOUT);
 
     // handle arrows
-    if ((event.type & SIG_ARROWS) != 0) {
+    if ((event.type & (SIG_ARROWS | SIG_SCROLL)) != 0) {
       lvx_handle(event, true);
       continue;
     }

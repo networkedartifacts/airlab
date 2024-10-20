@@ -344,6 +344,21 @@ bool lvx_handle(sig_event_t event, bool focus) {
     }
   }
 
+  // handle scroll
+  if (event.type == SIG_SCROLL) {
+    int distance = (int)(event.touch * 2);
+    if (distance < 0) {
+      for (int i = 0; i < -distance; i++) {
+        lv_group_send_data(gfx_get_group(), LV_KEY_DOWN);
+      }
+    } else if (distance > 0) {
+      for (int i = 0; i < distance; i++) {
+        lv_group_send_data(gfx_get_group(), LV_KEY_UP);
+      }
+    }
+    return false;
+  }
+
   // send event as key to group
   lv_group_send_data(gfx_get_group(), lvx_key_map[event.type]);
 
