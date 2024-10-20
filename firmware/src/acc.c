@@ -3,9 +3,10 @@
 #include <driver/i2c.h>
 
 #include "acc.h"
+#include "dev.h"
 
 #define ACC_ADDR 0x18
-#define ACC_INT GPIO_NUM_16
+
 #define ACC_DEBUG false
 
 static acc_state_t acc_state = {0};
@@ -63,14 +64,14 @@ void acc_init() {
 
   // setup interrupt
   gpio_config_t cfg = {
-      .pin_bit_mask = BIT64(ACC_INT),
+      .pin_bit_mask = BIT64(DEV_INT_ACC),
       .mode = GPIO_MODE_INPUT,
       .pull_up_en = GPIO_PULLUP_ENABLE,
       .pull_down_en = GPIO_PULLDOWN_DISABLE,
       .intr_type = GPIO_INTR_NEGEDGE,
   };
   ESP_ERROR_CHECK(gpio_config(&cfg));
-  ESP_ERROR_CHECK(gpio_isr_handler_add(ACC_INT, acc_signal, NULL));
+  ESP_ERROR_CHECK(gpio_isr_handler_add(DEV_INT_ACC, acc_signal, NULL));
 
   // clear interrupt
   acc_check();

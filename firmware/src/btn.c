@@ -3,14 +3,9 @@
 #include <driver/gpio.h>
 #include <esp_sleep.h>
 
+#include "dev.h"
 #include "sig.h"
 
-#define BTN_A GPIO_NUM_12
-#define BTN_B GPIO_NUM_17
-#define BTN_C GPIO_NUM_15
-#define BTN_D GPIO_NUM_4
-#define BTN_E GPIO_NUM_9
-#define BTN_F GPIO_NUM_13
 #define BTN_REPEAT 750
 #define BTN_DEBUG false
 
@@ -25,12 +20,12 @@ static int8_t btn_counts[8] = {0};
 
 static uint8_t btn_read() {
   // read buttons
-  uint8_t a = gpio_get_level(BTN_A) == 0;
-  uint8_t b = gpio_get_level(BTN_B) == 0;
-  uint8_t c = gpio_get_level(BTN_C) == 0;
-  uint8_t d = gpio_get_level(BTN_D) == 0;
-  uint8_t e = gpio_get_level(BTN_E) == 0;
-  uint8_t f = gpio_get_level(BTN_F) == 0;
+  uint8_t a = gpio_get_level(DEV_BTN_A) == 0;
+  uint8_t b = gpio_get_level(DEV_BTN_B) == 0;
+  uint8_t c = gpio_get_level(DEV_BTN_C) == 0;
+  uint8_t d = gpio_get_level(DEV_BTN_D) == 0;
+  uint8_t e = gpio_get_level(DEV_BTN_E) == 0;
+  uint8_t f = gpio_get_level(DEV_BTN_F) == 0;
 
   // set state
   return (a << 0) | (b << 1) | (c << 2) | (d << 3) | (e << 4) | (f << 5);
@@ -105,21 +100,19 @@ void btn_init() {
   // configure GPIOs
   gpio_config_t cfg = {
       .mode = GPIO_MODE_INPUT,
-      .pin_bit_mask = BIT64(BTN_A) | BIT64(BTN_B) | BIT64(BTN_C) | BIT64(BTN_D) | BIT64(BTN_E) | BIT64(BTN_F),
+      .pin_bit_mask = BIT64(DEV_BTN_A) | BIT64(DEV_BTN_B) | BIT64(DEV_BTN_C) | BIT64(DEV_BTN_D) | BIT64(DEV_BTN_E) |
+                      BIT64(DEV_BTN_F),
       .pull_up_en = GPIO_PULLUP_ENABLE,
   };
   ESP_ERROR_CHECK(gpio_config(&cfg));
 
-  // configure wakeup source
-  ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(cfg.pin_bit_mask, ESP_EXT1_WAKEUP_ANY_LOW));
-
   // hold GPIOs during sleep
-  ESP_ERROR_CHECK(gpio_hold_en(BTN_A));
-  ESP_ERROR_CHECK(gpio_hold_en(BTN_B));
-  ESP_ERROR_CHECK(gpio_hold_en(BTN_C));
-  ESP_ERROR_CHECK(gpio_hold_en(BTN_D));
-  ESP_ERROR_CHECK(gpio_hold_en(BTN_E));
-  ESP_ERROR_CHECK(gpio_hold_en(BTN_F));
+  ESP_ERROR_CHECK(gpio_hold_en(DEV_BTN_A));
+  ESP_ERROR_CHECK(gpio_hold_en(DEV_BTN_B));
+  ESP_ERROR_CHECK(gpio_hold_en(DEV_BTN_C));
+  ESP_ERROR_CHECK(gpio_hold_en(DEV_BTN_D));
+  ESP_ERROR_CHECK(gpio_hold_en(DEV_BTN_E));
+  ESP_ERROR_CHECK(gpio_hold_en(DEV_BTN_F));
 
   // initialize button state
   btn_state = btn_read();
