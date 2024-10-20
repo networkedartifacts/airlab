@@ -336,7 +336,11 @@ static void* scr_saver() {
     gfx_begin(false, false);
 
     // set display rotation
-    lv_disp_set_rotation(NULL, acc.rot / 90);
+    if (!acc.lock) {
+      lv_disp_set_rotation(NULL, acc.rot / 90);
+    } else {
+      lv_disp_set_rotation(NULL, LV_DISP_ROT_NONE);
+    }
 
     // update battery
     if (power.usb && power.charging) {

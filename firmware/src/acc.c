@@ -28,13 +28,15 @@ static void acc_check() {
   uint8_t orientation = acc_read(0x28);
   bool front = orientation & 0b1;
   uint16_t rot = acc_rot_map[(orientation >> 1) & 0b11];
+  bool lock = orientation & 0b1000000;
   if (ACC_DEBUG) {
-    naos_log("acc: front=%d rot=%d", front, rot);
+    naos_log("acc: front=%d rot=%d lock=%d", front, rot, lock);
   }
 
   // update state
   acc_state.front = front;
   acc_state.rot = rot;
+  acc_state.lock = lock;
 }
 
 static void acc_signal() {

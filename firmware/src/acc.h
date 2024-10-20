@@ -4,6 +4,7 @@
 typedef struct {
   bool front;
   uint16_t rot;
+  bool lock;
 } acc_state_t;
 
 void acc_init();
