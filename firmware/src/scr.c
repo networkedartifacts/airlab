@@ -727,7 +727,7 @@ static void* scr_view() {
     gfx_end(false);
 
     // await event
-    sig_type_t filter = SIG_KEYS;
+    sig_type_t filter = SIG_KEYS | SIG_SCROLL;
     if (recording) {
       filter |= SIG_APPEND | SIG_STOP;
     }
@@ -736,7 +736,7 @@ static void* scr_view() {
     // handle deadline
     if (event.type == SIG_APPEND && naos_millis() > deadline) {
       event.type = SIG_TIMEOUT;
-    } else if ((event.type & SIG_KEYS) != 0) {
+    } else if ((event.type & (SIG_KEYS | SIG_SCROLL)) != 0) {
       deadline = naos_millis() + SCR_IDLE_TIMEOUT;
     }
 
@@ -806,12 +806,14 @@ static void* scr_view() {
       continue;
     }
 
-    // change position on left/right if not recording
+    // change position on left/right/scroll if not recording
     if (!recording) {
       if (event.type == SIG_LEFT) {
         position -= resolution * (event.repeat ? 5 : 1);
       } else if (event.type == SIG_RIGHT) {
         position += resolution * (event.repeat ? 5 : 1);
+      } else if (event.type == SIG_SCROLL) {
+        position += resolution * (int32_t)(event.touch * 2);
       }
       if (position > file->stop) {
         position = file->stop;

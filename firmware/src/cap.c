@@ -3,16 +3,19 @@
 #include <driver/i2c.h>
 #include <driver/rmt_tx.h>
 
+#include "sig.h"
+
 #define CAP_ADDR 0x37
 #define CAP_INT GPIO_NUM_11
 #define CAP_DEBUG false
-#define CAP_DEBUG_SENSOR 0
+#define CAP_DEBUG_SENSOR -1
 
 static naos_mutex_t cap_mutex;
 static rmt_channel_handle_t cap_buzzer;
 static rmt_encoder_handle_t cap_encoder;
 static uint8_t cap_map[8] = {2, 6, 1, 0, 5, 4, 3};
 static uint8_t cap_last = 0;
+static float cap_delta = 0;
 
 static void cap_read(uint8_t reg, uint8_t *buf, size_t len) {
   // read data
@@ -179,7 +182,11 @@ static void cap_check() {
     return;
   }
 
-  // update last
+  // buzz once
+  cap_buzz(125);
+
+  // capture and update last touches
+  uint8_t last = cap_last;
   cap_last = touches;
 
   // log touches
@@ -195,28 +202,75 @@ static void cap_check() {
   }
 
   // read debug status
-  if (CAP_DEBUG) {
+  if (CAP_DEBUG && CAP_DEBUG_SENSOR >= 0) {
     uint8_t cp = cap_read8(0xdd);     // pF
     uint16_t dc = cap_read16(0xde);   // difference count
     uint16_t bl = cap_read16(0xe0);   // baseline
     uint16_t rc = cap_read16(0xe2);   // raw count
     uint16_t arc = cap_read16(0xe4);  // average raw count
-    naos_log("cap: debug cp=%d dc=%d bl=%d rc=%d arc=%d", cp, dc, bl, rc, arc);
+    naos_log("cap: debug pad=%d cp=%d dc=%d bl=%d rc=%d arc=%d", CAP_DEBUG_SENSOR, cp, dc, bl, rc, arc);
+  }
+
+  // stop, if no touch
+  if (touches == 0) {
+    naos_unlock(cap_mutex);
+    return;
+  }
+
+  // calculate middle
+  float middle = cap_middle(touches);
+  if (CAP_DEBUG) {
+    naos_log("cap: middle=%f", middle);
   }
 
   // calculate position
-  // naos_log("cap: middle=%f", cap_middle(touches));
+  float position = middle / 3 - 1;  // -1 to 1
 
-  // buzz once
-  cap_buzz(125);
+  // calculate diff
+  if (last != 0) {
+    float diff = middle - cap_middle(last);
+    if (CAP_DEBUG) {
+      naos_log("cap: diff=%f", diff);
+    }
+    cap_delta += diff;
+  }
 
   // unlock mutex
   naos_unlock(cap_mutex);
+
+  // dispatch event
+  sig_dispatch((sig_event_t){
+      .type = SIG_TOUCH,
+      .touch = position,
+  });
 }
 
 void static cap_signal() {
   // defer check
   naos_defer_isr(cap_check);
+}
+
+void static cap_monitor() {
+  // lock mutex
+  naos_lock(cap_mutex);
+
+  // capture delta
+  float delta = cap_delta;
+  cap_delta = 0;
+
+  // unlock mutex
+  naos_unlock(cap_mutex);
+
+  // stop, if no delta
+  if (delta == 0) {
+    return;
+  }
+
+  // dispatch event
+  sig_dispatch((sig_event_t){
+      .type = SIG_SCROLL,
+      .touch = delta,
+  });
 }
 
 void cap_init() {
@@ -266,7 +320,7 @@ void cap_init() {
   cap_exec(255);
 
   // set debug sensor
-  if (CAP_DEBUG) {
+  if (CAP_DEBUG && CAP_DEBUG_SENSOR >= 0) {
     cap_write8(0x82, cap_map[CAP_DEBUG_SENSOR]);
   }
 
@@ -295,6 +349,9 @@ void cap_init() {
   // setup buzzer encoder
   rmt_copy_encoder_config_t enc_cfg = {};
   ESP_ERROR_CHECK(rmt_new_copy_encoder(&enc_cfg, &cap_encoder));
+
+  // run monitor
+  naos_repeat("cap", 300, cap_monitor);
 }
 
 void cap_sleep() {

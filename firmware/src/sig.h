@@ -16,6 +16,8 @@ typedef enum {
   SIG_SENSOR = (1 << 8),
   SIG_APPEND = (1 << 9),
   SIG_STOP = (1 << 10),
+  SIG_TOUCH = (1 << 11),
+  SIG_SCROLL = (1 << 12),
 
   SIG_META = SIG_ENTER | SIG_ESCAPE,
   SIG_ARROWS = SIG_UP | SIG_DOWN | SIG_LEFT | SIG_RIGHT,
@@ -24,7 +26,10 @@ typedef enum {
 
 typedef struct {
   sig_type_t type;
-  bool repeat;
+  union {
+    bool repeat;  // keys
+    float touch;  // touch
+  };
 } sig_event_t;
 
 void sig_init();
