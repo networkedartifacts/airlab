@@ -110,6 +110,7 @@ void pwr_init() {
   };
   ESP_ERROR_CHECK(gpio_config(&cfg));
   ESP_ERROR_CHECK(gpio_set_level(PWR_HOLD, 1));
+  ESP_ERROR_CHECK(gpio_hold_en(PWR_HOLD));
 
   // low power
   cfg = (gpio_config_t){
@@ -147,19 +148,25 @@ pwr_state_t pwr_get() {
 }
 
 void pwr_off() {
-  // set pin
-  gpio_set_level(PWR_HOLD, 0);  // off
+  // power down
+  ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_hold_dis(PWR_HOLD));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level(PWR_HOLD, 0));
 
   // delay
   naos_delay(2000);
 
-  // fall back to deep sleep
+  /* power off did not work */
+
+  // power up
+  ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_set_level(PWR_HOLD, 1));
+  ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_hold_en(PWR_HOLD));
+
+  // go to deep sleep
   pwr_sleep(true, 0);
 }
 
 pwr_cause_t pwr_sleep(bool deep, uint64_t timeout) {
-  // configure sleep hold
-  ESP_ERROR_CHECK(gpio_hold_en(PWR_HOLD));
+  // enable deep sleep hold
   gpio_deep_sleep_hold_en();
 
   // configure timeout
@@ -175,6 +182,9 @@ pwr_cause_t pwr_sleep(bool deep, uint64_t timeout) {
   } else {
     ESP_ERROR_CHECK(esp_light_sleep_start());
   }
+
+  // disable deep sleep hold
+  gpio_deep_sleep_hold_dis();
 
   // get cause
   pwr_cause_t cause = pwr_cause();

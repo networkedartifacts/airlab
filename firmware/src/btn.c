@@ -120,7 +120,6 @@ void btn_init() {
   ESP_ERROR_CHECK(gpio_hold_en(BTN_D));
   ESP_ERROR_CHECK(gpio_hold_en(BTN_E));
   ESP_ERROR_CHECK(gpio_hold_en(BTN_F));
-  gpio_deep_sleep_hold_en();
 
   // initialize button state
   btn_state = btn_read();
