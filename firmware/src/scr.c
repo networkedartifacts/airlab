@@ -291,8 +291,6 @@ static void* scr_saver() {
   gfx_begin(false, false);
 
   // add icons
-  lv_obj_t* lock = lv_img_create(lv_scr_act());
-  lv_img_set_src(lock, &img_lock);
   lv_obj_t* battery = lv_img_create(lv_scr_act());
   lv_obj_t* record = NULL;
   if (rec_running()) {
@@ -392,17 +390,15 @@ static void* scr_saver() {
       lv_obj_align(hum_big, LV_ALIGN_TOP_MID, 0, 175);
       lv_obj_align(hum, LV_ALIGN_TOP_MID, 0, 175 + 27);
       lv_obj_align(time, LV_ALIGN_BOTTOM_RIGHT, -25, -25);
-      lv_obj_align(lock, LV_ALIGN_BOTTOM_LEFT, 25, -25);
-      lv_obj_align(battery, LV_ALIGN_BOTTOM_LEFT, 45, -25);
+      lv_obj_align(battery, LV_ALIGN_BOTTOM_LEFT, 25, -25);
       if (record != NULL) {
-        lv_obj_align(record, LV_ALIGN_BOTTOM_LEFT, 65, -25);
+        lv_obj_align(record, LV_ALIGN_BOTTOM_LEFT, 45, -25);
       }
     } else {
       lv_align_t align = right ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT;
-      lv_obj_align(lock, align, right ? -19 : 19, 19);
-      lv_obj_align(battery, align, right ? -39 : 39, 19);
+      lv_obj_align(battery, align, right ? -20 : 20, 19);
       if (record != NULL) {
-        lv_obj_align(record, align, right ? -55 : 55, 20);
+        lv_obj_align(record, align, right ? -36 : 36, 20);
       }
       lv_obj_align(time, align, right ? -19 : 19, 41);
       lv_obj_align(co2, align, right ? -19 : 19, 59);
