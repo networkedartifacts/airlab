@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/gif"
+	"image/png"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,15 +17,22 @@ import (
 )
 
 var fast = flag.Bool("fast", false, "fast mode")
+var scale = flag.Int("scale", 1, "scale factor")
+var format = flag.String("format", "png", "output format")
 
 func main() {
 	// parse flags
 	flag.Parse()
 
+	// print flags
+	fmt.Println("fast:", *fast)
+	fmt.Println("scale:", *scale)
+	fmt.Println("format:", *format)
+
 	// handle command
 	switch flag.Arg(0) {
 	case "convert":
-		convert(flag.Arg(1))
+		convert(flag.Arg(1), *format)
 	case "animate":
 		animate(flag.Arg(1))
 	default:
@@ -33,7 +41,7 @@ func main() {
 	}
 }
 
-func convert(glob string) {
+func convert(glob string, format string) {
 	// get files
 	files, err := filepath.Glob(glob)
 	if err != nil {
@@ -56,17 +64,21 @@ func convert(glob string) {
 		img := convertImage(data, color.Palette{
 			color.White,
 			color.Black,
-		})
+		}, *scale)
 
 		// encode image
 		var out bytes.Buffer
-		err = bmp.Encode(&out, img)
+		if format == "bmp" {
+			err = bmp.Encode(&out, img)
+		} else {
+			err = png.Encode(&out, img)
+		}
 		if err != nil {
 			panic(err)
 		}
 
 		// write file
-		err = os.WriteFile(strings.ReplaceAll(file, ".bin", ".bmp"), out.Bytes(), 0644)
+		err = os.WriteFile(strings.ReplaceAll(file, ".bin", "."+format), out.Bytes(), 0644)
 		if err != nil {
 			panic(err)
 		}
@@ -140,7 +152,7 @@ func animate(glob string) {
 		fmt.Println(file.name)
 
 		// convert image
-		img := convertImage(file.data, palette)
+		img := convertImage(file.data, palette, *scale)
 
 		// calculate delay
 		delay := 0
@@ -182,17 +194,26 @@ func getBit(data []byte, num int) bool {
 	return (data[index]>>(7-offset))&1 == 1
 }
 
-func convertImage(data []byte, palette color.Palette) *image.Paletted {
+func convertImage(data []byte, palette color.Palette, scale int) *image.Paletted {
 	// create image
-	img := image.NewPaletted(image.Rect(0, 0, screenWidth, screenHeight), palette)
+	img := image.NewPaletted(image.Rect(0, 0, screenWidth*scale, screenHeight*scale), palette)
 
 	// generate image
 	for y := 0; y < screenHeight; y++ {
 		for x := 0; x < screenWidth; x++ {
+			xx := screenWidth - x - 1
 			if getBit(data, x*screenHeight+y) {
-				img.Set(screenWidth-x-1, y, color.RGBA{R: 255, G: 255, B: 255, A: 255})
+				for i := 0; i < scale; i++ {
+					for j := 0; j < scale; j++ {
+						img.Set(xx*scale+i, y*scale+j, palette[0])
+					}
+				}
 			} else {
-				img.Set(screenWidth-x-1, y, color.RGBA{A: 255})
+				for i := 0; i < scale; i++ {
+					for j := 0; j < scale; j++ {
+						img.Set(xx*scale+i, y*scale+j, palette[1])
+					}
+				}
 			}
 		}
 	}
