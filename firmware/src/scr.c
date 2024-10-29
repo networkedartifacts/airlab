@@ -289,8 +289,17 @@ static void* scr_test() {
     // begin draw
     gfx_begin(false, false);
 
-    // set bubble
-    bubble.text = stm_get(index)->text;
+    // set bubble text
+    switch (scr_lang) {
+      case SCR_DE:
+        bubble.text = stm_get(index)->text_de;
+        break;
+      case SCR_EN:
+        bubble.text = stm_get(index)->text_en;
+        break;
+    }
+
+    // update bubble
     lvx_bubble_update(&bubble);
 
     // end draw
@@ -1697,8 +1706,17 @@ static void* scr_menu() {
     rect_dsc.bg_color = lv_color_black();
     lv_canvas_draw_rect(drain, 1, 1 + 9 - drain_height, 20, drain_height, &rect_dsc);
 
-    // set bubble
-    bubble.text = statement ? statement->text : NULL;
+    // set bubble text
+    switch (scr_lang) {
+      case SCR_DE:
+        bubble.text = statement ? statement->text_de : NULL;
+        break;
+      case SCR_EN:
+        bubble.text = statement ? statement->text_en : NULL;
+        break;
+    }
+
+    // update bubble
     lvx_bubble_update(&bubble);
 
     // update robin

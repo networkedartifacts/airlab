@@ -26,7 +26,8 @@ typedef enum {
 } stm_mood_t;
 
 typedef struct {
-  const char *text;
+  const char *text_de;
+  const char *text_en;
   stm_mood_t mood;
   bool exclaim;
   stm_action_t action;
