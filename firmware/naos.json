@@ -1,5 +1,5 @@
 {
-  "version": "da973c2",
+  "version": "da973c24c71294f0ff72f018f5166a217d9e7175",
   "target": "esp32s3",
   "overrides": {
     "CONFIG_ESPTOOLPY_FLASHSIZE_4MB": null,
@@ -36,7 +36,7 @@
     },
     "art32": {
       "repository": "https://github.com/256dpi/art32.git",
-      "version": "916c44a"
+      "version": "916c44aade591b7ed5fbae694cc98a2cb6433be3"
     }
   }
 }
