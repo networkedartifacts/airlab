@@ -103,6 +103,137 @@ static void scr_power_off() {
   naos_delay(5000);
 }
 
+/* Translations */
+
+typedef enum {
+  SCR_DE,
+  SCR_EN,
+} scr_lang_t;
+
+static const scr_lang_t scr_lang = SCR_EN;
+
+typedef struct {
+  const char* back;
+  const char* next;
+  const char* cancel;
+  const char* exit__stop;
+  const char* exit__back;
+  const char* exit__stopped;
+  const char* create__full;
+  const char* create__new;
+  const char* create__name;
+  const char* create__length;
+  const char* create__start;
+  const char* delete__confirm;
+  const char* delete__delete;
+  const char* delete__deleted;
+  const char* edit__analyse;
+  const char* edit__delete;
+  const char* explore__empty;
+  const char* explore__open;
+  const char* usb__running;
+  const char* usb__disconnected;
+  const char* usb__active;
+  const char* reset__confirm;
+  const char* reset__yes;
+  const char* reset__no;
+  const char* reset__reset;
+  const char* settings__title;
+  const char* settings__storage;
+  const char* settings__date_time;
+  const char* settings__usb;
+  const char* settings__off;
+  const char* settings__reset;
+  const char* menu__no_data;
+  const char* time__message;
+  const char* time__continue;
+  const char* date__message;
+  const char* intro_message;
+} scr_trans_t;
+
+static const scr_trans_t scr_trans_map[] = {
+    [SCR_DE] =
+        {
+            .back = "Zurück",
+            .next = "Weiter",
+            .cancel = "Abbrechen",
+            .exit__stop = "%s beenden",
+            .exit__back = "Zurück zum Labor",
+            .exit__stopped = "%s\n beendet!",
+            .create__full = "Speicher voll!",
+            .create__new = "Neue Messung erstellen?",
+            .create__name = "Messung %u",
+            .create__length = "Länge ca. %d-%d Stunden",
+            .create__start = "Starten",
+            .delete__confirm = "%s\nwirklich löschen?",
+            .delete__delete = "Löschen",
+            .delete__deleted = "Messung %d\nerfolgreich gelöscht!",
+            .edit__analyse = "Analysieren",
+            .edit__delete = "Löschen",
+            .explore__empty = "Keine gespeicherte\nMessungen...",
+            .explore__open = "Öffnen",
+            .usb__running = "Messung läuft!",
+            .usb__disconnected = "USB nicht angeschlossen!",
+            .usb__active = "USB-Modus Aktiv",
+            .reset__confirm = "Air Lab\nwirklich zurücksetzen?",
+            .reset__yes = "Ja",
+            .reset__no = "Nein",
+            .reset__reset = "Air Lab\nerfolgreich zurückgesetzt!",
+            .settings__title = "Einstellungen",
+            .settings__storage = "Speicher: %.1f%% belegt",
+            .settings__date_time = "Datum & Zeit",
+            .settings__usb = "USB",
+            .settings__off = "Ausschalten",
+            .settings__reset = "Zurücksetzen",
+            .menu__no_data = "Keine Daten",
+            .time__message = "Und wie spät ist es gerade?",
+            .time__continue = "Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen.",
+            .date__message = "Ich habe zieeemlich\nlang geschlafen!\nWelcher Tag ist heute?",
+            .intro_message = "Hi! Ich bin Robin,\nProfessor für Luftwiss-\nenschaften im Air Lab.",
+        },
+    [SCR_EN] =
+        {
+            .back = "Back",
+            .next = "Next",
+            .cancel = "Cancel",
+            .exit__stop = "Stop %s",
+            .exit__back = "Back to Lab",
+            .exit__stopped = "%s\n stopped!",
+            .create__full = "Storage full!",
+            .create__new = "Create new measurement?",
+            .create__name = "Measurement %u",
+            .create__length = "Length approx. %d-%d hours",
+            .create__start = "Start",
+            .delete__confirm = "Really delete %s?",
+            .delete__delete = "Delete",
+            .delete__deleted = "Measurement %d\nsuccessfully deleted!",
+            .edit__analyse = "Analyse",
+            .edit__delete = "Delete",
+            .explore__empty = "No saved\nmeasurements...",
+            .explore__open = "Open",
+            .usb__running = "Measurement running!",
+            .usb__disconnected = "USB not connected!",
+            .usb__active = "USB Mode Active",
+            .reset__confirm = "Fully Reset Air Lab?",
+            .reset__yes = "Yes",
+            .reset__no = "No",
+            .reset__reset = "Air Lab\nsuccessfully reset!",
+            .settings__title = "Settings",
+            .settings__storage = "Storage: %.1f%% used",
+            .settings__date_time = "Date & Time",
+            .settings__usb = "USB",
+            .settings__off = "Power Off",
+            .settings__reset = "Reset",
+            .menu__no_data = "No Data",
+            .time__message = "What time is it?",
+            .time__continue = "Time flies...\nLet's go to the lab.",
+            .date__message = "I slept for a\nloooong time!\nWhat day is it?",
+            .intro_message = "Hi! I'm Robin,\nprofessor of air\nsciences at Air Lab.",
+        },
+};
+
+static const scr_trans_t* scr_trans() { return &scr_trans_map[scr_lang]; }
+
 /* Screens */
 
 static void* scr_debug();
@@ -124,8 +255,8 @@ static void* scr_test() {
   lvx_bubble_create(&bubble, lv_scr_act());
 
   // add signs
-  lvx_sign_t back = {.title = "B", .text = "Back", .align = LV_ALIGN_BOTTOM_LEFT};
-  lvx_sign_t next = {.title = ">", .text = "Next", .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t back = {.title = "B", .text = scr_trans()->cancel, .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t next = {.title = ">", .text = scr_trans()->next, .align = LV_ALIGN_BOTTOM_RIGHT};
   lvx_sign_create(&back, lv_scr_act());
   lvx_sign_create(&next, lv_scr_act());
 
@@ -420,9 +551,8 @@ static void* scr_saver() {
     // determine duration
     int64_t duration = sys_get_timestamp() - scr_saver_enter;
 
-    // power off is battery is low and not charging
+    // power off if battery is low and not charging
     if (power.battery < 0.10 && !power.usb && !power.charging) {
-      naos_log("turing off due to low battery");
       scr_power_off();
     }
 
@@ -475,8 +605,18 @@ static void* scr_exit() {
   gfx_begin(false, true);
 
   // add signs
-  lvx_sign_t stop = {.title = "A", .text = scr_fmt("%s beenden", file->title), .align = LV_ALIGN_CENTER, .offset = -15};
-  lvx_sign_t back = {.title = "B", .text = "Zurück zum Labor", .align = LV_ALIGN_CENTER, .offset = 15};
+  lvx_sign_t stop = {
+      .title = "A",
+      .text = scr_fmt(scr_trans()->exit__stop, file->title),
+      .align = LV_ALIGN_CENTER,
+      .offset = -15,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->exit__back,
+      .align = LV_ALIGN_CENTER,
+      .offset = 15,
+  };
   lvx_sign_create(&stop, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
@@ -508,7 +648,7 @@ static void* scr_exit() {
     rec_stop();
 
     // show message
-    scr_message(scr_fmt("%s\n beendet!", file->title), 2000);
+    scr_message(scr_fmt(scr_trans()->exit__stopped, file->title), 2000);
 
     // set action
     scr_action = STM_COMP_MEASUREMENT;
@@ -831,7 +971,7 @@ static void* scr_create() {
 
   // handle no space
   if (!points) {
-    scr_message("Speicher voll!", 2000);
+    scr_message(scr_trans()->create__full, 2000);
     return scr_menu;
   }
 
@@ -844,12 +984,12 @@ static void* scr_create() {
 
   // add title
   lv_obj_t* title = lv_label_create(lv_scr_act());
-  lv_label_set_text(title, "Neue Messung erstellen?");
+  lv_label_set_text(title, scr_trans()->create__new);
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 5, 5);
 
   // add name
   lv_obj_t* name = lv_label_create(lv_scr_act());
-  lv_label_set_text(name, scr_fmt("Messung %u", dat_next()));
+  lv_label_set_text(name, scr_fmt(scr_trans()->create__name, dat_next()));
   lv_obj_align(name, LV_ALIGN_TOP_LEFT, 5, 26);
 
   // add mode
@@ -859,12 +999,20 @@ static void* scr_create() {
 
   // add length
   lv_obj_t* length = lv_label_create(lv_scr_act());
-  lv_label_set_text(length, scr_fmt("Länge ca. %d-%d Stunden", min_hours, max_hours));
+  lv_label_set_text(length, scr_fmt(scr_trans()->create__length, min_hours, max_hours));
   lv_obj_align(length, LV_ALIGN_TOP_LEFT, 5, 68);
 
   // add signs
-  lvx_sign_t start = {.title = "A", .text = "Start", .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t start = {
+      .title = "A",
+      .text = scr_trans()->create__start,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
   lvx_sign_create(&start, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
@@ -914,13 +1062,21 @@ static void* scr_delete() {
 
   // add text
   lv_obj_t* text = lv_label_create(lv_scr_act());
-  lv_label_set_text(text, scr_fmt("%s\nwirklich löschen?", file->title));
+  lv_label_set_text(text, scr_fmt(scr_trans()->delete__confirm, file->title));
   lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 25);
   lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
 
   // add signs
-  lvx_sign_t next = {.title = "A", .text = "Löschen", .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t next = {
+      .title = "A",
+      .text = scr_trans()->delete__delete,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
   lvx_sign_create(&next, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
@@ -947,7 +1103,7 @@ static void* scr_delete() {
   dat_delete(file->head.num);
 
   // show message
-  scr_message(scr_fmt("Messung %d\nerfolgreich gelöscht!", num), 2000);
+  scr_message(scr_fmt(scr_trans()->delete__deleted, num), 2000);
 
   return scr_explore;
 }
@@ -975,9 +1131,22 @@ static void* scr_edit() {
   lv_obj_align(length, LV_ALIGN_TOP_MID, 0, 26);
 
   // add signs
-  lvx_sign_t analyze = {.title = "A", .text = "Analyse", .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
-  lvx_sign_t delete = {.title = "<", .text = "Löschen", .align = LV_ALIGN_BOTTOM_LEFT, .offset = -25};
+  lvx_sign_t analyze = {
+      .title = "A",
+      .text = scr_trans()->edit__analyse,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_t delete = {
+      .title = "<",
+      .text = scr_trans()->delete__delete,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+      .offset = -25,
+  };
   lvx_sign_create(&analyze, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
   lvx_sign_create(&delete, lv_scr_act());
@@ -1027,7 +1196,7 @@ static void* scr_explore() {
   // handle empty
   if (total == 0) {
     // show message
-    scr_message("Keine gespeicherte\nMessungen...", 2000);
+    scr_message(scr_trans()->explore__empty, 2000);
 
     return scr_menu;
   }
@@ -1052,9 +1221,17 @@ static void* scr_explore() {
   }
 
   // add signs
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
   lvx_sign_create(&back, lv_scr_act());
-  lvx_sign_t open = {.title = "A", .text = "Öffnen", .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t open = {
+      .title = "A",
+      .text = scr_trans()->explore__open,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
   lvx_sign_create(&open, lv_scr_act());
 
   // add info
@@ -1155,7 +1332,7 @@ static void* scr_usb() {
   // check recording
   if (rec_running()) {
     // show message
-    scr_message("Messung läuft!", 2000);
+    scr_message(scr_trans()->usb__running, 2000);
 
     return scr_settings;
   }
@@ -1163,7 +1340,7 @@ static void* scr_usb() {
   // check connection
   if (!pwr_get().usb) {
     // show message
-    scr_message("USB nicht angeschlossen!", 2000);
+    scr_message(scr_trans()->usb__disconnected, 2000);
 
     return scr_settings;
   }
@@ -1173,11 +1350,15 @@ static void* scr_usb() {
 
   // add title
   lv_obj_t* title = lv_label_create(lv_scr_act());
-  lv_label_set_text(title, "USB-Modus Aktiv");
+  lv_label_set_text(title, scr_trans()->usb__active);
   lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
 
   // add signs
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
   lvx_sign_create(&back, lv_scr_act());
 
   // end draw
@@ -1204,13 +1385,21 @@ static void* scr_reset() {
 
   // add text
   lv_obj_t* text = lv_label_create(lv_scr_act());
-  lv_label_set_text(text, "Air Lab\nwirklich zurücksetzen?");
+  lv_label_set_text(text, scr_trans()->reset__confirm);
   lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 25);
   lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
 
   // add signs
-  lvx_sign_t next = {.title = "A", .text = "Ja", .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t back = {.title = "B", .text = "Nein", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t next = {
+      .title = "A",
+      .text = scr_trans()->reset__yes,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->reset__no,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
   lvx_sign_create(&next, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
@@ -1237,7 +1426,7 @@ static void* scr_reset() {
   rtc_set((rtc_state_t){});
 
   // show message
-  scr_message("Air Lab\nerfolgreich zurückgesetzt!", 2000);
+  scr_message(scr_trans()->reset__reset, 2000);
 
   // reset system
   esp_restart();
@@ -1254,7 +1443,7 @@ static void* scr_settings() {
 
   // add title
   lv_obj_t* title = lv_label_create(lv_scr_act());
-  lv_label_set_text(title, "Einstellungen");
+  lv_label_set_text(title, scr_trans()->settings__title);
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 5, 5);
 
   // add info
@@ -1264,15 +1453,38 @@ static void* scr_settings() {
 
   // add storage
   lv_obj_t* storage = lv_label_create(lv_scr_act());
-  lv_label_set_text(storage, scr_fmt("Speicher: %.1f%% belegt", info.usage * 100.f));
+  lv_label_set_text(storage, scr_fmt(scr_trans()->settings__storage, info.usage * 100.f));
   lv_obj_align(storage, LV_ALIGN_TOP_LEFT, 5, 26);
 
   // add signs
-  lvx_sign_t datetime = {.title = "↑", .text = "Uhr + Datum", .align = LV_ALIGN_BOTTOM_LEFT, .offset = -25};
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
-  lvx_sign_t usb = {.title = "↓", .text = "USB", .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -50};
-  lvx_sign_t off = {.title = ">", .text = "Ausschalten", .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -25};
-  lvx_sign_t reset = {.title = "<", .text = "Zurücksetzen", .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t datetime = {
+      .title = "↑",
+      .text = scr_trans()->settings__date_time,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+      .offset = -25,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_t usb = {
+      .title = "↓",
+      .text = scr_trans()->settings__usb,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+      .offset = -50,
+  };
+  lvx_sign_t off = {
+      .title = ">",
+      .text = scr_trans()->settings__off,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+      .offset = -25,
+  };
+  lvx_sign_t reset = {
+      .title = "<",
+      .text = scr_trans()->settings__reset,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
   lvx_sign_create(&datetime, lv_scr_act());
   lvx_sign_create(&reset, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
@@ -1415,7 +1627,7 @@ static void* scr_menu() {
     // update bar
     bar.time = scr_fmt("%02d:%02d", hour, minute);
     if (!sensor.ok) {
-      bar.value = "Keine Daten";
+      bar.value = scr_trans()->menu__no_data;
     } else if (mode == 0) {
       bar.value = scr_fmt("%.0f ppm CO2", sensor.co2);
     } else if (mode == 1) {
@@ -1615,7 +1827,7 @@ static void* scr_menu() {
 
 static void* scr_time() {
   // show message
-  scr_message("Und wie spät ist es gerade?", 3000);
+  scr_message(scr_trans()->time__message, 3000);
 
   // begin draw
   gfx_begin(false, false);
@@ -1642,8 +1854,16 @@ static void* scr_time() {
   lvx_wheel_create(&minute, row);
 
   // add button
-  lvx_sign_t back = {.title = "B", .text = "Zurück", .align = LV_ALIGN_BOTTOM_LEFT};
-  lvx_sign_t next = {.title = "A", .text = "Weiter", .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_t next = {
+      .title = "A",
+      .text = scr_trans()->next,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
   lvx_sign_create(&back, lv_scr_act());
   lvx_sign_create(&next, lv_scr_act());
 
@@ -1680,7 +1900,7 @@ static void* scr_time() {
     rtc_set(rtc);
 
     // show message
-    scr_message("Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen.", 5000);
+    scr_message(scr_trans()->time__continue, 5000);
 
     // section action
     scr_action = STM_FROM_INTRO;
@@ -1691,7 +1911,7 @@ static void* scr_time() {
 
 static void* scr_date() {
   // show message
-  scr_message("Ich habe zieeemlich\nlang geschlafen!\nWelcher Tag ist heute?", 5000);
+  scr_message(scr_trans()->date__message, 5000);
 
   // begin draw
   gfx_begin(false, false);
@@ -1719,8 +1939,16 @@ static void* scr_date() {
   lvx_wheel_create(&year, row);
 
   // add button
-  lvx_sign_t next = {.title = "A", .text = "Weiter", .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t off = {.title = "B", .text = "Abbrechen", .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t next = {
+      .title = "A",
+      .text = scr_trans()->next,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t off = {
+      .title = "B",
+      .text = scr_trans()->cancel,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
   lvx_sign_create(&next, lv_scr_act());
   lvx_sign_create(&off, lv_scr_act());
 
@@ -1781,7 +2009,7 @@ static void* scr_intro() {
   lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
   lv_obj_set_style_text_line_space(lbl, 6, LV_PART_MAIN);
   lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  lv_label_set_text(lbl, "Hi! Ich bin Robin,\nProfessor für Luftwiss-\nenschaften im Air Lab.");
+  lv_label_set_text(lbl, scr_trans()->intro_message);
   gfx_end(false);
 
   // wait a bit
