@@ -1,5 +1,5 @@
 {
-  "version": "da973c24c71294f0ff72f018f5166a217d9e7175",
+  "version": "v0.13.0",
   "target": "esp32s3",
   "overrides": {
     "CONFIG_ESPTOOLPY_FLASHSIZE_4MB": null,
@@ -26,17 +26,13 @@
     "CONFIG_LV_LOG_LEVEL": "1"
   },
   "components": {
-    "esp_tinyusb": {
-      "registry": "espressif/esp_tinyusb",
-      "version": "1.4.4"
-    },
     "lvgl": {
       "repository": "https://github.com/lvgl/lvgl.git",
       "version": "v8.4.0"
     },
     "art32": {
       "repository": "https://github.com/256dpi/art32.git",
-      "version": "916c44aade591b7ed5fbae694cc98a2cb6433be3"
+      "version": "origin/master"
     }
   }
 }
