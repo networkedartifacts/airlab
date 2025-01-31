@@ -81,7 +81,7 @@ static void scr_cleanup(bool refresh) {
   gfx_end(false);
 }
 
-static void scr_message(const char* text, uint32_t timeout) {
+static void scr_write(const char* text) {
   // show message
   gfx_begin(false, false);
   lv_obj_t* lbl = lv_label_create(lv_scr_act());
@@ -90,6 +90,11 @@ static void scr_message(const char* text, uint32_t timeout) {
   lv_obj_set_style_text_line_space(lbl, 6, LV_PART_MAIN);
   lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   gfx_end(false);
+}
+
+static void scr_message(const char* text, uint32_t timeout) {
+  // show message
+  scr_write(text);
 
   // wait some time
   sig_await(SIG_KEYS | SIG_TIMEOUT, timeout);
@@ -1687,7 +1692,7 @@ static void* scr_settings() {
 static void* scr_develop() {
   // prepare labels
   const char* labels[] = {
-      "Light Sleep", "Deep Sleep", "Power Reset", "Power Off", NULL,
+      "Light Sleep", "Deep Sleep", "Power Reset", "Power Off", "Ship Mode", NULL,
   };
 
   // handle list
@@ -1730,6 +1735,19 @@ static void* scr_develop() {
     // handle power off
     if (ret == 3) {
       scr_power_off();
+    }
+
+    // handle ship mode
+    if (ret == 4) {
+      // show message
+      scr_write("Ship Mode\n\nConnect USB and\npress A to exit.");
+      naos_delay(1000);
+
+      // enable ship mode
+      pwr_ship();
+
+      // clean up in case ship mode did not work
+      scr_cleanup(false);
     }
   }
 }

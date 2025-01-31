@@ -22,4 +22,6 @@ void pwr_off();
 pwr_cause_t pwr_sleep(bool deep, uint64_t timeout);
 pwr_cause_t pwr_cause();
 
+void pwr_ship();
+
 #endif  // PWR_H

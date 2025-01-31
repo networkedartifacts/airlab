@@ -62,6 +62,12 @@ static void pwr_read(uint8_t reg, uint8_t *buf, size_t len) {
   ESP_ERROR_CHECK(i2c_master_write_read_device(I2C_NUM_0, PWR_ADDR, &reg, 1, buf, len, 1000));
 }
 
+static void pwr_write(uint8_t reg, uint8_t val) {
+  // write data
+  uint8_t data[2] = {reg, val};
+  ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_NUM_0, PWR_ADDR, data, 2, 1000));
+}
+
 void pwr_check() {
   // acquire mutex
   naos_lock(pwr_mutex);
@@ -206,4 +212,28 @@ pwr_cause_t pwr_cause() {
     default:
       return PWR_NONE;
   }
+}
+
+void pwr_ship() {
+  // read settings
+  uint8_t settings;
+  pwr_read(0x07, &settings, 1);
+
+  // set ship mode without delay
+  settings |= 0x20;
+  settings &= ~0x8;
+
+  // write settings
+  pwr_write(0x07, settings);
+
+  // delay
+  naos_delay(2000);
+
+  /* ship mode did not work */
+
+  // clear ship mode
+  settings &= ~0x20;
+
+  // write settings
+  pwr_write(0x07, settings);
 }
