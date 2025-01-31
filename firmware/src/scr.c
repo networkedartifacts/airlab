@@ -1679,7 +1679,7 @@ static void* scr_settings() {
 static void* scr_develop() {
   // prepare labels
   const char* labels[] = {
-      "Light Sleep", "Deep Sleep", "Power Reset", "Power Off", "Ship Mode", "Screen Saver", NULL,
+      "Light Sleep", "Deep Sleep", "Power Reset", "Power Off", "Ship Mode", "Screen Saver", "Clear Display", NULL,
   };
 
   // handle list
@@ -1746,6 +1746,12 @@ static void* scr_develop() {
       scr_saver_enter = sys_get_timestamp();
 
       return scr_saver;
+    }
+
+    // handle clear display
+    if (ret == 6) {
+      scr_cleanup(true);
+      naos_delay(7500);
     }
   }
 }
