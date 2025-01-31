@@ -672,9 +672,6 @@ void dat_enable_usb() {
 }
 
 void dat_disable_usb() {
-  // stop USB task
-  ESP_ERROR_CHECK(tusb_stop_task());
-
   // uninstall driver
   ESP_ERROR_CHECK(tinyusb_driver_uninstall());
 
