@@ -19,8 +19,6 @@
 #endif
 
 #include "dat.h"
-#include "sys.h"
-#include "tusb_tasks.h"
 
 #ifdef DAT_TEST
 #define DAT_ROOT "./fs"
@@ -45,7 +43,6 @@ static size_t dat_files_length = 0;
 // TODO: Handle file overflow.
 // TODO: Only reference files by their number an not index.
 // TODO: Explore need for high speed USB support.
-// TODO: Support USB reset with VBus detection.
 
 static tusb_desc_device_t dat_usb_dev_desc = {
     .bLength = sizeof(dat_usb_dev_desc),
