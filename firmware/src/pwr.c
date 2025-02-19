@@ -23,6 +23,29 @@ static esp_adc_cal_characteristics_t pwr_calib;
 static pwr_state_t pwr_state = {0};
 
 static struct {
+  // config
+  union {
+    struct {
+      uint8_t iindpm : 5;
+      uint8_t _omitted : 3;
+    };
+    uint8_t raw;
+  } reg0;
+  union {
+    struct {
+      uint8_t _omitted1 : 6;
+      uint8_t wdt_rst : 1;
+      uint8_t _omitted2 : 1;
+    };
+    uint8_t raw;
+  } reg1;
+  union {
+    struct {
+      uint8_t ichg : 6;
+      uint8_t _omitted : 2;
+    };
+  } reg2;
+  // status
   union {
     struct {
       uint8_t vsys_stat : 1;
@@ -81,6 +104,14 @@ void pwr_check() {
     naos_log("bat: inputs low=%d cc1=%dmV cc2=%dmV bat=%dmV", low, cc1, cc2, bat);
   }
 
+  // read config
+  pwr_read(0x00, &pwr_bq25601.reg0.raw, 3);
+  bool fast_charge = pwr_bq25601.reg0.iindpm > 0x4;  // 500mA
+  if (PWR_DEBUG) {
+    naos_log("pwr: config fast_charge=%d iindpm=%d ichg=%d", fast_charge, pwr_bq25601.reg0.iindpm,
+             pwr_bq25601.reg2.ichg);
+  }
+
   // read status
   pwr_read(0x08, &pwr_bq25601.reg8.raw, 3);
   bool charging = pwr_bq25601.reg8.chrg_stat != 0;
@@ -89,18 +120,31 @@ void pwr_check() {
   bool usb_pwr = pwr_bq25601.regA.vbus_gd == 1;
   if (PWR_DEBUG) {
     naos_log("pwr: status charging=%d power_good=%d any_fault=%d usb_pwr=%d", charging, power_good, any_fault, usb_pwr);
+    if (any_fault) {
+      naos_log("pwr: faults ntc=%d bat=%d chrg=%d boost=%d wd=%d", pwr_bq25601.reg9.ntc_fault,
+               pwr_bq25601.reg9.bat_fault, pwr_bq25601.reg9.chrg_fault, pwr_bq25601.reg9.boost_fault,
+               pwr_bq25601.reg9.wd_fault);
+    }
   }
 
   // set state
   pwr_state.battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f);
   pwr_state.usb = cc1 > 10 || cc2 > 10;
-  pwr_state.fast = cc1 > 350 || cc2 > 350;
+  pwr_state.fast = cc1 > 700 || cc2 > 700;  // 1.5A
   pwr_state.charging = charging;
   if (PWR_DEBUG) {
     naos_log("pwr: state battery=%f usb=%d fast=%d", pwr_state.battery, pwr_state.usb, pwr_state.fast);
   }
 
-  // TODO: Adjust charging current.
+  // update max current setting to 900mA
+  if (pwr_state.fast != fast_charge) {
+    pwr_bq25601.reg0.iindpm = pwr_state.fast ? 0x8 : 0x4;
+    pwr_write(0x00, pwr_bq25601.reg0.raw);
+  }
+
+  // reset watchdog
+  pwr_bq25601.reg1.wdt_rst = 1;
+  pwr_write(0x01, pwr_bq25601.reg1.raw);
 
   // release mutex
   naos_unlock(pwr_mutex);
@@ -124,8 +168,7 @@ void pwr_init() {
   ESP_ERROR_CHECK(gpio_config(&cfg));
 
   // verify access
-  uint8_t status;
-  pwr_read(0x08, &status, 1);
+  pwr_read(0x08, &pwr_bq25601.reg8.raw, 1);
 
   // configure ADC (4096 = ~2.45V)
   ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_12));
