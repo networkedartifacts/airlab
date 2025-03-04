@@ -5,6 +5,7 @@
 #include "gfx.h"
 #include "epd.h"
 #include "fnt.h"
+#include "sig.h"
 
 #define GFX_WIDTH EPD_HEIGHT
 #define GFX_HEIGHT EPD_WIDTH
@@ -87,6 +88,13 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
 
   // signal done
   lv_disp_flush_ready(driver);
+
+  // dispatch refresh
+  if (gfx_refresh) {
+    sig_dispatch((sig_event_t){
+      .type = SIG_REFRESH,
+    });
+  }
 }
 
 #if GFX_TRACE

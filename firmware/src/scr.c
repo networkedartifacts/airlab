@@ -80,6 +80,11 @@ static void scr_cleanup(bool refresh) {
   lv_group_remove_all_objs(gfx_get_group());
   lv_obj_clean(lv_scr_act());
   gfx_end(false);
+
+  // await refresh
+  if (refresh) {
+    sig_await(SIG_REFRESH, 0);
+  }
 }
 
 static void scr_write(const char* text) {
@@ -250,7 +255,6 @@ static void scr_power_off() {
 
   // cleanup screen
   scr_cleanup(true);
-  naos_delay(7500);
 
   // clear returns
   scr_return_timeout = NULL;
@@ -258,7 +262,6 @@ static void scr_power_off() {
 
   // power off
   pwr_off();
-  naos_delay(5000);
 }
 
 /* Translations */
@@ -1746,7 +1749,6 @@ static void* scr_develop() {
     // handle clear display
     if (ret == 6) {
       scr_cleanup(true);
-      naos_delay(7500);
     }
 
     // handle bubbles test
