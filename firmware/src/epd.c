@@ -186,18 +186,13 @@ static void epd_write_word(uint8_t cmd, uint8_t n, uint8_t w1, uint8_t w2, uint8
   epd_write_buffer(cmd, n, buf);
 }
 
-static void epd_wait(uint16_t delay) {
+static void epd_wait(const char *task) {
   if (EPD_DEBUG) {
-    naos_log("epd: wait...");
-  }
-
-  // delay a bit
-  if (delay > 0) {
-    naos_delay(delay);
+    naos_log("epd: waiting for '%s'...", task);
   }
 
   // wait while busy
-  uint32_t start = naos_millis();
+  int64_t start = naos_millis();
   while (gpio_get_level(EPD_BSY) > 0) {
     if (start + 15000 < naos_millis()) {
       ESP_ERROR_CHECK(ESP_FAIL);
@@ -207,7 +202,7 @@ static void epd_wait(uint16_t delay) {
   }
 
   if (EPD_DEBUG) {
-    naos_log("epd: done!");
+    naos_log("epd: wait for '%s' took %lldms", task, naos_millis() - start);
   }
 }
 
@@ -226,7 +221,7 @@ static void epd_reset() {
 
   // perform software reset
   epd_write_word(0x12, 0, 0, 0, 0, 0);
-  epd_wait(0);  // ~2ms
+  epd_wait("reset");  // ~2ms
 
   // set driver output control
   epd_write_word(0x01, 3, 0x27, 0x01, 0x00, 0);
@@ -257,7 +252,7 @@ static void epd_prepare(bool partial) {
   } else {
     epd_write_buffer(0x32, 153, partial ? epd_lut_partial : epd_lut_full);
   }
-  epd_wait(0);  // ~1ms
+  epd_wait("load-lut");  // ~1ms
 }
 
 static void epd_set_area(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
@@ -296,7 +291,7 @@ static void epd_display_full(uint8_t *data) {
 
   // perform display update sequence
   epd_write_word(0x20, 0, 0, 0, 0, 0);
-  epd_wait(3260);  // ~3265ms
+  epd_wait("full-update");  // ~2058ms
 }
 
 static void epd_display_partial(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
@@ -317,7 +312,7 @@ static void epd_display_partial(uint8_t *data, uint16_t x1, uint16_t y1, uint16_
 
   // perform display update sequence
   epd_write_word(0x20, 0, 0, 0, 0, 0);
-  epd_wait(590);  // ~594ms
+  epd_wait("partial-update");  // ~507ms
 
   // write memory area 1
   epd_set_area(x1, y1, x2, y2);
