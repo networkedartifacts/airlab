@@ -1,5 +1,5 @@
 {
-  "version": "v0.13.0",
+  "version": "v0.13.1",
   "target": "esp32s3",
   "overrides": {
     "CONFIG_ESPTOOLPY_FLASHSIZE_4MB": null,
