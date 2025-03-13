@@ -25,7 +25,6 @@ static void setup() {
   al_init();
 
   // initialize
-  dev_init();
   sig_init();
   pwr_init();
   btn_init();

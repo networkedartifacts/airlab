@@ -1,10 +1,12 @@
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <driver/i2c.h>
+#include <esp_sleep.h>
 
 #include "buzzer.h"
 #include "led.h"
 #include "accel.h"
+#include "buttons.h"
 
 void al_init() {
   // install interrupt service
@@ -36,4 +38,10 @@ void al_init() {
   al_buzzer_init();
   al_led_init();
   al_accel_init();
+  al_buttons_init();
+
+  // configure wakeup source
+  uint64_t pin_mask = BIT64(AL_BUTTONS_A) | BIT64(AL_BUTTONS_B) | BIT64(AL_BUTTONS_C) | BIT64(AL_BUTTONS_D) | BIT64(AL_BUTTONS_E) |
+                      BIT64(AL_BUTTONS_F) | BIT64(AL_ACCEL_INT);
+  ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(pin_mask, ESP_EXT1_WAKEUP_ANY_LOW));
 }

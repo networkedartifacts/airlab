@@ -10,11 +10,14 @@ set(CMAKE_C_STANDARD 99)
 # add your source files
 set(SOURCE_FILES
         lib/al/accel.h
+        lib/al/buttons.h
         lib/al/buzzer.h
         lib/al/core.h
         lib/al/led.h
         lib/accel.c
         lib/accel.h
+        lib/buttons.c
+        lib/buttons.h
         lib/buzzer.c
         lib/buzzer.h
         lib/core.c
@@ -26,7 +29,6 @@ set(SOURCE_FILES
         src/cap.h
         src/dat.c
         src/dat.h
-        src/dev.c
         src/dev.h
         src/epd.c
         src/epd.h
