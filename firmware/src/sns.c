@@ -8,6 +8,7 @@
 
 #define SNS_SCD 0x62
 #define SNS_SGP 0x59
+#define SNS_LPS 0x5C
 #define SNS_DEBUG false
 
 // TODO: Support low power measurement mode (30s).
@@ -103,6 +104,18 @@ static void sns_receive(uint8_t target, size_t receive) {
   }
 }
 
+static uint8_t sns_read_lps(uint8_t reg) {
+  uint8_t res = 0;
+  ESP_ERROR_CHECK(i2c_master_write_read_device(I2C_NUM_0, SNS_LPS, &reg, 1, &res, 1, 1000));
+
+  return res;
+}
+
+static void sns_write_lps(uint8_t reg, uint8_t val) {
+  uint8_t data[2] = {reg, val};
+  ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_NUM_0, SNS_LPS, data, 2, 1000));
+}
+
 static void sns_check() {
   for (;;) {
     // wait a second
@@ -158,6 +171,12 @@ static void sns_check() {
       naos_log("sns: SGP values: voc=%d nox=%d", voc_index, nox_index);
     }
 
+    // read LPS pressure
+    float pressure = (sns_read_lps(0x28) | (sns_read_lps(0x29) << 8) | (sns_read_lps(0x2a) << 16)) / 4096.f;
+    if (SNS_DEBUG) {
+      naos_log("sns: LPS pressure: %.2f hPa", pressure);
+    }
+
     // advanced
     sns_pos++;
     if (sns_pos >= SNS_HIST) {
@@ -201,10 +220,10 @@ void sns_init() {
     naos_delay(1100 - ms);
   }
 
-  // wake up
+  // wake up SCD
   sns_transfer(SNS_SCD, 0x36f6, 0, 0, true);
 
-  // stop periodic measurement
+  // stop SDC periodic measurement
   sns_transfer(SNS_SCD, 0x3f86, 0, 0, true);
   naos_delay(500);
 
@@ -214,14 +233,19 @@ void sns_init() {
     naos_log("sns: SCD serial %lu %lu %lu", sns_read[0], sns_read[1], sns_read[2]);
     sns_transfer(SNS_SGP, 0x3682, 0, 3, false);
     naos_log("sns: SGP serial %lu %lu %lu", sns_read[0], sns_read[1], sns_read[2]);
+    uint8_t lps = sns_read_lps(0x0F);
+    naos_log("sns: LPS serial %u", lps);
   }
 
   // initialize gas index parameters
   GasIndexAlgorithm_init_with_sampling_interval(&sns_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
   GasIndexAlgorithm_init_with_sampling_interval(&sns_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
 
-  // start periodic measurement
+  // start SCD periodic measurement
   sns_transfer(SNS_SCD, 0x21b1, 0, 0, false);
+
+  // start LPS periodic measurement (10Hz, LPF on)
+  sns_write_lps(0x10, 0x28);
 
   // condition SGP sensor
   // sns_write[0] = 0x8000;

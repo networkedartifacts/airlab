@@ -28,8 +28,8 @@ void dev_init() {
   // configure I2C driver
   i2c_config_t i2c = {
       .mode = I2C_MODE_MASTER,
-      .sda_io_num = GPIO_NUM_2,
-      .scl_io_num = GPIO_NUM_1,
+      .sda_io_num = GPIO_NUM_1,
+      .scl_io_num = GPIO_NUM_2,
       .master.clk_speed = 100 * 1000,
   };
   ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c));
