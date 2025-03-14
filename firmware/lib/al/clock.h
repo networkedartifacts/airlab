@@ -1,5 +1,5 @@
-#ifndef RTC_H
-#define RTC_H
+#ifndef AL_CLOCK_H
+#define AL_CLOCK_H
 
 typedef struct {
   uint8_t hours;   /* 0-23 */
@@ -9,9 +9,9 @@ typedef struct {
   uint8_t day;     /* 1-31 */
   uint8_t month;   /* 1-12 */
   uint16_t year;   /* 2000-2099 */
-} rtc_state_t;
+} al_clock_state_t;
 
-rtc_state_t rtc_get();
-void rtc_set(rtc_state_t state);
+al_clock_state_t al_clock_get();
+void al_clock_set(al_clock_state_t state);
 
-#endif  // RTC_H
+#endif  // AL_CLOCK_H

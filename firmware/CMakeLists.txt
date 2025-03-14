@@ -12,6 +12,7 @@ set(SOURCE_FILES
         lib/al/accel.h
         lib/al/buttons.h
         lib/al/buzzer.h
+        lib/al/clock.h
         lib/al/core.h
         lib/al/epd.h
         lib/al/led.h
@@ -19,6 +20,7 @@ set(SOURCE_FILES
         lib/accel.c
         lib/buttons.c
         lib/buzzer.c
+        lib/clock.c
         lib/core.c
         lib/internal.h
         lib/epd.c
@@ -42,8 +44,6 @@ set(SOURCE_FILES
         src/main.c
         src/rec.c
         src/rec.h
-        src/rtc.c
-        src/rtc.h
         src/scr.c
         src/scr.h
         src/sig.c

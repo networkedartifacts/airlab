@@ -10,6 +10,7 @@
 #include <al/accel.h>
 #include <al/led.h>
 #include <al/power.h>
+#include <al/clock.h>
 
 #include "gfx.h"
 #include "sig.h"
@@ -21,7 +22,6 @@
 #include "rec.h"
 #include "dev.h"
 #include "stm.h"
-#include "rtc.h"
 #include "cap.h"
 
 #define SCR_ACTION_TIMEOUT 10000
@@ -1579,7 +1579,7 @@ static void* scr_reset() {
   dat_reset();
 
   // reset date & time
-  rtc_set((rtc_state_t){});
+  al_clock_set((al_clock_state_t){});
 
   // show message
   scr_message(scr_trans()->reset__reset, 2000);
@@ -2149,10 +2149,10 @@ static void* scr_time() {
     sys_set_time(hour.value, minute.value, 0);
 
     // sync RTC
-    rtc_state_t rtc = rtc_get();
+    al_clock_state_t rtc = al_clock_get();
     rtc.hours = hour.value;
     rtc.minutes = minute.value;
-    rtc_set(rtc);
+    al_clock_set(rtc);
 
     // show message
     scr_message(scr_trans()->time__continue, 5000);
@@ -2234,10 +2234,10 @@ static void* scr_date() {
     sys_set_date(year.value, month.value, day.value);
 
     // sync RTC
-    rtc_state_t rtc = rtc_get();
+    al_clock_state_t rtc = al_clock_get();
     rtc.year = year.value;
     rtc.month = month.value;
-    rtc_set(rtc);
+    al_clock_set(rtc);
 
     return scr_time;
   }

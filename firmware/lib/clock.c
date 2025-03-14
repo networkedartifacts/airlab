@@ -1,0 +1,163 @@
+#include <naos.h>
+#include <driver/i2c.h>
+
+#include <al/clock.h>
+
+#define AL_CLOCK_ADDR 0x68
+#define AL_CLOCK_DEBUG false
+
+static struct {
+  union {
+    struct {
+      uint8_t seconds : 4;
+      uint8_t ten_seconds : 3;
+      uint8_t _stop : 1;
+    };
+    uint8_t r0;
+  };
+  union {
+    struct {
+      uint8_t minutes : 4;
+      uint8_t ten_minutes : 3;
+      uint8_t _osc_fail : 1;
+    };
+    uint8_t r1;
+  };
+  union {
+    struct {
+      uint8_t hours : 4;
+      uint8_t ten_hours : 2;
+      uint8_t century : 1;
+      uint8_t _cent_en : 1;
+    };
+    uint8_t r2;
+  };
+  union {
+    struct {
+      uint8_t weekday : 3;
+      uint8_t _reserved1 : 5;
+    };
+    uint8_t r3;
+  };
+  union {
+    struct {
+      uint8_t days : 4;
+      uint8_t ten_days : 2;
+      uint8_t _reserved2 : 2;
+    };
+    uint8_t r4;
+  };
+  union {
+    struct {
+      uint8_t months : 4;
+      uint8_t ten_months : 1;
+      uint8_t _reserved3 : 3;
+    };
+    uint8_t r5;
+  };
+  union {
+    struct {
+      uint8_t years : 4;
+      uint8_t ten_years : 4;
+    };
+    uint8_t r6;
+  };
+} al_clock_bq32000;
+
+static void al_clock_read(uint8_t reg, uint8_t *buf, size_t read) {
+  // write and read device
+  ESP_ERROR_CHECK(i2c_master_write_read_device(I2C_NUM_0, AL_CLOCK_ADDR, &reg, 1, buf, read, 1000));
+}
+
+static void al_clock_write(uint8_t reg, uint8_t val) {
+  // write device
+  uint8_t data[2] = {reg, val};
+  ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_NUM_0, AL_CLOCK_ADDR, data, 2, 1000));
+}
+
+al_clock_state_t al_clock_get() {
+  // read RTC fully
+  al_clock_read(0x00, (uint8_t *)&al_clock_bq32000, sizeof(al_clock_bq32000));
+
+  // convert BCD to DEC
+  uint8_t seconds = al_clock_bq32000.seconds + (al_clock_bq32000.ten_seconds * 10);
+  uint8_t minutes = al_clock_bq32000.minutes + (al_clock_bq32000.ten_minutes * 10);
+  uint8_t hours = al_clock_bq32000.hours + (al_clock_bq32000.ten_hours * 10);
+  uint8_t weekday = al_clock_bq32000.weekday;
+  uint8_t date = al_clock_bq32000.days + (al_clock_bq32000.ten_days * 10);
+  uint8_t month = al_clock_bq32000.months + (al_clock_bq32000.ten_months * 10);
+  uint8_t year = al_clock_bq32000.years + (al_clock_bq32000.ten_years * 10);
+
+  // handle overflow
+  if (seconds >= 60) {
+    seconds = 30;
+  }
+  if (minutes >= 60) {
+    minutes = 30;
+  }
+  if (hours >= 24) {
+    hours = 12;
+  }
+  if (weekday >= 7) {
+    weekday = 3;
+  }
+  if (date >= 32) {
+    date = 15;
+  }
+  if (month >= 13) {
+    month = 6;
+  }
+  if (year >= 100) {
+    year = 24;
+  }
+
+  // log RTC state
+  if (AL_CLOCK_DEBUG) {
+    naos_log("rtc: get %02d:%02d:%02d %02d/%02d/%02d", hours, minutes, seconds, date, month, year);
+  }
+
+  return (al_clock_state_t){
+      .hours = hours,
+      .minutes = minutes,
+      .seconds = seconds,
+      .weekday = weekday,
+      .day = date,
+      .month = month,
+      .year = 2000 + year,
+  };
+}
+
+void al_clock_set(al_clock_state_t state) {
+  // trim years
+  state.year = state.year % 100;
+
+  // log RTC state
+  if (AL_CLOCK_DEBUG) {
+    naos_log("rtc: set %02d:%02d:%02d %02d/%02d/%02d", state.hours, state.minutes, state.seconds, state.day,
+             state.month, state.year);
+  }
+
+  // convert DEC to BCD
+  al_clock_bq32000.seconds = state.seconds % 10;
+  al_clock_bq32000.ten_seconds = state.seconds / 10;
+  al_clock_bq32000.minutes = state.minutes % 10;
+  al_clock_bq32000.ten_minutes = state.minutes / 10;
+  al_clock_bq32000.hours = state.hours % 10;
+  al_clock_bq32000.ten_hours = state.hours / 10;
+  al_clock_bq32000.weekday = state.weekday;
+  al_clock_bq32000.days = state.day % 10;
+  al_clock_bq32000.ten_days = state.day / 10;
+  al_clock_bq32000.months = state.month % 10;
+  al_clock_bq32000.ten_months = state.month / 10;
+  al_clock_bq32000.years = state.year % 10;
+  al_clock_bq32000.ten_years = state.year / 10;
+
+  // write RTC fully
+  al_clock_write(0x00, al_clock_bq32000.r0);
+  al_clock_write(0x01, al_clock_bq32000.r1);
+  al_clock_write(0x02, al_clock_bq32000.r2);
+  al_clock_write(0x03, al_clock_bq32000.r3);
+  al_clock_write(0x04, al_clock_bq32000.r4);
+  al_clock_write(0x05, al_clock_bq32000.r5);
+  al_clock_write(0x06, al_clock_bq32000.r6);
+}
