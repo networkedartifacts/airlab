@@ -704,17 +704,11 @@ static void* scr_saver() {
       // turn off sensor
       al_sensor_set(false);
 
-      // sleep peripherals
-      al_touch_sleep();
-
       // perform deep sleep
       al_sleep(true, 60 * 1000);
 
       // no return
     }
-
-    // sleep peripherals
-    al_touch_sleep();
 
     // otherwise, light sleep for 5s-30s (0-5min) if recording
     int64_t timeout = a32_safe_map_l(duration, 0, 300000, 5000, 30000);
@@ -725,9 +719,6 @@ static void* scr_saver() {
     if (trigger == AL_UNLOCK) {
       sig_await(SIG_ENTER, 1000);
     }
-
-    // wake peripherals
-    al_touch_wake();
 
     // handle unlock
     if (trigger == AL_UNLOCK) {

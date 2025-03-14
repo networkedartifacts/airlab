@@ -50,6 +50,9 @@ void al_init() {
 }
 
 void al_sleep(bool deep, uint64_t timeout) {
+  // sleep peripherals
+  al_touch_sleep();
+
   // enable deep sleep hold
   gpio_deep_sleep_hold_en();
 
@@ -69,6 +72,9 @@ void al_sleep(bool deep, uint64_t timeout) {
 
   // disable deep sleep hold
   gpio_deep_sleep_hold_dis();
+
+  // wake peripherals
+  al_touch_wake();
 }
 
 al_trigger_t al_trigger() {

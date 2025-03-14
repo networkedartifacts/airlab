@@ -13,8 +13,4 @@ typedef void (*al_touch_hook_t)(al_touch_event_t);
 
 void al_touch_config(al_touch_hook_t hook);
 
-void al_touch_sleep();
-
-void al_touch_wake();
-
 #endif  // AL_TOUCH_H

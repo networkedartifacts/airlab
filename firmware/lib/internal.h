@@ -25,5 +25,7 @@ void al_power_init();
 void al_sensor_init();
 
 void al_touch_init();
+void al_touch_sleep();
+void al_touch_wake();
 
 #endif // AL_INTERNAL_H
