@@ -9,7 +9,6 @@
 #include "cap.h"
 #include "pwr.h"
 #include "btn.h"
-#include "epd.h"
 #include "gfx.h"
 #include "sns.h"
 #include "dat.h"
@@ -29,7 +28,6 @@ static void setup() {
   pwr_init();
   btn_init();
   cap_init();
-  epd_init();
   gfx_init();
   sns_init();
   dat_init();

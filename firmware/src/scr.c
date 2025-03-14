@@ -7,8 +7,9 @@
 #include <utime.h>
 #include <time.h>
 
-#include <al/led.h>
 #include <al/accel.h>
+#include <al/epd.h>
+#include <al/led.h>
 
 #include "gfx.h"
 #include "sig.h"
@@ -19,7 +20,6 @@
 #include "lvx.h"
 #include "sys.h"
 #include "rec.h"
-#include "epd.h"
 #include "dev.h"
 #include "stm.h"
 #include "rtc.h"
@@ -705,7 +705,7 @@ static void* scr_saver() {
       sns_set(false);
 
       // sleep peripherals
-      epd_sleep();
+      al_epd_sleep();
       cap_sleep();
 
       // perform deep sleep
@@ -715,7 +715,7 @@ static void* scr_saver() {
     }
 
     // sleep peripherals
-    epd_sleep();
+    al_epd_sleep();
     cap_sleep();
 
     // otherwise, light sleep for 5s-30s (0-5min) if recording
@@ -1703,7 +1703,7 @@ static void* scr_develop() {
       sns_set(false);
 
       // sleep display
-      epd_sleep();
+      al_epd_sleep();
 
       // set return
       scr_return_unlock = scr_develop;

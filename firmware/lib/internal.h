@@ -16,6 +16,8 @@ void al_buttons_init();
 
 void al_buzzer_init();
 
+void al_epd_init();
+
 void al_led_init();
 
 #endif // AL_INTERNAL_H

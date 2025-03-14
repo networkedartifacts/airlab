@@ -4,23 +4,21 @@
 #include <driver/spi_master.h>
 #include <memory.h>
 
-#include "epd.h"
-#include "dev.h"
-#include "dat.h"
+#include <al/epd.h>
 
-#define EPD_4W false
-#define EPD_DC GPIO_NUM_46
-#define EPD_RST GPIO_NUM_41
-#define EPD_BSY GPIO_NUM_40
-#define EPD_SEL GPIO_NUM_42
-#define EPD_DEBUG false
-#define EPD_OTP_LUT true
-#define EPD_BUFFER (EPD_FRAME / 8 * 9 + 2)
-#define EPD_SLEEP 5000
+#define AL_EPD_4W false
+#define AL_EPD_DC GPIO_NUM_46
+#define AL_EPD_RST GPIO_NUM_41
+#define AL_EPD_BSY GPIO_NUM_40
+#define AL_EPD_SEL GPIO_NUM_42
+#define AL_EPD_DEBUG false
+#define AL_EPD_OTP_LUT true
+#define AL_EPD_BUFFER (AL_EPD_FRAME / 8 * 9 + 2)
+#define AL_EPD_SLEEP 5000
 
 // See: https://github.com/ZinggJM/GxEPD2/blob/master/src/epd/GxEPD2_290_T94_V2.cpp.
 
-static const uint8_t epd_lut_partial[153] = {
+static const uint8_t al_epd_lut_partial[153] = {
     0x0,  0x40, 0x0, 0x0, 0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0, 0x0, 0x80, 0x80, 0x0, 0x0, 0x0, 0x0,  0x0, 0x0,
     0x0,  0x0,  0x0, 0x0, 0x40, 0x40, 0x0,  0x0,  0x0,  0x0,  0x0, 0x0, 0x0,  0x0,  0x0, 0x0, 0x0, 0x80, 0x0, 0x0,
     0x0,  0x0,  0x0, 0x0, 0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0, 0x0, 0x0,  0x0,  0x0, 0x0, 0x0, 0x0,  0x0, 0x0,
@@ -31,7 +29,7 @@ static const uint8_t epd_lut_partial[153] = {
     0x0,  0x0,  0x0, 0x0, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x0, 0x0, 0x0,
 };
 
-static const uint8_t epd_lut_full[153] = {
+static const uint8_t al_epd_lut_full[153] = {
     0x80, 0x66, 0x0, 0x0, 0x0,  0x0,  0x0,  0x0,  0x40, 0x0,  0x0, 0x0, 0x10, 0x66, 0x0, 0x0, 0x0,  0x0,  0x0, 0x0,
     0x20, 0x0,  0x0, 0x0, 0x80, 0x66, 0x0,  0x0,  0x0,  0x0,  0x0, 0x0, 0x40, 0x0,  0x0, 0x0, 0x10, 0x66, 0x0, 0x0,
     0x0,  0x0,  0x0, 0x0, 0x20, 0x0,  0x0,  0x0,  0x0,  0x0,  0x0, 0x0, 0x0,  0x0,  0x0, 0x0, 0x0,  0x0,  0x0, 0x0,
@@ -41,15 +39,15 @@ static const uint8_t epd_lut_full[153] = {
     0x0,  0x0,  0x1, 0x0, 0x0,  0x0,  0x0,  0x0,  0x0,  0x1,  0x0, 0x0, 0x0,  0x0,  0x0, 0x0, 0x0,  0x0,  0x0, 0x0,
     0x0,  0x0,  0x0, 0x0, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x0, 0x0, 0x0};
 
-static naos_mutex_t epd_mutex;
-static spi_device_handle_t epd_device;
-static bool epd_awake = false;
-static uint32_t epd_updated = 0;
-static uint8_t *epd_buffer = NULL;
+static naos_mutex_t al_epd_mutex;
+static spi_device_handle_t al_epd_device;
+static bool al_epd_awake = false;
+static uint32_t al_epd_updated = 0;
+static uint8_t *al_epd_buffer = NULL;
 
 /* SPI helper */
 
-void epd_transfer(spi_device_handle_t device, uint8_t *buf, size_t sizeBits) {
+void al_epd_transfer(spi_device_handle_t device, uint8_t *buf, size_t sizeBits) {
   // fail with one bit
   if (sizeBits == 1) {
     ESP_ERROR_CHECK(ESP_FAIL);
@@ -93,7 +91,7 @@ void epd_transfer(spi_device_handle_t device, uint8_t *buf, size_t sizeBits) {
 
 /* bitmap manipulation */
 
-static void epd_bmp_set(uint8_t *buf, size_t pos, bool val) {
+static void al_epd_bmp_set(uint8_t *buf, size_t pos, bool val) {
   // determine byte and bit
   size_t byte = pos / 8;
   size_t bit = 7 - pos % 8;  // from left
@@ -106,7 +104,7 @@ static void epd_bmp_set(uint8_t *buf, size_t pos, bool val) {
   }
 }
 
-static bool epd_bmp_get(const uint8_t *buf, size_t pos) {
+static bool al_epd_bmp_get(const uint8_t *buf, size_t pos) {
   // get bit
   size_t byte = pos / 8;
   size_t bit = 7 - pos % 8;  // from left
@@ -114,15 +112,15 @@ static bool epd_bmp_get(const uint8_t *buf, size_t pos) {
   return buf[byte] & (1 << bit);
 }
 
-static void epd_bmp_write(uint8_t *buf, size_t pos, uint8_t byte) {
+static void al_epd_bmp_write(uint8_t *buf, size_t pos, uint8_t byte) {
   // write byte bit by bit
   for (size_t i = 0; i < 8; i++) {
-    bool bit = epd_bmp_get(&byte, i);
-    epd_bmp_set(buf, pos + i, bit);
+    bool bit = al_epd_bmp_get(&byte, i);
+    al_epd_bmp_set(buf, pos + i, bit);
   }
 }
 
-static void epd_bmp_print(const uint8_t *data, size_t length) {
+static void al_epd_bmp_print(const uint8_t *data, size_t length) {
   // print buffer bits MSB first
   printf("[ ");
   for (size_t i = 0; i < length; i++) {
@@ -136,64 +134,64 @@ static void epd_bmp_print(const uint8_t *data, size_t length) {
 
 /* low-level helpers */
 
-static void epd_write_buffer(uint8_t cmd, size_t len, const uint8_t *buf) {
+static void al_epd_write_buffer(uint8_t cmd, size_t len, const uint8_t *buf) {
   // log commands
-  if (EPD_DEBUG) {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: write cmd=0x%x len=%ld", cmd, len);
   }
 
   // check length
-  if ((1 + len) * (EPD_4W ? 8 : 9) > EPD_BUFFER * 8) {
+  if ((1 + len) * (AL_EPD_4W ? 8 : 9) > AL_EPD_BUFFER * 8) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
   // prepare command
-  if (EPD_4W) {
-    epd_buffer[0] = cmd;
+  if (AL_EPD_4W) {
+    al_epd_buffer[0] = cmd;
     for (size_t i = 0; i < len; i++) {
-      epd_buffer[i + 1] = buf[i];
+      al_epd_buffer[i + 1] = buf[i];
     }
   } else {
-    epd_bmp_set(epd_buffer, 0, 0);
-    epd_bmp_write(epd_buffer, 1, cmd);
+    al_epd_bmp_set(al_epd_buffer, 0, 0);
+    al_epd_bmp_write(al_epd_buffer, 1, cmd);
     for (size_t i = 0; i < len; i++) {
-      epd_bmp_set(epd_buffer, (i + 1) * 9, 1);
-      epd_bmp_write(epd_buffer, (i + 1) * 9 + 1, buf[i]);
+      al_epd_bmp_set(al_epd_buffer, (i + 1) * 9, 1);
+      al_epd_bmp_write(al_epd_buffer, (i + 1) * 9 + 1, buf[i]);
     }
   }
 
   // run transactions
-  if (EPD_4W) {
-    ESP_ERROR_CHECK(gpio_set_level(EPD_DC, 0));
+  if (AL_EPD_4W) {
+    ESP_ERROR_CHECK(gpio_set_level(AL_EPD_DC, 0));
     for (size_t i = 0; i < (1 + len); i++) {
       spi_transaction_t tx = {
           .length = 8,
-          .tx_buffer = epd_buffer + i,
+          .tx_buffer = al_epd_buffer + i,
       };
-      ESP_ERROR_CHECK(spi_device_transmit(epd_device, &tx));
+      ESP_ERROR_CHECK(spi_device_transmit(al_epd_device, &tx));
       if (i == 0) {
-        ESP_ERROR_CHECK(gpio_set_level(EPD_DC, 1));
+        ESP_ERROR_CHECK(gpio_set_level(AL_EPD_DC, 1));
       }
     }
   } else {
-    epd_transfer(epd_device, epd_buffer, (1 + len) * 9);
+    al_epd_transfer(al_epd_device, al_epd_buffer, (1 + len) * 9);
   }
 }
 
-static void epd_write_word(uint8_t cmd, uint8_t n, uint8_t w1, uint8_t w2, uint8_t w3, uint8_t w4) {
+static void al_epd_write_word(uint8_t cmd, uint8_t n, uint8_t w1, uint8_t w2, uint8_t w3, uint8_t w4) {
   // write variable buffer of max. 4 bytes
   uint8_t buf[4] = {w1, w2, w3, w4};
-  epd_write_buffer(cmd, n, buf);
+  al_epd_write_buffer(cmd, n, buf);
 }
 
-static void epd_wait(const char *task) {
-  if (EPD_DEBUG) {
+static void al_epd_wait(const char *task) {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: waiting for '%s'...", task);
   }
 
   // wait while busy
   int64_t start = naos_millis();
-  while (gpio_get_level(EPD_BSY) > 0) {
+  while (gpio_get_level(AL_EPD_BSY) > 0) {
     if (start + 15000 < naos_millis()) {
       ESP_ERROR_CHECK(ESP_FAIL);
     } else {
@@ -201,101 +199,101 @@ static void epd_wait(const char *task) {
     }
   }
 
-  if (EPD_DEBUG) {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: wait for '%s' took %lldms", task, naos_millis() - start);
   }
 }
 
 /* high-level helpers */
 
-static void epd_reset() {
-  if (EPD_DEBUG) {
+static void al_epd_reset() {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: reset");
   }
 
   // perform hard reset
-  ESP_ERROR_CHECK(gpio_set_level(EPD_RST, 0));
+  ESP_ERROR_CHECK(gpio_set_level(AL_EPD_RST, 0));
   naos_delay(10);
-  ESP_ERROR_CHECK(gpio_set_level(EPD_RST, 1));
+  ESP_ERROR_CHECK(gpio_set_level(AL_EPD_RST, 1));
   naos_delay(10);
 
   // perform software reset
-  epd_write_word(0x12, 0, 0, 0, 0, 0);
-  epd_wait("reset");  // ~2ms
+  al_epd_write_word(0x12, 0, 0, 0, 0, 0);
+  al_epd_wait("reset");  // ~2ms
 
   // set driver output control
-  epd_write_word(0x01, 3, 0x27, 0x01, 0x00, 0);
+  al_epd_write_word(0x01, 3, 0x27, 0x01, 0x00, 0);
 
   // set data entry sequence (Y+, X+)
-  epd_write_word(0x11, 1, 0x03, 0, 0, 0);
+  al_epd_write_word(0x11, 1, 0x03, 0, 0, 0);
 
   // disable border control
-  epd_write_word(0x3C, 1, 0xC0, 0, 0, 0);
+  al_epd_write_word(0x3C, 1, 0xC0, 0, 0, 0);
 
   // set display update control
-  epd_write_word(0x21, 2, 0x00, 0x80, 0, 0);
+  al_epd_write_word(0x21, 2, 0x00, 0x80, 0, 0);
 
   // use internal temperature sensor
-  epd_write_word(0x18, 1, 0x80, 0, 0, 0);
+  al_epd_write_word(0x18, 1, 0x80, 0, 0, 0);
 }
 
-static void epd_prepare(bool partial) {
+static void al_epd_prepare(bool partial) {
   // reset (for good quality)
   if (partial) {
-    epd_reset();
+    al_epd_reset();
   }
 
   // load lookup table from OTP or flash
-  if (EPD_OTP_LUT) {
-    epd_write_word(0x22, 1, partial ? 0x99 : 0x91, 0, 0, 0);
-    epd_write_word(0x20, 0, 0, 0, 0, 0);
+  if (AL_EPD_OTP_LUT) {
+    al_epd_write_word(0x22, 1, partial ? 0x99 : 0x91, 0, 0, 0);
+    al_epd_write_word(0x20, 0, 0, 0, 0, 0);
   } else {
-    epd_write_buffer(0x32, 153, partial ? epd_lut_partial : epd_lut_full);
+    al_epd_write_buffer(0x32, 153, partial ? al_epd_lut_partial : al_epd_lut_full);
   }
-  epd_wait("load-lut");  // ~1ms
+  al_epd_wait("load-lut");  // ~1ms
 }
 
-static void epd_set_area(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
+static void al_epd_set_area(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
   // convert from exclusive to inclusive
   x2--;
   y2--;
 
   // set X/Y start/end positions
-  epd_write_word(0x44, 2, x1 >> 3, x2 >> 3, 0, 0);
-  epd_write_word(0x45, 4, y1, y1 >> 8, y2, y2 >> 8);
+  al_epd_write_word(0x44, 2, x1 >> 3, x2 >> 3, 0, 0);
+  al_epd_write_word(0x45, 4, y1, y1 >> 8, y2, y2 >> 8);
 }
 
-static void epd_set_pointer(uint16_t x, uint16_t y) {
+static void al_epd_set_pointer(uint16_t x, uint16_t y) {
   // set initial X/Y address
-  epd_write_word(0x4E, 1, x >> 3, 0, 0, 0);
-  epd_write_word(0x4F, 2, y, y >> 8, 0, 0);
+  al_epd_write_word(0x4E, 1, x >> 3, 0, 0, 0);
+  al_epd_write_word(0x4F, 2, y, y >> 8, 0, 0);
 }
 
-static void epd_display_full(uint8_t *data) {
-  if (EPD_DEBUG) {
+static void al_epd_display_full(uint8_t *data) {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: display full");
   }
 
   // write frame to memory area 0
-  epd_set_area(0, 0, EPD_WIDTH, EPD_HEIGHT);
-  epd_set_pointer(0, 0);
-  epd_write_buffer(0x24, EPD_FRAME, data);
+  al_epd_set_area(0, 0, AL_EPD_WIDTH, AL_EPD_HEIGHT);
+  al_epd_set_pointer(0, 0);
+  al_epd_write_buffer(0x24, AL_EPD_FRAME, data);
 
   // write frame to memory area 1
-  epd_set_area(0, 0, EPD_WIDTH, EPD_HEIGHT);
-  epd_set_pointer(0, 0);
-  epd_write_buffer(0x26, EPD_FRAME, data);
+  al_epd_set_area(0, 0, AL_EPD_WIDTH, AL_EPD_HEIGHT);
+  al_epd_set_pointer(0, 0);
+  al_epd_write_buffer(0x26, AL_EPD_FRAME, data);
 
   // set display update sequence
-  epd_write_word(0x22, 1, 0xf7, 0, 0, 0);
+  al_epd_write_word(0x22, 1, 0xf7, 0, 0, 0);
 
   // perform display update sequence
-  epd_write_word(0x20, 0, 0, 0, 0, 0);
-  epd_wait("full-update");  // ~2058ms
+  al_epd_write_word(0x20, 0, 0, 0, 0, 0);
+  al_epd_wait("full-update");  // ~2058ms
 }
 
-static void epd_display_partial(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-  if (EPD_DEBUG) {
+static void al_epd_display_partial(uint8_t *data, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: display partial x1=%ld y1=%ld x2=%ld y2=%ld", x1, y1, x2, y2);
   }
 
@@ -303,76 +301,76 @@ static void epd_display_partial(uint8_t *data, uint16_t x1, uint16_t y1, uint16_
   size_t size = (x2 - x1) * (y2 - y1) / 8;
 
   // write memory area 0
-  epd_set_area(x1, y1, x2, y2);
-  epd_set_pointer(x1, y1);
-  epd_write_buffer(0x24, size, data);
+  al_epd_set_area(x1, y1, x2, y2);
+  al_epd_set_pointer(x1, y1);
+  al_epd_write_buffer(0x24, size, data);
 
   // set display update sequence
-  epd_write_word(0x22, 1, 0xff, 0, 0, 0);
+  al_epd_write_word(0x22, 1, 0xff, 0, 0, 0);
 
   // perform display update sequence
-  epd_write_word(0x20, 0, 0, 0, 0, 0);
-  epd_wait("partial-update");  // ~507ms
+  al_epd_write_word(0x20, 0, 0, 0, 0, 0);
+  al_epd_wait("partial-update");  // ~507ms
 
   // write memory area 1
-  epd_set_area(x1, y1, x2, y2);
-  epd_set_pointer(x1, y1);
-  epd_write_buffer(0x26, size, data);
+  al_epd_set_area(x1, y1, x2, y2);
+  al_epd_set_pointer(x1, y1);
+  al_epd_write_buffer(0x26, size, data);
 
   // write memory area 0
-  epd_set_area(x1, y1, x2, y2);
-  epd_set_pointer(x1, y1);
-  epd_write_buffer(0x24, size, data);
+  al_epd_set_area(x1, y1, x2, y2);
+  al_epd_set_pointer(x1, y1);
+  al_epd_write_buffer(0x24, size, data);
 }
 
-static void epd_set_sleep() {
-  if (EPD_DEBUG) {
+static void al_epd_set_sleep() {
+  if (AL_EPD_DEBUG) {
     naos_log("epd: sleep");
   }
 
   // set deep sleep
-  epd_write_word(0x10, 1, 0x01, 0, 0, 0);
+  al_epd_write_word(0x10, 1, 0x01, 0, 0, 0);
 }
 
 /* background task */
 
-static void epd_check() {
+static void al_epd_check() {
   // lock mutex
-  naos_lock(epd_mutex);
+  naos_lock(al_epd_mutex);
 
   // sleep display after timeout
-  if (epd_awake && epd_updated + EPD_SLEEP < naos_millis()) {
-    epd_set_sleep();
-    epd_awake = false;
+  if (al_epd_awake && al_epd_updated + AL_EPD_SLEEP < naos_millis()) {
+    al_epd_set_sleep();
+    al_epd_awake = false;
   }
 
   // unlock mutex
-  naos_unlock(epd_mutex);
+  naos_unlock(al_epd_mutex);
 }
 
 /* API */
 
-void epd_init() {
+void al_epd_init() {
   // create mutex
-  epd_mutex = naos_mutex();
+  al_epd_mutex = naos_mutex();
 
   // allocate buffers
-  epd_buffer = calloc(EPD_BUFFER, sizeof(uint8_t));
-  if (epd_buffer == NULL) {
+  al_epd_buffer = calloc(AL_EPD_BUFFER, sizeof(uint8_t));
+  if (al_epd_buffer == NULL) {
     ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
   }
 
   // initialize pins
   gpio_config_t pin = {
       .mode = GPIO_MODE_OUTPUT,
-      .pin_bit_mask = BIT64(EPD_SEL) | BIT64(EPD_RST) | BIT64(EPD_DC),
+      .pin_bit_mask = BIT64(AL_EPD_SEL) | BIT64(AL_EPD_RST) | BIT64(AL_EPD_DC),
   };
   ESP_ERROR_CHECK(gpio_config(&pin));
-  ESP_ERROR_CHECK(gpio_set_level(EPD_SEL, 1));
-  ESP_ERROR_CHECK(gpio_set_level(EPD_RST, 1));
-  ESP_ERROR_CHECK(gpio_set_level(EPD_DC, EPD_4W ? 1 : 0));
+  ESP_ERROR_CHECK(gpio_set_level(AL_EPD_SEL, 1));
+  ESP_ERROR_CHECK(gpio_set_level(AL_EPD_RST, 1));
+  ESP_ERROR_CHECK(gpio_set_level(AL_EPD_DC, AL_EPD_4W ? 1 : 0));
   pin.mode = GPIO_MODE_INPUT;
-  pin.pin_bit_mask = BIT64(EPD_BSY);
+  pin.pin_bit_mask = BIT64(AL_EPD_BSY);
   ESP_ERROR_CHECK(gpio_config(&pin));
   naos_delay(10);
 
@@ -380,66 +378,59 @@ void epd_init() {
   spi_device_interface_config_t dev = {
       .mode = 0,  // CPOL=0, CPHA=0
       .clock_speed_hz = SPI_MASTER_FREQ_8M,
-      .spics_io_num = EPD_SEL,
+      .spics_io_num = AL_EPD_SEL,
       .flags = SPI_DEVICE_HALFDUPLEX,
       .cs_ena_pretrans = 10,
       .cs_ena_posttrans = 10,
       .queue_size = 1,
   };
-  ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &dev, &epd_device));
+  ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &dev, &al_epd_device));
 
   // run periodic check
-  // naos_repeat("epd", 500, epd_check);
+  // naos_repeat("epd", 500, al_epd_check);
 }
 
-void epd_set(uint8_t *data, uint16_t x, uint16_t y, bool black) {
+void al_epd_set(uint8_t *data, uint16_t x, uint16_t y, bool black) {
   // set pixel
-  size_t pos = y * EPD_WIDTH + x;
-  epd_bmp_set(data, pos, !black);
+  size_t pos = y * AL_EPD_WIDTH + x;
+  al_epd_bmp_set(data, pos, !black);
 }
 
-void epd_update(uint8_t *frame, bool partial) {
+void al_epd_update(uint8_t *frame, bool partial) {
   // lock mutex
-  naos_lock(epd_mutex);
+  naos_lock(al_epd_mutex);
 
   // awake display
-  if (!epd_awake) {
-    epd_reset();
-    epd_awake = true;
+  if (!al_epd_awake) {
+    al_epd_reset();
+    al_epd_awake = true;
   }
 
   // prepare display
-  epd_prepare(partial);
+  al_epd_prepare(partial);
 
   // update display
   if (partial) {
-    epd_display_partial(frame, 0, 0, EPD_WIDTH, EPD_HEIGHT);
+    al_epd_display_partial(frame, 0, 0, AL_EPD_WIDTH, AL_EPD_HEIGHT);
   } else {
-    epd_display_full(frame);
+    al_epd_display_full(frame);
   }
 
   // set time
-  epd_updated = naos_millis();
-
-  // record screen, if enabled
-  if (DEV_RECORD_SCREEN) {
-    char name[32];
-    snprintf(name, sizeof(name), "screen-%lu.bin", epd_updated);
-    dat_dump(name, frame, EPD_FRAME);
-  }
+  al_epd_updated = naos_millis();
 
   // unlock mutex
-  naos_unlock(epd_mutex);
+  naos_unlock(al_epd_mutex);
 }
 
-void epd_sleep() {
+void al_epd_sleep() {
   // lock mutex
-  naos_lock(epd_mutex);
+  naos_lock(al_epd_mutex);
 
   // set sleep
-  epd_set_sleep();
-  epd_awake = false;
+  al_epd_set_sleep();
+  al_epd_awake = false;
 
   // unlock mutex
-  naos_unlock(epd_mutex);
+  naos_unlock(al_epd_mutex);
 }

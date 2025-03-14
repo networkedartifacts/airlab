@@ -13,12 +13,14 @@ set(SOURCE_FILES
         lib/al/buttons.h
         lib/al/buzzer.h
         lib/al/core.h
+        lib/al/epd.h
         lib/al/led.h
         lib/accel.c
         lib/buttons.c
         lib/buzzer.c
         lib/core.c
         lib/internal.h
+        lib/epd.c
         lib/led.c
         src/btn.c
         src/btn.h
@@ -27,8 +29,6 @@ set(SOURCE_FILES
         src/dat.c
         src/dat.h
         src/dev.h
-        src/epd.c
-        src/epd.h
         src/fnt.h
         src/fnt.c
         src/gfx.c

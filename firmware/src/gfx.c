@@ -2,13 +2,16 @@
 #include <naos/sys.h>
 #include <lvgl/src/misc/lv_log.h>
 
+#include <al/epd.h>
+
 #include "gfx.h"
-#include "epd.h"
+#include "dat.h"
+#include "dev.h"
 #include "fnt.h"
 #include "sig.h"
 
-#define GFX_WIDTH EPD_HEIGHT
-#define GFX_HEIGHT EPD_WIDTH
+#define GFX_WIDTH AL_EPD_HEIGHT
+#define GFX_HEIGHT AL_EPD_WIDTH
 #define GFX_DEBUG false
 #define GFX_TRACE false
 
@@ -56,11 +59,11 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     for (size_t x = area->x1; x <= area->x2; x++) {
       // calculate physical coordinates
       size_t px = y;
-      size_t py = EPD_HEIGHT - x - 1;
+      size_t py = AL_EPD_HEIGHT - x - 1;
 
       // set physical pixel
       bool black = (*buffer).full == 0;
-      epd_set(gfx_frame, px, py, gfx_invert ? !black : black);
+      al_epd_set(gfx_frame, px, py, gfx_invert ? !black : black);
 
       // increment pixel
       buffer++;
@@ -78,9 +81,17 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     return;
   }
 
-  // display frame
+  // check if frame should be skipped
   if (!gfx_skip) {
-    epd_update(gfx_frame, !gfx_refresh);
+    // display frame
+    al_epd_update(gfx_frame, !gfx_refresh);
+
+    // record screen, if enabled
+    if (DEV_RECORD_SCREEN) {
+      char name[32];
+      snprintf(name, sizeof(name), "screen-%llu.bin", naos_millis());
+      dat_dump(name, gfx_frame, AL_EPD_FRAME);
+    }
   }
 
   // clear flags
@@ -109,7 +120,7 @@ void gfx_init() {
 
   // allocate buffers
   gfx_frame_buffer = calloc(GFX_WIDTH * GFX_HEIGHT, sizeof(lv_color_t));
-  gfx_frame = calloc(EPD_FRAME, sizeof(uint8_t));
+  gfx_frame = calloc(AL_EPD_FRAME, sizeof(uint8_t));
   if (gfx_frame_buffer == NULL) {
     ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
   } else if (gfx_frame == NULL) {
@@ -120,7 +131,7 @@ void gfx_init() {
   lv_init();
 
   // initialize buffer
-  lv_disp_draw_buf_init(&gfx_draw_buffer, gfx_frame_buffer, NULL, EPD_WIDTH * EPD_HEIGHT);
+  lv_disp_draw_buf_init(&gfx_draw_buffer, gfx_frame_buffer, NULL, AL_EPD_WIDTH * AL_EPD_HEIGHT);
 
   // register display driver
   lv_disp_drv_init(&gfx_driver);
@@ -153,7 +164,7 @@ void gfx_begin(bool refresh, bool invert) {
 
   // flip frame on inversion change
   if (invert != gfx_invert) {
-    for (size_t i = 0; i < EPD_FRAME; i++) {
+    for (size_t i = 0; i < AL_EPD_FRAME; i++) {
       gfx_frame[i] ^= UINT8_MAX;
     }
   }
