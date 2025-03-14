@@ -2,7 +2,7 @@
 #define AL_CORE_H
 
 /**
- * Initialize the Air Lab.
+ * Initializes the Air Lab library.
  */
 void al_init();
 

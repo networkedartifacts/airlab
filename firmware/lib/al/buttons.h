@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+/**
+ * Returns the current button state as a bitfield.
+ */
 uint8_t al_buttons_get();
 
 #endif  // AL_BUTTONS_H
