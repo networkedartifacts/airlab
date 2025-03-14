@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <naos/sys.h>
+#include <driver/i2c.h>
 
 #include <al/sensor.h>
 
@@ -20,6 +21,18 @@ static GasIndexAlgorithmParams al_sensor_voc_params;
 static GasIndexAlgorithmParams al_sensor_nox_params;
 static al_sensor_hook_t al_sensor_hook;
 
+static bool al_sensor_transfer(uint8_t target, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl) {
+  esp_err_t err = ESP_OK;
+  if (wl > 0 && rl > 0) {
+    err = i2c_master_write_read_device(I2C_NUM_0, target, wd, wl, rd, rl, 1000);
+  } else if (wl > 0) {
+    err = i2c_master_write_to_device(I2C_NUM_0, target, wd, wl, 1000);
+  } else {
+    err = i2c_master_read_from_device(I2C_NUM_0, target, rd, rl, 1000);
+  }
+  return err == ESP_OK;
+}
+
 static void al_sensor_check() {
   for (;;) {
     // wait a second
@@ -35,7 +48,10 @@ static void al_sensor_check() {
     }
 
     // read sensor
-    al_sensor_raw_t raw = al_sensor_read();
+    al_sensor_raw_t raw;
+    if (!al_sensor_read(&raw)) {
+      ESP_ERROR_CHECK(ESP_FAIL);
+    }
 
     // update sampling interval
     // gas_voc_params.mSamplingInterval = input.delta;
@@ -88,8 +104,18 @@ void al_sensor_init() {
   al_sensor_mutex = naos_mutex();
   al_sensor_signal = naos_signal();
 
+  // wire sensor
+  al_sensor_wire((al_sensor_ops_t){
+      .transfer = al_sensor_transfer,
+      .millis = naos_millis,
+      .delay = naos_delay,
+      .log = naos_log,
+  });
+
   // reset sensor
-  al_sensor_reset();
+  if (!al_sensor_reset()) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
 
   // initialize gas index parameters
   GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
@@ -107,9 +133,13 @@ void al_sensor_config(al_sensor_hook_t hook) {
 void al_sensor_set(bool on) {
   // perform wake/sleep
   if (on) {
-    al_sensor_wake();
+    if (!al_sensor_wake()) {
+      ESP_ERROR_CHECK(ESP_FAIL);
+    }
   } else {
-    al_sensor_sleep();
+    if (!al_sensor_sleep()) {
+      ESP_ERROR_CHECK(ESP_FAIL);
+    }
   }
 }
 

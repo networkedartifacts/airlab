@@ -1,6 +1,17 @@
 #ifndef AL_SENSOR_HAL_H
 #define AL_SENSOR_HAL_H
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
+
+typedef struct {
+  bool (*transfer)(uint8_t target, uint8_t * wd, size_t wl, uint8_t * rd, size_t rl);
+  int64_t (*millis)();
+  void (*delay)(uint32_t ms);
+  void (*log)(const char * fmt, ...);
+} al_sensor_ops_t;
+
 typedef struct {
   float co2;  // ppm
   float tmp;  // °C
@@ -10,14 +21,16 @@ typedef struct {
   float prs;  // hPa
 } al_sensor_raw_t;
 
-void al_sensor_reset();
+void al_sensor_wire(al_sensor_ops_t ops);
+
+bool al_sensor_reset();
 
 bool al_sensor_ready();
 
-al_sensor_raw_t al_sensor_read();
+bool al_sensor_read(al_sensor_raw_t * raw);
 
-void al_sensor_sleep();
+bool al_sensor_sleep();
 
-void al_sensor_wake();
+bool al_sensor_wake();
 
 #endif // AL_SENSOR_HAL_H
