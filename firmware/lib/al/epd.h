@@ -29,9 +29,4 @@ void al_epd_set(uint8_t *data, uint16_t x, uint16_t y, bool black);
  */
 void al_epd_update(uint8_t *frame, bool partial);
 
-/**
- * Put the display to sleep to conserve power.
- */
-void al_epd_sleep();
-
 #endif  // AL_EPD_H

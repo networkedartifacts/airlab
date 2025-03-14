@@ -2,7 +2,6 @@
 #include <naos/sys.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
-#include <memory.h>
 
 #include <al/epd.h>
 
@@ -41,8 +40,6 @@ static const uint8_t al_epd_lut_full[153] = {
 
 static naos_mutex_t al_epd_mutex;
 static spi_device_handle_t al_epd_device;
-static bool al_epd_awake = false;
-static uint32_t al_epd_updated = 0;
 static uint8_t *al_epd_buffer = NULL;
 
 /* SPI helper */
@@ -237,12 +234,7 @@ static void al_epd_reset() {
   al_epd_write_word(0x18, 1, 0x80, 0, 0, 0);
 }
 
-static void al_epd_prepare(bool partial) {
-  // reset (for good quality)
-  if (partial) {
-    al_epd_reset();
-  }
-
+static void al_epd_load_lut(bool partial) {
   // load lookup table from OTP or flash
   if (AL_EPD_OTP_LUT) {
     al_epd_write_word(0x22, 1, partial ? 0x99 : 0x91, 0, 0, 0);
@@ -332,22 +324,6 @@ static void al_epd_set_sleep() {
   al_epd_write_word(0x10, 1, 0x01, 0, 0, 0);
 }
 
-/* background task */
-
-static void al_epd_check() {
-  // lock mutex
-  naos_lock(al_epd_mutex);
-
-  // sleep display after timeout
-  if (al_epd_awake && al_epd_updated + AL_EPD_SLEEP < naos_millis()) {
-    al_epd_set_sleep();
-    al_epd_awake = false;
-  }
-
-  // unlock mutex
-  naos_unlock(al_epd_mutex);
-}
-
 /* API */
 
 void al_epd_init() {
@@ -400,14 +376,11 @@ void al_epd_update(uint8_t *frame, bool partial) {
   // lock mutex
   naos_lock(al_epd_mutex);
 
-  // awake display
-  if (!al_epd_awake) {
-    al_epd_reset();
-    al_epd_awake = true;
-  }
+  // reset display
+  al_epd_reset();
 
   // prepare display
-  al_epd_prepare(partial);
+  al_epd_load_lut(partial);
 
   // update display
   if (partial) {
@@ -416,20 +389,8 @@ void al_epd_update(uint8_t *frame, bool partial) {
     al_epd_display_full(frame);
   }
 
-  // set time
-  al_epd_updated = naos_millis();
-
-  // unlock mutex
-  naos_unlock(al_epd_mutex);
-}
-
-void al_epd_sleep() {
-  // lock mutex
-  naos_lock(al_epd_mutex);
-
-  // set sleep
+  // sleep display
   al_epd_set_sleep();
-  al_epd_awake = false;
 
   // unlock mutex
   naos_unlock(al_epd_mutex);

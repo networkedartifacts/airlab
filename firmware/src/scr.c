@@ -705,7 +705,6 @@ static void* scr_saver() {
       sns_set(false);
 
       // sleep peripherals
-      al_epd_sleep();
       cap_sleep();
 
       // perform deep sleep
@@ -715,7 +714,6 @@ static void* scr_saver() {
     }
 
     // sleep peripherals
-    al_epd_sleep();
     cap_sleep();
 
     // otherwise, light sleep for 5s-30s (0-5min) if recording
@@ -1701,9 +1699,6 @@ static void* scr_develop() {
 
       // disable sensor
       sns_set(false);
-
-      // sleep display
-      al_epd_sleep();
 
       // set return
       scr_return_unlock = scr_develop;
