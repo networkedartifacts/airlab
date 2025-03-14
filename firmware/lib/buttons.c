@@ -2,7 +2,7 @@
 
 #include <al/buttons.h>
 
-#include "buttons.h"
+#include "internal.h"
 
 void al_buttons_init() {
   // configure GPIOs

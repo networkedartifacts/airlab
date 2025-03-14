@@ -15,14 +15,11 @@ set(SOURCE_FILES
         lib/al/core.h
         lib/al/led.h
         lib/accel.c
-        lib/accel.h
         lib/buttons.c
-        lib/buttons.h
         lib/buzzer.c
-        lib/buzzer.h
         lib/core.c
+        lib/internal.h
         lib/led.c
-        lib/led.h
         src/btn.c
         src/btn.h
         src/cap.c

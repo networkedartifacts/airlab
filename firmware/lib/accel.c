@@ -4,7 +4,7 @@
 
 #include <al/accel.h>
 
-#include "accel.h"
+#include "internal.h"
 
 #define AL_ACCEL_ADDR 0x18
 #define AL_ACCEL_DEBUG false

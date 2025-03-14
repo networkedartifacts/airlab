@@ -1,5 +1,9 @@
-#ifndef _AL_BUTTONS_H
-#define _AL_BUTTONS_H
+#ifndef AL_INTERNAL_H
+#define AL_INTERNAL_H
+
+#define AL_ACCEL_INT GPIO_NUM_16
+
+void al_accel_init();
 
 #define AL_BUTTONS_A GPIO_NUM_12
 #define AL_BUTTONS_B GPIO_NUM_17
@@ -10,4 +14,8 @@
 
 void al_buttons_init();
 
-#endif  // _AL_BUTTONS_H
+void al_buzzer_init();
+
+void al_led_init();
+
+#endif // AL_INTERNAL_H

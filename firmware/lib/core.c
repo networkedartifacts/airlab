@@ -3,10 +3,7 @@
 #include <driver/i2c.h>
 #include <esp_sleep.h>
 
-#include "buzzer.h"
-#include "led.h"
-#include "accel.h"
-#include "buttons.h"
+#include "internal.h"
 
 void al_init() {
   // install interrupt service
