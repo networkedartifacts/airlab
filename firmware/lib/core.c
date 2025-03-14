@@ -1,11 +1,10 @@
+#include <naos.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <driver/i2c.h>
 #include <esp_sleep.h>
-#include <naos.h>
 
 #include <al/core.h>
-#include <al/clock.h>
 
 #include "internal.h"
 

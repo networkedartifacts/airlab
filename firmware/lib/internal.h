@@ -11,22 +11,15 @@
 #define AL_BUTTONS_F GPIO_NUM_13
 
 void al_accel_init();
-
 void al_buttons_init();
-
 void al_buzzer_init();
-
 void al_clock_init();
-
 void al_epd_init();
-
 void al_led_init();
-
 void al_power_init();
-
 void al_sensor_init();
-
 void al_touch_init();
+
 void al_touch_sleep();
 void al_touch_wake();
 
