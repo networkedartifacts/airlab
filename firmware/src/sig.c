@@ -1,15 +1,27 @@
 #include <naos.h>
 #include <naos/sys.h>
 
+#include <al/sensor.h>
+
 #include "sig.h"
 
 #define SIG_DEBUG false
 
 static QueueHandle_t sig_queue;
 
+static void sig_sensor(al_sensor_state_t) {
+  // dispatch event
+  sig_dispatch((sig_event_t){
+      .type = SIG_SENSOR,
+  });
+}
+
 void sig_init() {
   // create queue
   sig_queue = xQueueCreate(3, sizeof(sig_event_t));
+
+  // wire sensor
+  al_sensor_config(sig_sensor);
 }
 
 void sig_dispatch(sig_event_t event) {
