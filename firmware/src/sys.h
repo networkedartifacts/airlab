@@ -2,7 +2,6 @@
 #define SYS_H
 
 #include <stdint.h>
-#include <stdbool.h>
 
 void sys_get_date(uint16_t *year, uint16_t *month, uint16_t *day);
 void sys_set_date(uint16_t year, uint16_t month, uint16_t day);

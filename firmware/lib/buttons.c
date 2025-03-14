@@ -8,8 +8,8 @@ void al_buttons_init() {
   // configure GPIOs
   gpio_config_t cfg = {
       .mode = GPIO_MODE_INPUT,
-      .pin_bit_mask = BIT64(AL_BUTTONS_A) | BIT64(AL_BUTTONS_B) | BIT64(AL_BUTTONS_C) | BIT64(AL_BUTTONS_D) | BIT64(AL_BUTTONS_E) |
-                      BIT64(AL_BUTTONS_F),
+      .pin_bit_mask = BIT64(AL_BUTTONS_A) | BIT64(AL_BUTTONS_B) | BIT64(AL_BUTTONS_C) | BIT64(AL_BUTTONS_D) |
+                      BIT64(AL_BUTTONS_E) | BIT64(AL_BUTTONS_F),
       .pull_up_en = GPIO_PULLUP_ENABLE,
   };
   ESP_ERROR_CHECK(gpio_config(&cfg));

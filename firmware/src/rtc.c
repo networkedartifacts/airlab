@@ -1,5 +1,4 @@
 #include <naos.h>
-#include <naos/sys.h>
 #include <driver/i2c.h>
 
 #include "rtc.h"
