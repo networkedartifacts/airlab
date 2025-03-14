@@ -31,6 +31,8 @@ set(SOURCE_FILES
         lib/sensor.c
         lib/sensor_gas.c
         lib/sensor_gas.h
+        lib/sensor_hal.c
+        lib/sensor_hal.h
         lib/touch.c
         src/dat.c
         src/dat.h
