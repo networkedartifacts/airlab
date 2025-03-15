@@ -157,19 +157,6 @@ void al_sensor_config(al_sensor_hook_t hook) {
   al_sensor_hook = hook;
 }
 
-void al_sensor_set(bool on) {
-  // perform wake/sleep
-  if (on) {
-    if (!al_sensor_wake()) {
-      ESP_ERROR_CHECK(ESP_FAIL);
-    }
-  } else {
-    if (!al_sensor_sleep()) {
-      ESP_ERROR_CHECK(ESP_FAIL);
-    }
-  }
-}
-
 al_sensor_state_t al_sensor_get() {
   // get state
   naos_lock(al_sensor_mutex);

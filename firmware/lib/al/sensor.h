@@ -33,7 +33,6 @@ typedef struct {
 typedef void (*al_sensor_hook_t)(al_sensor_state_t state);
 
 void al_sensor_config(al_sensor_hook_t hook);
-void al_sensor_set(bool on);
 al_sensor_state_t al_sensor_get();
 al_sensor_state_t al_sensor_next();
 al_sensor_hist_t al_sensor_query(al_sensor_mode_t mode);

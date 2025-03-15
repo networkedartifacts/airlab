@@ -692,9 +692,6 @@ static void* scr_saver() {
 
     // deep sleep for 1min if not recording
     if (!rec_running()) {
-      // turn off sensor
-      al_sensor_set(false);
-
       // perform deep sleep
       al_sleep(true, 60 * 1000);
 
@@ -1682,9 +1679,6 @@ static void* scr_develop() {
       // log sleep
       naos_log("sleeping... (deep=%d)", ret == 1);
 
-      // disable sensor
-      al_sensor_set(false);
-
       // set return
       scr_return_unlock = scr_develop;
 
@@ -1698,9 +1692,6 @@ static void* scr_develop() {
 
       // log wakeup
       naos_log("woke up!");
-
-      // enable sensor
-      al_sensor_set(true);
     }
 
     // handle power set
