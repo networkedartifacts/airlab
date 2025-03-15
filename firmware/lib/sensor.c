@@ -18,7 +18,7 @@ static naos_signal_t al_sensor_signal;
 static al_sensor_hook_t al_sensor_hook;
 
 AL_KEEP static size_t al_sensor_pos = 0;
-AL_KEEP static al_sensor_state_t al_sensor_history[AL_SENSOR_HIST] = {0};
+AL_KEEP static al_sensor_sample_t al_sensor_samples[AL_SENSOR_HIST] = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
 
@@ -31,7 +31,7 @@ static void al_sensor_debug(const char* msg) {
   naos_log("al-sns: HAL %s", msg);
 }
 
-static al_sensor_state_t al_sensor_ingest(al_sensor_raw_t raw) {
+static al_sensor_sample_t al_sensor_ingest(al_sensor_raw_t raw) {
   // calculate ppm, °C, % rH
   float co2 = (float)raw.co2;
   float tmp = -45.f + 175.f * ((float)raw.tmp / (float)(UINT16_MAX));
@@ -65,8 +65,8 @@ static al_sensor_state_t al_sensor_ingest(al_sensor_raw_t raw) {
     al_sensor_pos = 0;
   }
 
-  // create state
-  al_sensor_state_t state = {
+  // create sample
+  al_sensor_sample_t sample = {
       .ok = true,
       .co2 = co2,
       .tmp = tmp,
@@ -76,10 +76,10 @@ static al_sensor_state_t al_sensor_ingest(al_sensor_raw_t raw) {
       .prs = prs,
   };
 
-  // set state
-  al_sensor_history[al_sensor_pos] = state;
+  // add sample
+  al_sensor_samples[al_sensor_pos] = sample;
 
-  return state;
+  return sample;
 }
 
 static void al_sensor_check() {
@@ -98,8 +98,8 @@ static void al_sensor_check() {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // ingest sensor data
-  al_sensor_state_t state = al_sensor_ingest(raw);
+  // ingest reading
+  al_sensor_sample_t sample = al_sensor_ingest(raw);
 
   // release mutex
   naos_unlock(al_sensor_mutex);
@@ -109,7 +109,7 @@ static void al_sensor_check() {
 
   // dispatch event
   if (al_sensor_hook != NULL) {
-    al_sensor_hook(state);
+    al_sensor_hook(sample);
   }
 }
 
@@ -161,64 +161,64 @@ void al_sensor_config(al_sensor_hook_t hook) {
   al_sensor_hook = hook;
 }
 
-al_sensor_state_t al_sensor_get() {
-  // get state
+al_sensor_sample_t al_sensor_get() {
+  // get sample
   naos_lock(al_sensor_mutex);
-  al_sensor_state_t state = al_sensor_history[al_sensor_pos];
+  al_sensor_sample_t sample = al_sensor_samples[al_sensor_pos];
   naos_unlock(al_sensor_mutex);
 
-  return state;
+  return sample;
 }
 
-al_sensor_state_t al_sensor_next() {
+al_sensor_sample_t al_sensor_next() {
   // await signal
   naos_await(al_sensor_signal, 1, true);
 
-  // get state
-  al_sensor_state_t state = al_sensor_get();
+  // get sample
+  al_sensor_sample_t sample = al_sensor_get();
 
-  return state;
+  return sample;
 }
 
-al_sensor_hist_t al_sensor_query(al_sensor_mode_t mode) {
+al_sensor_history_t al_sensor_query(al_sensor_t sensor) {
   // prepare history
-  al_sensor_hist_t hist = {0};
+  al_sensor_history_t history = {0};
 
   // copy values
   for (size_t i = 0; i < AL_SENSOR_HIST; i++) {
     size_t pos = (al_sensor_pos + 1 + i) % AL_SENSOR_HIST;
-    switch (mode) {
+    switch (sensor) {
       case AL_SENSOR_CO2:
-        hist.values[i] = al_sensor_history[pos].co2;
+        history.values[i] = al_sensor_samples[pos].co2;
         break;
       case AL_SENSOR_TMP:
-        hist.values[i] = al_sensor_history[pos].tmp;
+        history.values[i] = al_sensor_samples[pos].tmp;
         break;
       case AL_SENSOR_HUM:
-        hist.values[i] = al_sensor_history[pos].hum;
+        history.values[i] = al_sensor_samples[pos].hum;
         break;
       case AL_SENSOR_VOC:
-        hist.values[i] = al_sensor_history[pos].voc;
+        history.values[i] = al_sensor_samples[pos].voc;
         break;
       case AL_SENSOR_NOX:
-        hist.values[i] = al_sensor_history[pos].nox;
+        history.values[i] = al_sensor_samples[pos].nox;
         break;
       case AL_SENSOR_PRS:
-        hist.values[i] = al_sensor_history[pos].prs;
+        history.values[i] = al_sensor_samples[pos].prs;
         break;
     }
   }
 
   // calculate min/max
-  hist.min = 9999.f;
+  history.min = 9999.f;
   for (size_t i = 0; i < AL_SENSOR_HIST; i++) {
-    if (hist.values[i] > hist.max) {
-      hist.max = hist.values[i];
+    if (history.values[i] > history.max) {
+      history.max = history.values[i];
     }
-    if (hist.values[i] < hist.min) {
-      hist.min = hist.values[i];
+    if (history.values[i] < history.min) {
+      history.min = history.values[i];
     }
   }
 
-  return hist;
+  return history;
 }

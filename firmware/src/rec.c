@@ -20,9 +20,9 @@ static void rec_task() {
   naos_lock(rec_mutex);
 
   for (;;) {
-    // await next state (without mutex)
+    // await next sample (without mutex)
     naos_unlock(rec_mutex);
-    al_sensor_state_t state = al_sensor_next();
+    al_sensor_sample_t sample = al_sensor_next();
     naos_lock(rec_mutex);
 
     // check free space
@@ -51,11 +51,11 @@ static void rec_task() {
     // prepare point
     dat_point_t point = {
         .offset = (int32_t)offset,
-        .co2 = state.co2,
-        .hum = state.hum,
-        .tmp = state.tmp,
-        .voc = state.voc,
-        .nox = state.nox,
+        .co2 = sample.co2,
+        .hum = sample.hum,
+        .tmp = sample.tmp,
+        .voc = sample.voc,
+        .nox = sample.nox,
     };
 
     // append point

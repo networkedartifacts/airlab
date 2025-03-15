@@ -581,12 +581,12 @@ static void* scr_saver() {
     sys_get_time(&hour, &minute, &seconds);
 
     // read sensor
-    al_sensor_state_t sensor = al_sensor_get();
+    al_sensor_sample_t sample = al_sensor_get();
 
     // await sensor if missing (deep sleep return)
-    if (!sensor.ok) {
+    if (!sample.ok) {
       sig_await(SIG_SENSOR, 0);
-      sensor = al_sensor_get();
+      sample = al_sensor_get();
     }
 
     // read power state
@@ -632,13 +632,13 @@ static void* scr_saver() {
       lv_label_set_text(co2, "ppm CO2");
       lv_label_set_text(tmp, "° Celsius");
       lv_label_set_text(hum, "% RH");
-      lv_label_set_text(co2_big, scr_fmt("%.0f", sensor.co2));
-      lv_label_set_text(tmp_big, scr_fmt("%.1f", sensor.tmp));
-      lv_label_set_text(hum_big, scr_fmt("%.1f", sensor.hum));
+      lv_label_set_text(co2_big, scr_fmt("%.0f", sample.co2));
+      lv_label_set_text(tmp_big, scr_fmt("%.1f", sample.tmp));
+      lv_label_set_text(hum_big, scr_fmt("%.1f", sample.hum));
     } else {
-      lv_label_set_text(co2, scr_fmt("%.0f ppm", sensor.co2));
-      lv_label_set_text(tmp, scr_fmt("%.1f °C", sensor.tmp));
-      lv_label_set_text(hum, scr_fmt("%.1f%% RH", sensor.hum));
+      lv_label_set_text(co2, scr_fmt("%.0f ppm", sample.co2));
+      lv_label_set_text(tmp, scr_fmt("%.1f °C", sample.tmp));
+      lv_label_set_text(hum, scr_fmt("%.1f%% RH", sample.hum));
     }
 
     // align objects
@@ -1814,10 +1814,10 @@ static void* scr_menu() {
     sys_get_time(&hour, &minute, &seconds);
 
     // read sensor
-    al_sensor_state_t sensor = al_sensor_get();
+    al_sensor_sample_t sample = al_sensor_get();
 
     // query sensor
-    al_sensor_hist_t hist = al_sensor_query((al_sensor_mode_t)mode);
+    al_sensor_history_t history = al_sensor_query((al_sensor_t)mode);
 
     // query statement
     if (statement == NULL && (exclaim || fun)) {
@@ -1829,20 +1829,20 @@ static void* scr_menu() {
 
     // update bar
     bar.time = scr_fmt("%02d:%02d", hour, minute);
-    if (!sensor.ok) {
+    if (!sample.ok) {
       bar.value = scr_trans()->menu__no_data;
     } else if (mode == 0) {
-      bar.value = scr_fmt("%.0f ppm CO2", sensor.co2);
+      bar.value = scr_fmt("%.0f ppm CO2", sample.co2);
     } else if (mode == 1) {
-      bar.value = scr_fmt("%.1f °C", sensor.tmp);
+      bar.value = scr_fmt("%.1f °C", sample.tmp);
     } else if (mode == 2) {
-      bar.value = scr_fmt("%.1f%% RH", sensor.hum);
+      bar.value = scr_fmt("%.1f%% RH", sample.hum);
     } else if (mode == 3) {
-      bar.value = scr_fmt("%.0f VOC", sensor.voc);
+      bar.value = scr_fmt("%.0f VOC", sample.voc);
     } else if (mode == 4) {
-      bar.value = scr_fmt("%.0f NOx", sensor.nox);
+      bar.value = scr_fmt("%.0f NOx", sample.nox);
     } else if (mode == 5) {
-      bar.value = scr_fmt("%.0f hPa", sensor.prs);
+      bar.value = scr_fmt("%.0f hPa", sample.prs);
     }
     lvx_bar_update(&bar);
 
@@ -1872,7 +1872,7 @@ static void* scr_menu() {
     lv_point_t points[AL_SENSOR_HIST] = {0};
     for (size_t i = 0; i < AL_SENSOR_HIST; i++) {
       points[i].x = (lv_coord_t)a32_safe_map_i(i, 0, AL_SENSOR_HIST - 1, 0, 24);
-      points[i].y = (lv_coord_t)a32_safe_map_f(hist.values[i], hist.min, hist.max, 14, 2);
+      points[i].y = (lv_coord_t)a32_safe_map_f(history.values[i], history.min, history.max, 14, 2);
     }
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
@@ -1881,7 +1881,8 @@ static void* scr_menu() {
 
     // draw drain
     lv_canvas_fill_bg(drain, lv_color_white(), LV_OPA_COVER);
-    lv_coord_t drain_height = (lv_coord_t)a32_safe_map_f(hist.values[AL_SENSOR_HIST - 1], hist.min, hist.max, 0, 9);
+    lv_coord_t drain_height =
+        (lv_coord_t)a32_safe_map_f(history.values[AL_SENSOR_HIST - 1], history.min, history.max, 0, 9);
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = lv_color_black();
