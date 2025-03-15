@@ -104,16 +104,17 @@ static void scr_message(const char* text, uint32_t timeout) {
   scr_cleanup(false);
 }
 
-static int scr_list(const char** labels, const char* select, const char* cancel, int start) {
+typedef struct {
+  const char* title;
+  const char* info;
+} scr_list_item_t;
+
+typedef scr_list_item_t (*scr_list_cb_t)(int num, void* ctx);
+
+static int scr_list(int total, int start, const char* select, const char* cancel, scr_list_cb_t cb, void* ctx) {
   // prepare variables
   static int selected = 0;
   static int offset = 0;
-
-  // count labels
-  int total = 0;
-  while (labels[total] != NULL) {
-    total++;
-  }
 
   // handle empty
   if (total <= 0) {
@@ -136,12 +137,15 @@ static int scr_list(const char** labels, const char* select, const char* cancel,
   // add list
   lv_obj_t* rects[4];
   lv_obj_t* names[4];
+  lv_obj_t* infos[4];
   for (int i = 0; i < 4; i++) {
     rects[i] = lv_obj_create(lv_scr_act());
     names[i] = lv_label_create(lv_scr_act());
+    infos[i] = lv_label_create(lv_scr_act());
     lv_obj_set_size(rects[i], lv_pct(100), 25);
     lv_obj_align(rects[i], LV_ALIGN_TOP_LEFT, 0, 0 + i * 25);
     lv_obj_align(names[i], LV_ALIGN_TOP_LEFT, 5, 5 + i * 25);
+    lv_obj_align(infos[i], LV_ALIGN_TOP_RIGHT, -(5 - FNT_OFF), 5 + i * 25);
     lv_obj_set_style_border_width(rects[i], 0, LV_PART_MAIN);
     lv_obj_set_style_radius(rects[i], 0, LV_PART_MAIN);
   }
@@ -180,20 +184,27 @@ static int scr_list(const char** labels, const char* select, const char* cancel,
       if (index >= total) {
         // clear labels and rectangle
         lv_label_set_text(names[i], "");
+        lv_label_set_text(infos[i], "");
         lv_obj_set_style_bg_color(rects[i], lv_color_white(), LV_PART_MAIN);
 
         continue;
       }
 
+      // get item
+      scr_list_item_t item = cb(index, ctx);
+
       // update labels
-      lv_label_set_text(names[i], labels[index]);
+      lv_label_set_text(names[i], item.title);
+      lv_label_set_text(infos[i], item.info);
 
       // handle selected
       if (index == selected) {
         lv_obj_set_style_text_color(names[i], lv_color_white(), LV_PART_MAIN);
+        lv_obj_set_style_text_color(infos[i], lv_color_white(), LV_PART_MAIN);
         lv_obj_set_style_bg_color(rects[i], lv_color_black(), LV_PART_MAIN);
       } else {
         lv_obj_set_style_text_color(names[i], lv_color_black(), LV_PART_MAIN);
+        lv_obj_set_style_text_color(infos[i], lv_color_black(), LV_PART_MAIN);
         lv_obj_set_style_bg_color(rects[i], lv_color_white(), LV_PART_MAIN);
       }
     }
@@ -242,6 +253,24 @@ static int scr_list(const char** labels, const char* select, const char* cancel,
 
     return selected;
   }
+}
+
+static scr_list_item_t scr_list_strings_cb(int num, void* ctx) {
+  // return item
+  return (scr_list_item_t){((const char**)ctx)[num], ""};
+}
+
+static int scr_list_strings(int start, const char** strings, const char* select, const char* cancel) {
+  // count strings
+  int total = 0;
+  while (strings[total] != NULL) {
+    total++;
+  }
+
+  // show list
+  int ret = scr_list(total, start, select, cancel, scr_list_strings_cb, strings);
+
+  return ret;
 }
 
 static void scr_power_off() {
@@ -398,11 +427,17 @@ static const scr_trans_t scr_trans_map[] = {
         },
 };
 
-static const scr_trans_t* scr_trans() { return &scr_trans_map[scr_lang]; }
+static const scr_trans_t* scr_trans() {
+  // return translation
+  return &scr_trans_map[scr_lang];
+}
 
 /* Formatters */
 
-static const char* scr_file_name(dat_file_t* file) { return scr_fmt(scr_trans()->measurement, file->head.num); }
+static const char* scr_file_name(dat_file_t* file) {
+  // return name
+  return scr_fmt(scr_trans()->measurement, file->head.num);
+}
 
 static const char* scr_file_date(dat_file_t* file) {
   static char buf[24];
@@ -428,7 +463,7 @@ static void* scr_date();
 static void* scr_language();
 static void* scr_intro();
 
-static void* scr_test_bubbles() {
+static void* scr_bubbles() {
   // begin draw
   gfx_begin(false, false);
 
@@ -1661,7 +1696,7 @@ static void* scr_develop() {
   // handle list
   int ret = 0;
   for (;;) {
-    ret = scr_list(labels, "Select", "Cancel", ret);
+    ret = scr_list_strings(ret, labels, "Select", "Cancel");
     if (ret < 0) {
       return scr_menu;
     }
@@ -1727,7 +1762,7 @@ static void* scr_develop() {
 
     // handle bubbles test
     if (ret == 7) {
-      return scr_test_bubbles;
+      return scr_bubbles;
     }
 
     // handle system info
@@ -2208,7 +2243,7 @@ static void* scr_language() {
   const char* labels[] = {"Deutsch", "English", NULL};
 
   // add row
-  int ret = scr_list(labels, "Select", "Cancel", scr_lang);
+  int ret = scr_list_strings(scr_lang, labels, "Select", "Cancel");
   if (ret < 0) {
     return scr_settings;
   }
