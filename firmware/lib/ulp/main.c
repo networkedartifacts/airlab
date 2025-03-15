@@ -7,7 +7,7 @@
 #include "../sensor_hal.h"
 
 #define READINGS 16  // 80s
-#define DEBUG true
+#define DEBUG false
 
 static al_sensor_raw_t raw = {0};
 volatile uint8_t counter = 0;
@@ -51,10 +51,13 @@ static void debug(const char* msg) {
 
 int main(void) {
   // initialize UART
+#if DEBUG
   ulp_riscv_uart_cfg_t cfg = {.tx_pin = 3};
   ulp_riscv_uart_t uart;
   ulp_riscv_uart_init(&uart, &cfg);
   ulp_riscv_print_install((putc_fn_t)ulp_riscv_uart_putc, &uart);
+  ulp_riscv_print_str("\nstart\n");
+#endif
 
   // wire sensor
   al_sensor_wire((al_sensor_ops_t){

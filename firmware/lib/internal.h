@@ -33,6 +33,6 @@ void al_touch_wake();
 void al_ulp_start();
 void al_ulp_stop();
 int al_ulp_readings();
-al_sensor_raw_t al_ulp_last_reading();
+al_sensor_raw_t al_ulp_get_reading(int index);
 
 #endif  // AL_INTERNAL_H

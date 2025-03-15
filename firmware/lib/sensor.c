@@ -15,11 +15,12 @@
 
 static naos_mutex_t al_sensor_mutex;
 static naos_signal_t al_sensor_signal;
-static al_sensor_state_t al_sensor_history[AL_SENSOR_HIST] = {0};
-static size_t al_sensor_pos = 0;
-static GasIndexAlgorithmParams al_sensor_voc_params;
-static GasIndexAlgorithmParams al_sensor_nox_params;
 static al_sensor_hook_t al_sensor_hook;
+
+AL_KEEP static size_t al_sensor_pos = 0;
+AL_KEEP static al_sensor_state_t al_sensor_history[AL_SENSOR_HIST] = {0};
+AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
+AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
 
 static bool al_sensor_transfer(uint8_t target, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl) {
   return al_i2c_transfer(target, wd, wl, rd, rl, 1000) == ESP_OK;
@@ -139,18 +140,16 @@ void al_sensor_init(bool reset) {
     if (!al_sensor_reset()) {
       ESP_ERROR_CHECK(ESP_FAIL);
     }
+
+    // initialize gas index parameters
+    GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
+    GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
   }
 
-  // initialize gas index parameters
-  GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
-  GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
-
-  // check ULP readings
-  naos_log("al-sns: ulp readings=%d", al_ulp_readings());
-
-  // ingest ULP reading
-  if (al_ulp_readings() > 0) {
-    al_sensor_ingest(al_ulp_last_reading());
+  // ingest ULP readings
+  naos_log("al-sns: ULP readings=%d", al_ulp_readings());
+  for (int i = 0; i < al_ulp_readings(); i++) {
+    al_sensor_ingest(al_ulp_get_reading(i));
   }
 
   // run check task
