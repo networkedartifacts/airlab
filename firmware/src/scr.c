@@ -2267,9 +2267,9 @@ static void scr_task() {
 
   // handle return
   al_trigger_t trigger = al_trigger();
-  if ((trigger == AL_BUTTON || trigger == AL_MOTION) && scr_return_unlock != NULL) {
+  if (trigger == AL_BUTTON && scr_return_unlock != NULL) {
     handler = scr_return_unlock;
-  } else if (trigger == AL_TIMEOUT && scr_return_timeout != NULL) {
+  } else if ((trigger == AL_TIMEOUT || trigger == AL_MOTION) && scr_return_timeout != NULL) {
     handler = scr_return_timeout;
   }
 
