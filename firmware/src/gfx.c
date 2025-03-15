@@ -18,6 +18,7 @@
 // Docs: https://docs.lvgl.io/master/index.html
 
 static naos_mutex_t gfx_mutex;
+static naos_signal_t gfx_signal;
 static lv_disp_draw_buf_t gfx_draw_buffer;
 static lv_color_t* gfx_frame_buffer = NULL;
 static lv_disp_drv_t gfx_driver;
@@ -27,7 +28,6 @@ static uint8_t* gfx_frame = NULL;
 static lv_theme_t* gfx_theme;
 static bool gfx_refresh = false;
 static bool gfx_invert = false;
-static bool gfx_deferred = false;
 static bool gfx_skip = false;
 
 static void gfx_task() {
@@ -70,11 +70,6 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     }
   }
 
-  // set or extend flush area
-  if (!gfx_deferred) {
-    gfx_deferred = true;
-  }
-
   // defer update if not last
   if (!lv_disp_flush_is_last(driver)) {
     lv_disp_flush_ready(driver);
@@ -94,9 +89,6 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     }
   }
 
-  // clear flags
-  gfx_deferred = false;
-
   // signal done
   lv_disp_flush_ready(driver);
 
@@ -106,6 +98,9 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
         .type = SIG_REFRESH,
     });
   }
+
+  // trigger signal
+  naos_trigger(gfx_signal, 1, false);
 }
 
 #if GFX_TRACE
@@ -115,8 +110,9 @@ static void gfx_log(const char* _) {}
 #endif
 
 void gfx_init() {
-  // create mutex
+  // create mutex and signal
   gfx_mutex = naos_mutex();
+  gfx_signal = naos_signal();
 
   // allocate buffers
   gfx_frame_buffer = calloc(GFX_WIDTH * GFX_HEIGHT, sizeof(lv_color_t));
@@ -159,6 +155,10 @@ void gfx_init() {
 }
 
 void gfx_begin(bool refresh, bool invert) {
+  if (GFX_DEBUG) {
+    naos_log("gfx: begin refresh=%d invert=%d", refresh, invert);
+  }
+
   // acquire mutex
   naos_lock(gfx_mutex);
 
@@ -172,14 +172,29 @@ void gfx_begin(bool refresh, bool invert) {
   // set flag
   gfx_refresh = refresh;
   gfx_invert = invert;
+
+  // clear signal
+  naos_trigger(gfx_signal, 1, true);
 }
 
-void gfx_end(bool skip) {
+void gfx_end(bool skip, bool wait) {
+  if (GFX_DEBUG) {
+    naos_log("gfx: end skip=%d wait=%d", skip, wait);
+  }
+
   // set flag
   gfx_skip = skip;
 
   // release mutex
   naos_unlock(gfx_mutex);
+
+  // await signal
+  if (wait) {
+    naos_await(gfx_signal, 1, false);
+    if (GFX_DEBUG) {
+      naos_log("gfx: end done");
+    }
+  }
 }
 
 lv_group_t* gfx_get_group() {
