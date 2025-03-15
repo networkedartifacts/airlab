@@ -6,10 +6,9 @@
 #include <stddef.h>
 
 typedef struct {
-  bool (*transfer)(uint8_t target, uint8_t * wd, size_t wl, uint8_t * rd, size_t rl);
-  int64_t (*millis)();
+  bool (*transfer)(uint8_t target, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl);
   void (*delay)(uint32_t ms);
-  void (*log)(const char * fmt, ...);
+  void (*debug)(const char* fmt);
 } al_sensor_ops_t;
 
 typedef struct {
@@ -27,10 +26,10 @@ bool al_sensor_reset();
 
 bool al_sensor_ready();
 
-bool al_sensor_read(al_sensor_raw_t * raw);
+bool al_sensor_read(al_sensor_raw_t* raw);
 
 bool al_sensor_sleep();
 
 bool al_sensor_wake();
 
-#endif // AL_SENSOR_HAL_H
+#endif  // AL_SENSOR_HAL_H

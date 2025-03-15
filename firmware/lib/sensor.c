@@ -33,6 +33,11 @@ static bool al_sensor_transfer(uint8_t target, uint8_t* wd, size_t wl, uint8_t* 
   return err == ESP_OK;
 }
 
+static void al_sensor_debug(const char* msg) {
+  // print message
+  naos_log("sns: %s", msg);
+}
+
 static void al_sensor_check() {
   for (;;) {
     // wait a second
@@ -118,12 +123,20 @@ void al_sensor_init() {
   al_sensor_mutex = naos_mutex();
   al_sensor_signal = naos_signal();
 
+  // wait at least one second
+  uint32_t ms = naos_millis();
+  if (ms < 1100) {
+    if (AL_SENSOR_DEBUG) {
+      naos_log("delay init by %dms", 1100 - ms);
+    }
+    naos_delay(1100 - ms);
+  }
+
   // wire sensor
   al_sensor_wire((al_sensor_ops_t){
       .transfer = al_sensor_transfer,
-      .millis = naos_millis,
       .delay = naos_delay,
-      .log = naos_log,
+      .debug = al_sensor_debug,
   });
 
   // reset sensor

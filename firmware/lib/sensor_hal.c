@@ -54,7 +54,7 @@ static bool al_sensor_transfer(uint8_t target, uint16_t addr, size_t send, size_
   // run command
   bool ok = al_sensor_ops.transfer(target, al_sensor_buf_transfer, write, al_sensor_buf_transfer, receive * 3);
   if (!ok && !may_fail) {
-    al_sensor_ops.log("transfer failed");
+    al_sensor_ops.debug("transfer failed");
     return false;
   }
 
@@ -68,7 +68,7 @@ static bool al_sensor_transfer(uint8_t target, uint16_t addr, size_t send, size_
     al_sensor_buf_read[i] = (al_sensor_buf_transfer[i * 3] << 8) | al_sensor_buf_transfer[i * 3 + 1];
     uint8_t crc = al_sensor_crc(al_sensor_buf_transfer + (i * 3), 2);
     if (al_sensor_buf_transfer[i * 3 + 2] != crc) {
-      al_sensor_ops.log("crc failed in=%u crc=%u", al_sensor_buf_transfer[i * 3 + 2], crc);
+      al_sensor_ops.debug("crc mismatch");
       return false;
     }
   }
@@ -98,31 +98,12 @@ void al_sensor_wire(al_sensor_ops_t ops) {
 }
 
 bool al_sensor_reset() {
-  // wait at least one second
-  uint32_t ms = al_sensor_ops.millis();
-  if (ms < 1100) {
-    if (AL_SENSOR_HAL_DEBUG) {
-      al_sensor_ops.log("delay init by %dms", 1100 - ms);
-    }
-    al_sensor_ops.delay(1100 - ms);
-  }
-
   // wake up SCD
   AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x36f6, 0, 0, true));
 
   // stop SDC periodic measurement
   AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x3f86, 0, 0, true));
   al_sensor_ops.delay(500);
-
-  // read serials
-  if (AL_SENSOR_HAL_DEBUG) {
-    AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x3682, 0, 3, false));
-    al_sensor_ops.log("SCD serial %lu %lu %lu", al_sensor_buf_read[0], al_sensor_buf_read[1], al_sensor_buf_read[2]);
-    AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SGP, 0x3682, 0, 3, false));
-    al_sensor_ops.log("SGP serial %lu %lu %lu", al_sensor_buf_read[0], al_sensor_buf_read[1], al_sensor_buf_read[2]);
-    AL_CHECK(al_sensor_read_lps(0x0F, al_sensor_buf_transfer));
-    al_sensor_ops.log("LPS serial %u", al_sensor_buf_transfer[0]);
-  }
 
   // start SCD periodic measurement
   AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x21b1, 0, 0, false));
