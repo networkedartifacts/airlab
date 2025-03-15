@@ -21,8 +21,8 @@ static sig_type_t hmi_map[] = {
 };
 
 static void hmi_touch_hook(al_touch_event_t event) {
-  // buzz
-  al_buzzer_tick();
+  // play click
+  al_buzzer_click();
 
   // stop if not touched
   if (event.touches == 0) {
