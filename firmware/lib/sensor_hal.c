@@ -1,9 +1,9 @@
 #include "sensor_hal.h"
 
-#define AL_SENSOR_SCD 0x62
-#define AL_SENSOR_SGP 0x59
-#define AL_SENSOR_LPS 0x5C
-#define AL_SENSOR_DEBUG false
+#define AL_SENSOR_HAL_SCD 0x62
+#define AL_SENSOR_HAL_SGP 0x59
+#define AL_SENSOR_HAL_LPS 0x5C
+#define AL_SENSOR_HAL_DEBUG false
 
 #define AL_CHECK(call) \
   if (!call) {         \
@@ -11,9 +11,9 @@
   }
 
 static al_sensor_ops_t al_sensor_ops;
-static uint16_t al_sensor_buf_write[8];
-static uint16_t al_sensor_buf_read[8];
-static uint8_t al_sensor_buf_transfer[24];
+static uint16_t al_sensor_buf_write[4];
+static uint16_t al_sensor_buf_read[4];
+static uint8_t al_sensor_buf_transfer[2 + 4 * 3];
 
 static uint8_t al_sensor_crc(const uint8_t* data, uint16_t count) {
   // crc-8 calculation as defined per datasheet
@@ -33,21 +33,28 @@ static uint8_t al_sensor_crc(const uint8_t* data, uint16_t count) {
 }
 
 static bool al_sensor_transfer(uint8_t target, uint16_t addr, size_t send, size_t receive, bool may_fail) {
+  // prepare write length
+  size_t write = 0;
+
   // write address
-  al_sensor_buf_transfer[0] = addr >> 8;
-  al_sensor_buf_transfer[1] = addr & 0xFF;
+  if (addr != 0) {
+    al_sensor_buf_transfer[0] = addr >> 8;
+    al_sensor_buf_transfer[1] = addr & 0xFF;
+    write += 2;
+  }
 
   // write bytes
   for (size_t i = 0; i < send; i++) {
     al_sensor_buf_transfer[2 + i * 3] = al_sensor_buf_write[i] >> 8;
     al_sensor_buf_transfer[2 + i * 3 + 1] = al_sensor_buf_write[i] & 0xFF;
     al_sensor_buf_transfer[2 + i * 3 + 2] = al_sensor_crc(al_sensor_buf_transfer + (2 + i * 3), 2);
+    write += 3;
   }
 
   // run command
-  bool ok = al_sensor_ops.transfer(target, al_sensor_buf_transfer, 2 + send * 3, al_sensor_buf_transfer, receive * 3);
+  bool ok = al_sensor_ops.transfer(target, al_sensor_buf_transfer, write, al_sensor_buf_transfer, receive * 3);
   if (!ok && !may_fail) {
-    al_sensor_ops.log("sns: transfer failed");
+    al_sensor_ops.log("transfer failed");
     return false;
   }
 
@@ -61,52 +68,26 @@ static bool al_sensor_transfer(uint8_t target, uint16_t addr, size_t send, size_
     al_sensor_buf_read[i] = (al_sensor_buf_transfer[i * 3] << 8) | al_sensor_buf_transfer[i * 3 + 1];
     uint8_t crc = al_sensor_crc(al_sensor_buf_transfer + (i * 3), 2);
     if (al_sensor_buf_transfer[i * 3 + 2] != crc) {
-      al_sensor_ops.log("sns: crc failed in=%u crc=%u", al_sensor_buf_transfer[i * 3 + 2], crc);
+      al_sensor_ops.log("crc failed in=%u crc=%u", al_sensor_buf_transfer[i * 3 + 2], crc);
       return false;
     }
   }
 
   return true;
-}
-
-static bool al_sensor_receive(uint8_t target, size_t receive) {
-  // run command
-  bool ok = al_sensor_ops.transfer(target, NULL, 0, al_sensor_buf_transfer, receive * 3);
-  if (!ok) {
-    al_sensor_ops.log("sns: receive failed");
-    return false;
-  }
-
-  // read bytes
-  for (size_t i = 0; i < receive; i++) {
-    al_sensor_buf_read[i] = (al_sensor_buf_transfer[i * 3] << 8) | al_sensor_buf_transfer[i * 3 + 1];
-    uint8_t crc = al_sensor_crc(al_sensor_buf_transfer + (i * 3), 2);
-    if (al_sensor_buf_transfer[i * 3 + 2] != crc) {
-      al_sensor_ops.log("sns: crc failed in=%u crc=%u", al_sensor_buf_transfer[i * 3 + 2], crc);
-      return false;
-    }
-  }
-
-  return true;
-}
-
-void al_sensor_to_ticks(float rh_in, float t_in, uint16_t* rh_out, uint16_t* t_out) {
-  // convert temperature and humidity to ticks
-  *rh_out = (uint16_t)(rh_in * 65535.f / 100.f);
-  *t_out = (uint16_t)((t_in + 45.f) * 65535.f / 175.f);
 }
 
 static bool al_sensor_read_lps(uint8_t reg, uint8_t* val) {
   // read register
-  bool ok = al_sensor_ops.transfer(AL_SENSOR_LPS, &reg, 1, val, 1);
+  bool ok = al_sensor_ops.transfer(AL_SENSOR_HAL_LPS, &reg, 1, val, 1);
 
   return ok;
 }
 
 static bool al_sensor_write_lps(uint8_t reg, uint8_t val) {
   // write register
-  uint8_t data[2] = {reg, val};
-  bool ok = al_sensor_ops.transfer(AL_SENSOR_LPS, data, 2, NULL, 0);
+  al_sensor_buf_transfer[0] = reg;
+  al_sensor_buf_transfer[1] = val;
+  bool ok = al_sensor_ops.transfer(AL_SENSOR_HAL_LPS, al_sensor_buf_transfer, 2, NULL, 0);
 
   return ok;
 }
@@ -120,33 +101,31 @@ bool al_sensor_reset() {
   // wait at least one second
   uint32_t ms = al_sensor_ops.millis();
   if (ms < 1100) {
-    if (AL_SENSOR_DEBUG) {
-      al_sensor_ops.log("sns: delay init by %dms", 1100 - ms);
+    if (AL_SENSOR_HAL_DEBUG) {
+      al_sensor_ops.log("delay init by %dms", 1100 - ms);
     }
     al_sensor_ops.delay(1100 - ms);
   }
 
   // wake up SCD
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x36f6, 0, 0, true));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x36f6, 0, 0, true));
 
   // stop SDC periodic measurement
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x3f86, 0, 0, true));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x3f86, 0, 0, true));
   al_sensor_ops.delay(500);
 
   // read serials
-  if (AL_SENSOR_DEBUG) {
-    AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x3682, 0, 3, false));
-    al_sensor_ops.log("sns: SCD serial %lu %lu %lu", al_sensor_buf_read[0], al_sensor_buf_read[1],
-                      al_sensor_buf_read[2]);
-    AL_CHECK(al_sensor_transfer(AL_SENSOR_SGP, 0x3682, 0, 3, false));
-    al_sensor_ops.log("sns: SGP serial %lu %lu %lu", al_sensor_buf_read[0], al_sensor_buf_read[1],
-                      al_sensor_buf_read[2]);
+  if (AL_SENSOR_HAL_DEBUG) {
+    AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x3682, 0, 3, false));
+    al_sensor_ops.log("SCD serial %lu %lu %lu", al_sensor_buf_read[0], al_sensor_buf_read[1], al_sensor_buf_read[2]);
+    AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SGP, 0x3682, 0, 3, false));
+    al_sensor_ops.log("SGP serial %lu %lu %lu", al_sensor_buf_read[0], al_sensor_buf_read[1], al_sensor_buf_read[2]);
     AL_CHECK(al_sensor_read_lps(0x0F, al_sensor_buf_transfer));
-    al_sensor_ops.log("sns: LPS serial %u", al_sensor_buf_transfer[0]);
+    al_sensor_ops.log("LPS serial %u", al_sensor_buf_transfer[0]);
   }
 
   // start SCD periodic measurement
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x21b1, 0, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x21b1, 0, 0, false));
 
   // start LPS periodic measurement (10Hz, LPF on)
   AL_CHECK(al_sensor_write_lps(0x10, 0x28));
@@ -161,7 +140,7 @@ bool al_sensor_reset() {
 
 bool al_sensor_ready() {
   // check if SCD measurement is available
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0xe4b8, 0, 1, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0xe4b8, 0, 1, false));
   if ((al_sensor_buf_read[0] & 0xFFF) == 0) {
     return false;
   }
@@ -171,7 +150,7 @@ bool al_sensor_ready() {
 
 bool al_sensor_read(al_sensor_raw_t* raw) {
   // read SCD sensor
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0xec05, 0, 3, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0xec05, 0, 3, false));
   raw->co2 = al_sensor_buf_read[0];
   raw->tmp = al_sensor_buf_read[1];
   raw->hum = al_sensor_buf_read[2];
@@ -179,9 +158,9 @@ bool al_sensor_read(al_sensor_raw_t* raw) {
   // read SGP sensor
   al_sensor_buf_write[0] = raw->hum;
   al_sensor_buf_write[1] = raw->tmp;
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SGP, 0x2619, 2, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SGP, 0x2619, 2, 0, false));
   al_sensor_ops.delay(50);
-  AL_CHECK(al_sensor_receive(AL_SENSOR_SGP, 2));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SGP, 0, 0, 2, false));
   raw->voc = al_sensor_buf_read[0];
   raw->nox = al_sensor_buf_read[1];
 
@@ -196,26 +175,26 @@ bool al_sensor_read(al_sensor_raw_t* raw) {
 
 bool al_sensor_sleep() {
   // stop periodic measurement
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x3f86, 0, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x3f86, 0, 0, false));
   al_sensor_ops.delay(500);
 
   // power down SCD
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x36e0, 0, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x36e0, 0, 0, false));
 
   // TODO: Is turn off the SGP sensor ok?
 
   // turn off SGP
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SGP, 0x3615, 0, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SGP, 0x3615, 0, 0, false));
 
   return true;
 }
 
 bool al_sensor_wake() {
   // wake up SCD
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x36f6, 0, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x36f6, 0, 0, false));
 
   // start SCD periodic measurement
-  AL_CHECK(al_sensor_transfer(AL_SENSOR_SCD, 0x21b1, 0, 0, false));
+  AL_CHECK(al_sensor_transfer(AL_SENSOR_HAL_SCD, 0x21b1, 0, 0, false));
 
   return true;
 }
