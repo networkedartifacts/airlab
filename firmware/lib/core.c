@@ -5,6 +5,7 @@
 #include <esp_sleep.h>
 
 #include <al/core.h>
+#include <naos/sys.h>
 
 #include "internal.h"
 
@@ -13,6 +14,9 @@
    BIT64(AL_BUTTONS_F))
 
 void al_init() {
+  // stop ULP program
+  al_ulp_stop();
+
   // install interrupt service
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
@@ -68,6 +72,12 @@ void al_sleep(bool deep, uint64_t timeout) {
     ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timeout * 1000));
   } else {
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+  }
+
+  // run ULP program during deep sleep
+  if (deep) {
+    al_ulp_start();
+    esp_sleep_enable_ulp_wakeup();
   }
 
   // perform sleep

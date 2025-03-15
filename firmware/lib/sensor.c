@@ -4,6 +4,7 @@
 
 #include <al/sensor.h>
 
+#include "internal.h"
 #include "sensor_hal.h"
 #include "sensor_gas.h"
 
@@ -38,6 +39,57 @@ static void al_sensor_debug(const char* msg) {
   naos_log("sns: %s", msg);
 }
 
+static al_sensor_state_t al_sensor_ingest(al_sensor_raw_t raw) {
+  // calculate ppm, °C, % rH
+  float co2 = (float)raw.co2;
+  float tmp = -45.f + 175.f * ((float)raw.tmp / (float)(UINT16_MAX));
+  float hum = 100.f * ((float)raw.hum / (float)(UINT16_MAX));
+  if (AL_SENSOR_DEBUG) {
+    naos_log("sns: SCD values: co2=%.0f tmp=%.1f hum=%.1f", co2, tmp, hum);
+  }
+
+  // update sampling interval
+  // gas_voc_params.mSamplingInterval = input.delta;
+  // gas_nox_params.mSamplingInterval = input.delta;
+
+  // perform gas index calculation
+  int32_t voc_index = 0;
+  int32_t nox_index = 0;
+  GasIndexAlgorithm_process(&al_sensor_voc_params, raw.voc, &voc_index);
+  GasIndexAlgorithm_process(&al_sensor_nox_params, raw.nox, &nox_index);
+  if (AL_SENSOR_DEBUG) {
+    naos_log("sns: SGP values: voc=%d nox=%d", voc_index, nox_index);
+  }
+
+  // calculate pressure
+  float prs = (float)raw.prs / 4096.f;
+  if (AL_SENSOR_DEBUG) {
+    naos_log("sns: LPS pressure: %.2f hPa", prs);
+  }
+
+  // advance
+  al_sensor_pos++;
+  if (al_sensor_pos >= AL_SENSOR_HIST) {
+    al_sensor_pos = 0;
+  }
+
+  // create state
+  al_sensor_state_t state = {
+      .ok = true,
+      .co2 = co2,
+      .tmp = tmp,
+      .hum = hum,
+      .voc = (float)voc_index,
+      .nox = (float)nox_index,
+      .prs = prs,
+  };
+
+  // set state
+  al_sensor_history[al_sensor_pos] = state;
+
+  return state;
+}
+
 static void al_sensor_check() {
   for (;;) {
     // wait a second
@@ -58,52 +110,8 @@ static void al_sensor_check() {
       ESP_ERROR_CHECK(ESP_FAIL);
     }
 
-    // calculate ppm, °C, % rH
-    float co2 = (float)raw.co2;
-    float tmp = -45.f + 175.f * ((float)raw.tmp / (float)(UINT16_MAX));
-    float hum = 100.f * ((float)raw.hum / (float)(UINT16_MAX));
-    if (AL_SENSOR_DEBUG) {
-      naos_log("sns: SCD values: co2=%.0f tmp=%.1f hum=%.1f", co2, tmp, hum);
-    }
-
-    // update sampling interval
-    // gas_voc_params.mSamplingInterval = input.delta;
-    // gas_nox_params.mSamplingInterval = input.delta;
-
-    // perform gas index calculation
-    int32_t voc_index = 0;
-    int32_t nox_index = 0;
-    GasIndexAlgorithm_process(&al_sensor_voc_params, raw.voc, &voc_index);
-    GasIndexAlgorithm_process(&al_sensor_nox_params, raw.nox, &nox_index);
-    if (AL_SENSOR_DEBUG) {
-      naos_log("sns: SGP values: voc=%d nox=%d", voc_index, nox_index);
-    }
-
-    // calculate pressure
-    float prs = (float)raw.prs / 4096.f;
-    if (AL_SENSOR_DEBUG) {
-      naos_log("sns: LPS pressure: %.2f hPa", prs);
-    }
-
-    // advance
-    al_sensor_pos++;
-    if (al_sensor_pos >= AL_SENSOR_HIST) {
-      al_sensor_pos = 0;
-    }
-
-    // create state
-    al_sensor_state_t state = {
-        .ok = true,
-        .co2 = co2,
-        .tmp = tmp,
-        .hum = hum,
-        .voc = (float)voc_index,
-        .nox = (float)nox_index,
-        .prs = prs,
-    };
-
-    // set state
-    al_sensor_history[al_sensor_pos] = state;
+    // ingest sensor data
+    al_sensor_state_t state = al_sensor_ingest(raw);
 
     // release mutex
     naos_unlock(al_sensor_mutex);
@@ -147,6 +155,14 @@ void al_sensor_init() {
   // initialize gas index parameters
   GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
   GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
+
+  // check ULP readings
+  naos_log("sns: ulp readings=%d", al_ulp_readings());
+
+  // ingest ULP reading
+  if (al_ulp_readings() > 0) {
+    al_sensor_ingest(al_ulp_last_reading());
+  }
 
   // run check task
   naos_run("sns", 8192, 1, al_sensor_check);

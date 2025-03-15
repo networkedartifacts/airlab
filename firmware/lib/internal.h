@@ -1,6 +1,8 @@
 #ifndef AL_INTERNAL_H
 #define AL_INTERNAL_H
 
+#include "sensor_hal.h"
+
 #define AL_ACCEL_INT GPIO_NUM_16
 
 #define AL_BUTTONS_A GPIO_NUM_12
@@ -23,4 +25,9 @@ void al_touch_init();
 void al_touch_sleep();
 void al_touch_wake();
 
-#endif // AL_INTERNAL_H
+void al_ulp_start();
+void al_ulp_stop();
+int al_ulp_readings();
+al_sensor_raw_t al_ulp_last_reading();
+
+#endif  // AL_INTERNAL_H

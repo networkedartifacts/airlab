@@ -34,6 +34,7 @@ set(SOURCE_FILES
         lib/sensor_hal.c
         lib/sensor_hal.h
         lib/touch.c
+        lib/ulp.c
         src/dat.c
         src/dat.h
         src/dev.h
@@ -66,3 +67,9 @@ add_library(${CMAKE_PROJECT_NAME} ${SOURCE_FILES})
 
 # include naos include paths
 add_subdirectory(naos)
+
+# include ULP libraries
+target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
+        naos/tree/esp-idf/components/ulp/ulp_riscv/ulp_core/include
+        naos/tree/build/esp-idf/lib/ulp_al
+)
