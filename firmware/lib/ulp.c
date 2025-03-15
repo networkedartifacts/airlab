@@ -1,7 +1,6 @@
 #include <naos.h>
 #include <ulp_riscv.h>
 #include <ulp_riscv_i2c.h>
-#include <driver/i2c.h>
 #include <esp_sleep.h>
 
 #include "internal.h"
@@ -14,18 +13,11 @@ extern const uint8_t ulp_bin_end[] asm("_binary_ulp_al_bin_end");
 
 void al_ulp_start() {
   // load ULP program
-  naos_log("ulp: length: %d", ulp_bin_end - ulp_bin_start);
+  naos_log("al-ulp: length: %d", ulp_bin_end - ulp_bin_start);
   ESP_ERROR_CHECK(ulp_riscv_load_binary(ulp_bin_start, ulp_bin_end - ulp_bin_start));
 
   // configure ULP wake period
   ESP_ERROR_CHECK(ulp_set_wakeup_period(0, 1000 * 1000));
-
-  // TODO: Ensure no parallel I2C access (mutex).
-
-  // delete current I2C driver and reset pins
-  ESP_ERROR_CHECK(i2c_driver_delete(I2C_NUM_0));
-  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
-  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
 
   // configure ULP I2C
   ulp_riscv_i2c_cfg_t i2c = ULP_RISCV_I2C_DEFAULT_CONFIG();
@@ -45,10 +37,6 @@ void al_ulp_stop() {
   // stop ULP program
   ulp_riscv_timer_stop();
   ulp_riscv_halt();
-
-  // reset I2C pins
-  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
-  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
 }
 
 int al_ulp_readings() {

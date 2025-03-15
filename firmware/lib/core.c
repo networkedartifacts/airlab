@@ -1,4 +1,5 @@
 #include <naos.h>
+#include <naos/sys.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <driver/i2c.h>
@@ -12,9 +13,14 @@
   (BIT64(AL_BUTTONS_A) | BIT64(AL_BUTTONS_B) | BIT64(AL_BUTTONS_C) | BIT64(AL_BUTTONS_D) | BIT64(AL_BUTTONS_E) | \
    BIT64(AL_BUTTONS_F))
 
+static naos_mutex_t al_i2c_mutex;
+
 void al_init() {
   // stop ULP program
   al_ulp_stop();
+
+  // create mutex
+  al_i2c_mutex = naos_mutex();
 
   // install interrupt service
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
@@ -31,6 +37,10 @@ void al_init() {
 
   // install I2C driver
   ESP_ERROR_CHECK(i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0));
+
+  // reset I2C pins after ULP usage
+  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
+  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
 
   // configure I2C driver
   i2c_config_t i2c = {
@@ -61,14 +71,23 @@ void al_init() {
 }
 
 esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout) {
+  // acquire mutex
+  naos_lock(al_i2c_mutex);
+
   // perform appropriate I2C transfer
+  esp_err_t err;
   if (tx_len > 0 && rx_len > 0) {
-    return i2c_master_write_read_device(I2C_NUM_0, addr, tx, tx_len, rx, rx_len, pdMS_TO_TICKS(timeout));
+    err = i2c_master_write_read_device(I2C_NUM_0, addr, tx, tx_len, rx, rx_len, pdMS_TO_TICKS(timeout));
   } else if (tx_len > 0) {
-    return i2c_master_write_to_device(I2C_NUM_0, addr, tx, tx_len, pdMS_TO_TICKS(timeout));
+    err = i2c_master_write_to_device(I2C_NUM_0, addr, tx, tx_len, pdMS_TO_TICKS(timeout));
   } else {
-    return i2c_master_read_from_device(I2C_NUM_0, addr, rx, rx_len, pdMS_TO_TICKS(timeout));
+    err = i2c_master_read_from_device(I2C_NUM_0, addr, rx, rx_len, pdMS_TO_TICKS(timeout));
   }
+
+  // unlock mutex
+  naos_unlock(al_i2c_mutex);
+
+  return err;
 }
 
 void al_sleep(bool deep, uint64_t timeout) {
@@ -85,9 +104,18 @@ void al_sleep(bool deep, uint64_t timeout) {
     esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
   }
 
-  // run ULP program during deep sleep
+  // prepare deep sleep
   if (deep) {
+    // disable I2C access
+    naos_lock(al_i2c_mutex);
+    ESP_ERROR_CHECK(i2c_driver_delete(I2C_NUM_0));
+    ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
+    ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
+
+    // start ULP program
     al_ulp_start();
+
+    // enable ULP wake up
     esp_sleep_enable_ulp_wakeup();
   }
 
