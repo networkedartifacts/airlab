@@ -1329,15 +1329,17 @@ static void* scr_edit() {
   }
 }
 
+static scr_list_item_t scr_explore_cb(int num, void* ctx) {
+  // get file
+  dat_file_t* file = dat_get_file(num);
+
+  return (scr_list_item_t){
+      .title = scr_file_name(file),
+      .info = scr_file_date(file),
+  };
+}
+
 static void* scr_explore() {
-  // prepare variables
-  static int selected;
-  static int offset;
-
-  // clear variables
-  selected = 0;
-  offset = 0;
-
   // get total length
   size_t total = dat_num_files();
 
@@ -1354,131 +1356,16 @@ static void* scr_explore() {
     return scr_menu;
   }
 
-  // begin draw
-  gfx_begin(false, false);
-
-  // add list
-  lv_obj_t* rects[4];
-  lv_obj_t* names[4];
-  lv_obj_t* dates[4];
-  for (int i = 0; i < 4; i++) {
-    rects[i] = lv_obj_create(lv_scr_act());
-    names[i] = lv_label_create(lv_scr_act());
-    dates[i] = lv_label_create(lv_scr_act());
-    lv_obj_set_size(rects[i], lv_pct(100), 25);
-    lv_obj_align(rects[i], LV_ALIGN_TOP_LEFT, 0, 0 + i * 25);
-    lv_obj_align(names[i], LV_ALIGN_TOP_LEFT, 5, 5 + i * 25);
-    lv_obj_align(dates[i], LV_ALIGN_TOP_RIGHT, -(5 - FNT_OFF), 5 + i * 25);
-    lv_obj_set_style_border_width(rects[i], 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(rects[i], 0, LV_PART_MAIN);
+  // show list
+  int ret = scr_list(total, scr_file, scr_trans()->explore__open, scr_trans()->back, scr_explore_cb, NULL);
+  if (ret < 0) {
+    return scr_menu;
   }
 
-  // add signs
-  lvx_sign_t back = {
-      .title = "B",
-      .text = scr_trans()->back,
-      .align = LV_ALIGN_BOTTOM_LEFT,
-  };
-  lvx_sign_create(&back, lv_scr_act());
-  lvx_sign_t open = {
-      .title = "A",
-      .text = scr_trans()->explore__open,
-      .align = LV_ALIGN_BOTTOM_RIGHT,
-  };
-  lvx_sign_create(&open, lv_scr_act());
+  // set file
+  scr_file = ret;
 
-  // add info
-  lv_obj_t* info = lv_label_create(lv_scr_act());
-  lv_obj_align(info, LV_ALIGN_BOTTOM_MID, 0, -5);
-
-  // end draw
-  gfx_end(true, false);
-
-  for (;;) {
-    // begin draw
-    gfx_begin(false, false);
-
-    // fill list
-    for (int i = 0; i < +4; i++) {
-      // get index
-      int index = offset + i;
-
-      // handle empty
-      if (index >= total) {
-        // clear labels and rectangle
-        lv_label_set_text(names[i], "");
-        lv_label_set_text(dates[i], "");
-        lv_obj_set_style_bg_color(rects[i], lv_color_white(), LV_PART_MAIN);
-
-        continue;
-      }
-
-      // get file
-      dat_file_t* file = dat_get_file(index);
-
-      // update labels
-      lv_label_set_text(names[i], scr_file_name(file));
-      lv_label_set_text(dates[i], scr_file_date(file));
-
-      // handle selected
-      if (index == selected) {
-        lv_obj_set_style_text_color(names[i], lv_color_white(), LV_PART_MAIN);
-        lv_obj_set_style_text_color(dates[i], lv_color_white(), LV_PART_MAIN);
-        lv_obj_set_style_bg_color(rects[i], lv_color_black(), LV_PART_MAIN);
-      } else {
-        lv_obj_set_style_text_color(names[i], lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_text_color(dates[i], lv_color_black(), LV_PART_MAIN);
-        lv_obj_set_style_bg_color(rects[i], lv_color_white(), LV_PART_MAIN);
-      }
-    }
-
-    // update info
-    lv_label_set_text(info, scr_fmt("%d/%d", selected + 1, (int)total));
-
-    // end draw
-    gfx_end(false, false);
-
-    // await event
-    sig_event_t event = sig_await(SIG_UP | SIG_DOWN | SIG_META | SIG_SCROLL, SCR_ACTION_TIMEOUT);
-
-    // handle arrows
-    if ((event.type & (SIG_UP | SIG_DOWN | SIG_SCROLL)) != 0) {
-      if (event.type == SIG_SCROLL) {
-        selected += (int)(event.touch * 2);
-      } else {
-        selected += event.type == SIG_UP ? -1 : 1;
-      }
-      while (selected < 0) {
-        selected += (int)total;
-      }
-      while (selected > total - 1) {
-        selected -= (int)total;
-      }
-      if (selected > offset + 3) {
-        offset = selected - 3;
-      } else if (selected < offset) {
-        offset = selected;
-      }
-      continue;
-    }
-
-    /* handle meta and timeout */
-
-    // cleanup
-    scr_cleanup(false);
-
-    // handle escape and timeout
-    if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
-      return scr_menu;
-    }
-
-    /* handle enter */
-
-    // set file
-    scr_file = selected;
-
-    return scr_edit;
-  }
+  return scr_edit;
 }
 
 static void* scr_usb() {
