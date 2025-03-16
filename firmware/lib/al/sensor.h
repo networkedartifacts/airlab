@@ -2,6 +2,7 @@
 #define AL_SENSOR_H
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #define AL_SENSOR_HIST 8
 
@@ -20,7 +21,7 @@ typedef enum {
 /**
  * A sensor sample.
  */
-typedef struct {
+typedef struct __attribute__((packed)) {
   bool ok;
   float co2;  // ppm
   float tmp;  // °C
@@ -29,6 +30,14 @@ typedef struct {
   float nox;  // indexed
   float prs;  // hPa
 } al_sensor_sample_t;
+
+/**
+ * The available sample stores.
+ */
+typedef enum {
+  AL_SENSOR_5S,
+  AL_SENSOR_30S,
+} al_sample_store_t;
 
 /**
  * A sensor history.
@@ -54,17 +63,26 @@ void al_sensor_config(al_sensor_hook_t hook);
 /**
  * Gets the current sensor sample.
  *
- * @note Might be zero, check the `ok` field.
+ * @note Might be zero right after reset, check the `ok` field.
+ *
  * @return The sensor sample.
  */
 al_sensor_sample_t al_sensor_get();
 
 /**
- * Await the next sensor sample.
+ * Await the next sensor sample and return it.
  *
  * @return The sensor sample.
  */
 al_sensor_sample_t al_sensor_next();
+
+/**
+ * Returns the sample count of a store.
+ *
+ * @param store The store.
+ * @return The sample count.
+ */
+size_t al_sensor_count(al_sample_store_t store);
 
 /**
  * Queries the sensor history.

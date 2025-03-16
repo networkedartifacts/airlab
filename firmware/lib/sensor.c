@@ -7,6 +7,9 @@
 #include "sensor_hal.h"
 #include "sensor_gas.h"
 
+#define AL_SENSOR_STORE_5S 60    // 5min
+#define AL_SENSOR_STORE_30S 240  // 2h
+
 #define AL_SENSOR_DEBUG false
 
 // TODO: Support low power measurement mode (30s).
@@ -21,6 +24,14 @@ AL_KEEP static size_t al_sensor_pos = 0;
 AL_KEEP static al_sensor_sample_t al_sensor_samples[AL_SENSOR_HIST] = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
+
+RTC_FAST_ATTR static uint8_t al_sensor_store_pos_5s = 0;
+RTC_FAST_ATTR static uint8_t al_sensor_store_pos_30s = 0;
+RTC_FAST_ATTR static uint8_t al_sensor_store_count_5s = 0;
+RTC_FAST_ATTR static uint8_t al_sensor_store_count_30s = 0;
+RTC_FAST_ATTR static uint8_t al_sensor_store_skip_5s = 0;
+RTC_FAST_ATTR static al_sensor_sample_t al_sensor_store_5s[AL_SENSOR_STORE_5S] = {0};
+RTC_FAST_ATTR static al_sensor_sample_t al_sensor_store_30s[AL_SENSOR_STORE_30S] = {0};
 
 static bool al_sensor_transfer(uint8_t target, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl) {
   return al_i2c_transfer(target, wd, wl, rd, rl, 1000) == ESP_OK;
@@ -59,12 +70,6 @@ static al_sensor_sample_t al_sensor_ingest(al_sensor_raw_t raw) {
     naos_log("al-sns: LPS pressure: %.2f hPa", prs);
   }
 
-  // advance
-  al_sensor_pos++;
-  if (al_sensor_pos >= AL_SENSOR_HIST) {
-    al_sensor_pos = 0;
-  }
-
   // create sample
   al_sensor_sample_t sample = {
       .ok = true,
@@ -76,8 +81,42 @@ static al_sensor_sample_t al_sensor_ingest(al_sensor_raw_t raw) {
       .prs = prs,
   };
 
-  // add sample
+  // add sample to history
   al_sensor_samples[al_sensor_pos] = sample;
+  al_sensor_pos++;
+  if (al_sensor_pos >= AL_SENSOR_HIST) {
+    al_sensor_pos = 0;
+  }
+
+  // add sample to 5s store
+  al_sensor_store_5s[al_sensor_store_pos_5s] = sample;
+  al_sensor_store_pos_5s++;
+  if (al_sensor_store_pos_5s >= AL_SENSOR_STORE_5S) {
+    al_sensor_store_pos_5s = 0;
+  }
+  if (al_sensor_store_count_5s < AL_SENSOR_STORE_5S) {
+    al_sensor_store_count_5s++;
+  }
+
+  // add sample to 30s store, if not skipped
+  if (al_sensor_store_skip_5s == 0) {
+    al_sensor_store_30s[al_sensor_store_pos_30s] = sample;
+    al_sensor_store_pos_30s++;
+    if (al_sensor_store_pos_30s >= AL_SENSOR_STORE_30S) {
+      al_sensor_store_pos_30s = 0;
+    }
+    if (al_sensor_store_count_30s < AL_SENSOR_STORE_30S) {
+      al_sensor_store_count_30s++;
+    }
+    al_sensor_store_skip_5s = 5;
+  } else {
+    al_sensor_store_skip_5s--;
+  }
+
+  // log store count
+  if (AL_SENSOR_DEBUG) {
+    naos_log("sns: store 5s=%d 30s=%d", al_sensor_store_count_5s, al_sensor_store_count_30s);
+  }
 
   return sample;
 }
@@ -178,6 +217,15 @@ al_sensor_sample_t al_sensor_next() {
   al_sensor_sample_t sample = al_sensor_get();
 
   return sample;
+}
+
+size_t al_sensor_count(al_sample_store_t store) {
+  // return store count
+  if (store == AL_SENSOR_5S) {
+    return al_sensor_store_count_5s;
+  } else {
+    return al_sensor_store_count_30s;
+  }
 }
 
 al_sensor_history_t al_sensor_query(al_sensor_t sensor) {
