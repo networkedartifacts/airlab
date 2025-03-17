@@ -67,7 +67,6 @@ static al_sensor_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
 
   // create sample
   al_sensor_sample_t sample = {
-      .ok = true,
       .co2 = co2,
       .tmp = tmp,
       .hum = hum,
@@ -188,7 +187,7 @@ void al_sensor_config(al_sensor_hook_t hook) {
   al_sensor_hook = hook;
 }
 
-al_sensor_sample_t al_sensor_get() {
+al_sensor_sample_t al_sensor_last() {
   // get sample
   naos_lock(al_sensor_mutex);
   int pos = al_sensor_store_pos_5s - 1;
@@ -205,8 +204,8 @@ al_sensor_sample_t al_sensor_next() {
   // await signal
   naos_await(al_sensor_signal, 1, true);
 
-  // get sample
-  al_sensor_sample_t sample = al_sensor_get();
+  // get last sample
+  al_sensor_sample_t sample = al_sensor_last();
 
   return sample;
 }

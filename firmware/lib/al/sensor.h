@@ -23,7 +23,6 @@ typedef enum {
  * A sensor sample.
  */
 typedef struct __attribute__((packed)) {
-  bool ok;
   float co2;  // ppm
   float tmp;  // °C
   float hum;  // % rH
@@ -53,13 +52,13 @@ typedef void (*al_sensor_hook_t)(al_sensor_sample_t sample);
 void al_sensor_config(al_sensor_hook_t hook);
 
 /**
- * Gets the current sensor sample.
+ * Returns the last sensor sample.
  *
- * @note Might be zero right after reset, check the `ok` field.
+ * @note Might be zero right after reset, check the `co2` field.
  *
  * @return The sensor sample.
  */
-al_sensor_sample_t al_sensor_get();
+al_sensor_sample_t al_sensor_last();
 
 /**
  * Await the next sensor sample and return it.

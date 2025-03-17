@@ -434,13 +434,13 @@ static void* scr_saver() {
     uint16_t hour, minute, seconds;
     sys_get_time(&hour, &minute, &seconds);
 
-    // read sensor
-    al_sensor_sample_t sample = al_sensor_get();
+    // get last sample
+    al_sensor_sample_t sample = al_sensor_last();
 
-    // await sensor if missing (deep sleep return)
-    if (!sample.ok) {
+    // await sample, if missing (after reset)
+    if (!sample.co2) {
       sig_await(SIG_SENSOR, 0);
-      sample = al_sensor_get();
+      sample = al_sensor_last();
     }
 
     // read power state
@@ -1418,8 +1418,8 @@ static void* scr_menu() {
     uint16_t hour, minute, seconds;
     sys_get_time(&hour, &minute, &seconds);
 
-    // read sensor
-    al_sensor_sample_t sample = al_sensor_get();
+    // get last sample
+    al_sensor_sample_t sample = al_sensor_last();
 
     // query sensor
     float values[SCR_HIST_POINTS] = {0};
@@ -1436,7 +1436,7 @@ static void* scr_menu() {
 
     // update bar
     bar.time = lvx_fmt("%02d:%02d", hour, minute);
-    if (!sample.ok) {
+    if (!sample.co2) {
       bar.value = scr_trans()->menu__no_data;
     } else if (mode == 0) {
       bar.value = lvx_fmt("%.0f ppm CO2", sample.co2);

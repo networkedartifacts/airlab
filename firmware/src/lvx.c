@@ -12,7 +12,6 @@
 #include "img.h"
 #include "rec.h"
 #include "sys.h"
-#include "gui.h"
 
 static int lvx_num_digits(int n) {
   // calculate digits
