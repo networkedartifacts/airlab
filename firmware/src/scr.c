@@ -613,6 +613,9 @@ static void* scr_view() {
   // prepare deadline
   int64_t deadline = naos_millis() + SCR_IDLE_TIMEOUT;
 
+  // prepare source
+  al_sample_source_t source = dat_source(scr_file);
+
   for (;;) {
     // update recording
     recording = rec_running() && rec_file() == scr_file;
@@ -664,7 +667,7 @@ static void* scr_view() {
 
     // query samples
     if (file->size > 0) {
-      size_t num = dat_query(file->head.num, samples, LVX_CHART_SIZE, start, resolution);
+      size_t num = al_sample_query(&source, samples, LVX_CHART_SIZE, start, resolution);
       if (recording) {
         index = num - 1;
       }

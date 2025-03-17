@@ -484,24 +484,18 @@ static void dat_source_read(void *ctx, al_sample_t *samples, size_t count, size_
   dat_read(((dat_file_t *)ctx)->head.num, samples, count, offset);
 }
 
-size_t dat_query(uint16_t num, al_sample_t *samples, size_t count, int32_t start, int32_t resolution) {
+al_sample_source_t dat_source(uint16_t num) {
   // find file
   dat_file_t *file = dat_find(num, NULL);
   if (file == NULL) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // prepare source
-  al_sample_source_t source = {
+  return (al_sample_source_t){
       .ctx = file,
       .count = dat_source_count,
       .read = dat_source_read,
   };
-
-  // perform query
-  count = al_sample_query(&source, samples, count, start, resolution);
-
-  return count;
 }
 
 void dat_reset() {

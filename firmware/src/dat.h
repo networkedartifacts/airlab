@@ -44,7 +44,7 @@ void dat_append(uint16_t num, al_sample_t *samples, size_t count);
 void dat_read(uint16_t num, al_sample_t *samples, size_t count, size_t start);
 void dat_delete(uint16_t num);
 
-size_t dat_query(uint16_t num, al_sample_t *samples, size_t count, int32_t start, int32_t resolution);
+al_sample_source_t dat_source(uint16_t num);
 
 void dat_reset();
 
