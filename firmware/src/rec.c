@@ -11,7 +11,7 @@
 
 static naos_mutex_t rec_mutex = NULL;
 static naos_task_t rec_handle = NULL;
-static size_t rec_current = 0;
+static uint16_t rec_current = 0;
 
 static void rec_task() {
   // acquire mutex
@@ -40,15 +40,18 @@ static void rec_task() {
       return;
     }
 
-    // get file
-    dat_file_t* file = dat_get(rec_current);
+    // find file
+    dat_file_t* file = dat_find(rec_current, NULL);
+    if (file == NULL) {
+      ESP_ERROR_CHECK(ESP_FAIL);
+    }
 
     // set offset
     int64_t offset = sys_get_timestamp() - file->head.start;
     sample.off = (int32_t)offset;
 
     // append sample
-    dat_append(file->head.num, &sample, 1);
+    dat_append(rec_current, &sample, 1);
 
     // dispatch event
     sig_dispatch((sig_event_t){
@@ -80,10 +83,10 @@ uint32_t rec_free(bool new) {
   return samples;
 }
 
-size_t rec_file() {
+uint16_t rec_file() {
   // get file
   naos_lock(rec_mutex);
-  size_t file = rec_current;
+  uint16_t file = rec_current;
   naos_unlock(rec_mutex);
 
   return file;
@@ -98,7 +101,7 @@ bool rec_running() {
   return running;
 }
 
-void rec_start(size_t file) {
+void rec_start(uint16_t file) {
   // check file
   if (rec_running()) {
     ESP_ERROR_CHECK(ESP_FAIL);
@@ -131,14 +134,17 @@ void rec_mark() {
   // acquire mutex
   naos_lock(rec_mutex);
 
-  // get file
-  dat_file_t* file = dat_get(rec_current);
+  // find file
+  dat_file_t* file = dat_find(rec_current, NULL);
+  if (file == NULL) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
 
   // calculate offset
   int64_t offset = sys_get_timestamp() - file->head.start;
 
   // mark offset
-  dat_mark(file->head.num, (int32_t)offset);
+  dat_mark(rec_current, (int32_t)offset);
 
   // release mutex
   naos_unlock(rec_mutex);

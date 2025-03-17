@@ -37,7 +37,7 @@ dat_file_t *dat_find(uint16_t num, int *index);
 dat_info_t dat_info();
 
 uint16_t dat_next();
-size_t dat_create(int64_t start);
+uint16_t dat_create(int64_t start);
 
 void dat_mark(uint16_t num, int32_t offset);
 void dat_append(uint16_t num, al_sample_t *samples, size_t count);

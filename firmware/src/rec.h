@@ -7,9 +7,9 @@
 
 void rec_init();
 uint32_t rec_free(bool new);
-size_t rec_file();
+uint16_t rec_file();
 bool rec_running();
-void rec_start(size_t file);
+void rec_start(uint16_t file);
 void rec_mark();
 void rec_stop();
 

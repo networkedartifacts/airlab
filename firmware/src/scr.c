@@ -36,7 +36,7 @@ typedef enum {
 } scr_led_flag_t;
 
 static stm_action_t scr_action = 0;
-DEV_KEEP static size_t scr_file = 0;
+DEV_KEEP static uint16_t scr_file = 0;
 DEV_KEEP static int64_t scr_saver_enter = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
@@ -578,8 +578,11 @@ static void* scr_view() {
   // zero samples
   memset(samples, 0, sizeof(samples));
 
-  // get file
-  dat_file_t* file = dat_get(scr_file);
+  // find file
+  dat_file_t* file = dat_find(scr_file, NULL);
+  if (file == NULL) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
 
   // check recording
   bool recording = rec_running() && rec_file() == scr_file;
@@ -956,14 +959,11 @@ static void* scr_create() {
     // create measurement
     scr_file = dat_create(sys_get_timestamp());
 
-    // get file
-    dat_file_t* file = dat_get(scr_file);
-
     // start recording
     rec_start(scr_file);
 
     // set action
-    if (file->head.num == 1) {
+    if (scr_file == 1) {
       scr_action = STM_START_FIRST_MEASUREMENT;
     } else {
       scr_action = STM_START_MEASUREMENT;
@@ -977,8 +977,11 @@ static void* scr_edit() {
   // begin draw
   gfx_begin(false, false);
 
-  // get file
-  dat_file_t* file = dat_get(scr_file);
+  // find file
+  dat_file_t* file = dat_find(scr_file, NULL);
+  if (file == NULL) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
 
   // add title
   lv_obj_t* title = lv_label_create(lv_scr_act());
@@ -1076,21 +1079,25 @@ static void* scr_explore() {
 
   // handle empty
   if (total == 0) {
-    // show message
     gui_message(scr_trans()->explore__empty, 2000);
-
     return scr_menu;
   }
 
+  // get index
+  int index;
+  if (!dat_find(scr_file, &index) || index >= total) {
+    index = 0;
+  }
+
   // show list
-  int ret = gui_list(total, scr_file, scr_trans()->explore__open, scr_trans()->back, scr_explore_cb, NULL,
+  int ret = gui_list((int)total, index, scr_trans()->explore__open, scr_trans()->back, scr_explore_cb, NULL,
                      SCR_ACTION_TIMEOUT);
   if (ret < 0) {
     return scr_menu;
   }
 
   // set file
-  scr_file = ret;
+  scr_file = dat_get(ret)->head.num;
 
   return scr_edit;
 }
