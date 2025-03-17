@@ -574,11 +574,7 @@ size_t dat_query(uint16_t num, dat_point_t *points, size_t count, int32_t start,
         points[i].offset = offset;
 
         // copy values
-        points[i].co2 = batch[batch_pos].co2;
-        points[i].tmp = batch[batch_pos].tmp;
-        points[i].hum = batch[batch_pos].hum;
-        points[i].voc = batch[batch_pos].voc;
-        points[i].nox = batch[batch_pos].nox;
+        points[i].sample = batch[batch_pos].sample;
 
         break;
       }
@@ -593,11 +589,12 @@ size_t dat_query(uint16_t num, dat_point_t *points, size_t count, int32_t start,
                        (float)(offset - batch[batch_pos].offset);
 
         // interpolate values
-        points[i].co2 = lerp(batch[batch_pos].co2, batch[batch_pos + 1].co2, factor);
-        points[i].tmp = lerp(batch[batch_pos].tmp, batch[batch_pos + 1].tmp, factor);
-        points[i].hum = lerp(batch[batch_pos].hum, batch[batch_pos + 1].hum, factor);
-        points[i].voc = lerp(batch[batch_pos].voc, batch[batch_pos + 1].voc, factor);
-        points[i].nox = lerp(batch[batch_pos].nox, batch[batch_pos + 1].nox, factor);
+        points[i].sample.co2 = lerp(batch[batch_pos].sample.co2, batch[batch_pos + 1].sample.co2, factor);
+        points[i].sample.tmp = lerp(batch[batch_pos].sample.tmp, batch[batch_pos + 1].sample.tmp, factor);
+        points[i].sample.hum = lerp(batch[batch_pos].sample.hum, batch[batch_pos + 1].sample.hum, factor);
+        points[i].sample.voc = lerp(batch[batch_pos].sample.voc, batch[batch_pos + 1].sample.voc, factor);
+        points[i].sample.nox = lerp(batch[batch_pos].sample.nox, batch[batch_pos + 1].sample.nox, factor);
+        points[i].sample.prs = lerp(batch[batch_pos].sample.prs, batch[batch_pos + 1].sample.prs, factor);
 
         break;
       }

@@ -571,7 +571,7 @@ static void* scr_saver() {
 
 static void* scr_view() {
   // prepare variables
-  static int8_t mode = 0;  // co2, tmp, hum
+  static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
   static bool advanced = false;
   static dat_point_t scr_points[LVX_CHART_SIZE];
 
@@ -697,35 +697,48 @@ static void* scr_view() {
       bar.mark = marks[index] > 0 ? lvx_fmt("(M%d)", marks[index]) : "";
     }
     if (mode == 0) {
-      bar.value = lvx_fmt("%.0f ppm CO2", current.co2);
+      bar.value = lvx_fmt("%.0f ppm CO2", current.sample.co2);
     } else if (mode == 1) {
-      bar.value = lvx_fmt("%.1f °C", current.tmp);
+      bar.value = lvx_fmt("%.1f °C", current.sample.tmp);
     } else if (mode == 2) {
-      bar.value = lvx_fmt("%.1f%% RH", current.hum);
+      bar.value = lvx_fmt("%.1f%% RH", current.sample.hum);
     } else if (mode == 3) {
-      bar.value = lvx_fmt("%.0f VOC", current.voc);
+      bar.value = lvx_fmt("%.0f VOC", current.sample.voc);
     } else if (mode == 4) {
-      bar.value = lvx_fmt("%.0f NOx", current.nox);
+      bar.value = lvx_fmt("%.0f NOx", current.sample.nox);
+    } else if (mode == 5) {
+      bar.value = lvx_fmt("%.0f hPa", current.sample.prs);
     }
     lvx_bar_update(&bar);
 
     // prepare range
-    float range = mode == 0 ? 3000 : mode > 2 ? 500 : 100;
+    float range = 100;
+    if (mode == 0) {
+      range = 3000;  // co2
+    } else if (mode == 3) {
+      range = 500;  // voc
+    } else if (mode == 5) {
+      range = 1500;  // prs
+    } else {
+      range = 100;  // tmp, hum, nox
+    }
 
     // collect values
     float values[LVX_CHART_SIZE];
     for (size_t i = 0; i < LVX_CHART_SIZE; i++) {
       dat_point_t point = scr_points[i];
       if (mode == 0) {
-        values[i] = point.co2;
+        values[i] = point.sample.co2;
       } else if (mode == 1) {
-        values[i] = point.tmp;
+        values[i] = point.sample.tmp;
       } else if (mode == 2) {
-        values[i] = point.hum;
+        values[i] = point.sample.hum;
       } else if (mode == 3) {
-        values[i] = point.voc;
+        values[i] = point.sample.voc;
       } else if (mode == 4) {
-        values[i] = point.nox;
+        values[i] = point.sample.nox;
+      } else if (mode == 5) {
+        values[i] = point.sample.prs;
       }
       if (values[i] > range) {
         range = values[i];
@@ -841,14 +854,14 @@ static void* scr_view() {
     // change mode on up/down
     if (event.type == SIG_UP) {
       mode++;
-      if (mode > 4) {
+      if (mode > 5) {
         mode = 0;
       }
       continue;
     } else if (event.type == SIG_DOWN) {
       mode--;
       if (mode < 0) {
-        mode = 4;
+        mode = 5;
       }
       continue;
     }
@@ -901,7 +914,7 @@ static void* scr_create() {
 
   // add mode
   lv_obj_t* mode = lv_label_create(lv_scr_act());
-  lv_label_set_text(mode, "CO2, TEMP, RH");
+  lv_label_set_text(mode, "CO2, TMP, RH, VOC, NOx, PRS");
   lv_obj_align(mode, LV_ALIGN_TOP_LEFT, 5, 47);
 
   // add length
@@ -1344,7 +1357,7 @@ static void* scr_develop() {
 
 static void* scr_menu() {
   // prepare variables
-  static int8_t mode = 0;  // co2, tmp, hum
+  static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
   static int8_t opt = 0;   // create, explore, settings, usb, develop
   static bool fan_alt = false;
 

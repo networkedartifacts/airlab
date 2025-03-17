@@ -4,27 +4,23 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include <al/sensor.h>
+
 #define DAT_MARKS 99
 
-#define DAT_ATTR __attribute__((packed, aligned(2)))
-
-typedef struct {
+typedef struct __attribute__((packed)) {
   uint16_t num;
   int64_t start;             // ms since 1970
   int32_t marks[DAT_MARKS];  // ms since start
-} DAT_ATTR dat_head_t;
+} dat_head_t;
 
 // TODO: Safe space by using int16_t?
 // TODO: Add battery level/voltage?
 
-typedef struct {
+typedef struct __attribute__((packed)) {
   int32_t offset;  // ms since start (24d)
-  float co2;       // ppm
-  float tmp;       // °C
-  float hum;       // %rH
-  float voc;       // indexed
-  float nox;       // indexed
-} DAT_ATTR dat_point_t;
+  al_sensor_sample_t sample;
+} dat_point_t;
 
 typedef struct {
   dat_head_t head;

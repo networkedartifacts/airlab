@@ -51,11 +51,7 @@ static void rec_task() {
     // prepare point
     dat_point_t point = {
         .offset = (int32_t)offset,
-        .co2 = sample.co2,
-        .hum = sample.hum,
-        .tmp = sample.tmp,
-        .voc = sample.voc,
-        .nox = sample.nox,
+        .sample = sample,
     };
 
     // append point
