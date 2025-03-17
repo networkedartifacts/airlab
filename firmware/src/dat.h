@@ -14,7 +14,6 @@ typedef struct __attribute__((packed)) {
   int32_t marks[DAT_MARKS];  // ms since start
 } dat_head_t;
 
-// TODO: Safe space by using int16_t?
 // TODO: Add battery level/voltage?
 
 typedef struct {
@@ -32,8 +31,9 @@ typedef struct {
 
 void dat_init();
 
-size_t dat_num_files();
-dat_file_t *dat_get_file(size_t num);
+size_t dat_count();
+dat_file_t *dat_get(size_t num);
+dat_file_t *dat_find(uint16_t num, int *index);
 dat_info_t dat_info();
 
 uint16_t dat_next();

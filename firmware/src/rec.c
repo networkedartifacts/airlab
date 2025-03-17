@@ -2,8 +2,6 @@
 
 #include <al/sensor.h>
 
-// TODO: Also record pressure.
-
 #include "rec.h"
 #include "sys.h"
 #include "sig.h"
@@ -43,7 +41,7 @@ static void rec_task() {
     }
 
     // get file
-    dat_file_t* file = dat_get_file(rec_current);
+    dat_file_t* file = dat_get(rec_current);
 
     // set offset
     int64_t offset = sys_get_timestamp() - file->head.start;
@@ -134,7 +132,7 @@ void rec_mark() {
   naos_lock(rec_mutex);
 
   // get file
-  dat_file_t* file = dat_get_file(rec_current);
+  dat_file_t* file = dat_get(rec_current);
 
   // calculate offset
   int64_t offset = sys_get_timestamp() - file->head.start;

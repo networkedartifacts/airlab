@@ -6,34 +6,19 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
-
-#ifndef DAT_TEST
 #include <esp_vfs_fat.h>
 #include <esp_partition.h>
 #include <tinyusb.h>
 #include <tusb_msc_storage.h>
-#else
-#include <assert.h>
-#define ESP_FAIL 1
-#define ESP_ERROR_CHECK(x) assert(x == 0)
-#endif
 
 #include "dat.h"
 #include "sig.h"
 
-#ifdef DAT_TEST
-#define DAT_ROOT "./fs"
-#else
 #define DAT_ROOT "/fs"
-#endif
-
 #define DAT_TAG "TAG.BIN"
 #define DAT_COUNTER "COUNTER.BIN"
 #define DAT_NAME_FMT "FILE%04u.BIN"
-
 #define DAT_FILES 128
-#define DAT_QUERY_BATCH 32
-
 #define DAT_DEBUG false
 
 static wl_handle_t dat_wl_handle;
@@ -42,7 +27,6 @@ static dat_file_t *dat_files;
 static size_t dat_files_length = 0;
 
 // TODO: Handle file overflow.
-// TODO: Only reference files by their number an not index.
 // TODO: Explore need for high speed USB support.
 
 static tusb_desc_device_t dat_usb_dev_desc = {
@@ -89,25 +73,6 @@ static void dat_usb_msc_cb(tinyusb_msc_event_t *event) {
         .type = SIG_EJECT,
     });
   }
-}
-
-static dat_file_t *dat_find_file(uint16_t num, int *index) {
-  // find file
-  for (int i = 0; i < dat_files_length; i++) {
-    if (dat_files[i].head.num == num) {
-      // set index if available
-      if (index != NULL) {
-        *index = i;
-      }
-
-      return &dat_files[i];
-    }
-  }
-
-  // clear index
-  *index = -1;
-
-  return NULL;
 }
 
 static void dat_read_file(const char *name, void *buf, size_t offset, size_t length) {
@@ -205,7 +170,6 @@ void dat_init() {
     ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
   }
 
-#ifndef DAT_TEST
   // mount FAT file system
   const esp_vfs_fat_mount_config_t mount_config = {
       .max_files = 2,
@@ -213,7 +177,6 @@ void dat_init() {
       .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
   };
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(DAT_ROOT, "storage", &mount_config, &dat_wl_handle));
-#endif
 
   // check for tag
   if (access(DAT_ROOT "/" DAT_TAG, F_OK) != 0) {
@@ -324,9 +287,36 @@ void dat_init() {
   closedir(dir);
 }
 
-size_t dat_num_files() { return dat_files_length; }
+size_t dat_count() {
+  // return number of files
+  return dat_files_length;
+}
 
-dat_file_t *dat_get_file(size_t num) { return &dat_files[num]; }
+dat_file_t *dat_get(size_t num) {
+  // return file
+  return &dat_files[num];
+}
+
+dat_file_t *dat_find(uint16_t num, int *index) {
+  // find file
+  for (int i = 0; i < dat_files_length; i++) {
+    if (dat_files[i].head.num == num) {
+      // set index if available
+      if (index != NULL) {
+        *index = i;
+      }
+
+      return &dat_files[i];
+    }
+  }
+
+  // clear index
+  if (index != NULL) {
+    *index = -1;
+  }
+
+  return NULL;
+}
 
 dat_info_t dat_info() {
   // get free FATFS clusters
@@ -352,7 +342,10 @@ dat_info_t dat_info() {
   };
 }
 
-uint16_t dat_next() { return dat_counter + 1; }
+uint16_t dat_next() {
+  // return next number
+  return dat_counter + 1;
+}
 
 size_t dat_create(int64_t start) {
   // prepare head
@@ -386,7 +379,7 @@ size_t dat_create(int64_t start) {
 
 void dat_mark(uint16_t num, int32_t offset) {
   // find file
-  dat_file_t *file = dat_find_file(num, NULL);
+  dat_file_t *file = dat_find(num, NULL);
   if (file == NULL) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -410,7 +403,7 @@ void dat_mark(uint16_t num, int32_t offset) {
 
 void dat_append(uint16_t num, al_sample_t *samples, size_t count) {
   // find file
-  dat_file_t *file = dat_find_file(num, NULL);
+  dat_file_t *file = dat_find(num, NULL);
   if (file == NULL) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -440,7 +433,7 @@ void dat_append(uint16_t num, al_sample_t *samples, size_t count) {
 
 void dat_read(uint16_t num, al_sample_t *samples, size_t count, size_t start) {
   // find file
-  dat_file_t *file = dat_find_file(num, NULL);
+  dat_file_t *file = dat_find(num, NULL);
   if (file == NULL) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -462,7 +455,7 @@ void dat_read(uint16_t num, al_sample_t *samples, size_t count, size_t start) {
 void dat_delete(uint16_t num) {
   // find file
   int index;
-  dat_find_file(num, &index);
+  dat_find(num, &index);
   if (index == -1) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -482,30 +475,25 @@ void dat_delete(uint16_t num) {
 }
 
 static size_t dat_source_count(void *ctx) {
-  // find file
-  dat_file_t *file = dat_find_file((uint16_t)ctx, NULL);
-  if (file == NULL) {
-    ESP_ERROR_CHECK(ESP_FAIL);
-  }
-
-  return file->size;
+  // return size
+  return ((dat_file_t *)ctx)->size;
 }
 
 static void dat_source_read(void *ctx, al_sample_t *samples, size_t count, size_t offset) {
   // read samples
-  dat_read((uint16_t)ctx, samples, count, offset);
+  dat_read(((dat_file_t *)ctx)->head.num, samples, count, offset);
 }
 
 size_t dat_query(uint16_t num, al_sample_t *samples, size_t count, int32_t start, int32_t resolution) {
   // find file
-  dat_file_t *file = dat_find_file(num, NULL);
+  dat_file_t *file = dat_find(num, NULL);
   if (file == NULL) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
   // prepare source
   al_sample_source_t source = {
-      .ctx = (void *)num,
+      .ctx = file,
       .count = dat_source_count,
       .read = dat_source_read,
   };

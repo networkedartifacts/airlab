@@ -579,7 +579,7 @@ static void* scr_view() {
   memset(samples, 0, sizeof(samples));
 
   // get file
-  dat_file_t* file = dat_get_file(scr_file);
+  dat_file_t* file = dat_get(scr_file);
 
   // check recording
   bool recording = rec_running() && rec_file() == scr_file;
@@ -957,7 +957,7 @@ static void* scr_create() {
     scr_file = dat_create(sys_get_timestamp());
 
     // get file
-    dat_file_t* file = dat_get_file(scr_file);
+    dat_file_t* file = dat_get(scr_file);
 
     // start recording
     rec_start(scr_file);
@@ -978,7 +978,7 @@ static void* scr_edit() {
   gfx_begin(false, false);
 
   // get file
-  dat_file_t* file = dat_get_file(scr_file);
+  dat_file_t* file = dat_get(scr_file);
 
   // add title
   lv_obj_t* title = lv_label_create(lv_scr_act());
@@ -1057,7 +1057,7 @@ static void* scr_edit() {
 
 static gui_list_item_t scr_explore_cb(int num, void* ctx) {
   // get file
-  dat_file_t* file = dat_get_file(num);
+  dat_file_t* file = dat_get(num);
 
   return (gui_list_item_t){
       .title = scr_file_name(file),
@@ -1067,7 +1067,7 @@ static gui_list_item_t scr_explore_cb(int num, void* ctx) {
 
 static void* scr_explore() {
   // get total length
-  size_t total = dat_num_files();
+  size_t total = dat_count();
 
   // ignore last if recording
   if (rec_running()) {
