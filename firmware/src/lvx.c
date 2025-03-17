@@ -5,13 +5,13 @@
 #include <art32/numbers.h>
 
 #include <al/power.h>
+#include <al/clock.h>
 
 #include "lvx.h"
 #include "gfx.h"
 #include "fnt.h"
 #include "img.h"
 #include "rec.h"
-#include "sys.h"
 
 static int lvx_num_digits(int n) {
   // calculate digits
@@ -399,7 +399,7 @@ void lvx_chart_draw(lvx_chart_t chart) {
 
     // format label
     uint16_t hour, minute;
-    sys_conv_timestamp(chart.offset + (int64_t)(pos), &hour, &minute, NULL);
+    al_clock_conv_epoch(chart.offset + (int64_t)(pos), &hour, &minute, NULL);
     const char* str = lvx_fmt("%02d:%02d", hour, minute);
 
     // calculate coordinate

@@ -20,7 +20,6 @@
 #include "fnt.h"
 #include "img.h"
 #include "lvx.h"
-#include "sys.h"
 #include "rec.h"
 #include "dev.h"
 #include "stm.h"
@@ -321,8 +320,8 @@ static void* scr_info() {
 
     // get date and time
     uint16_t year, month, day, hour, minute, seconds;
-    sys_get_date(&year, &month, &day);
-    sys_get_time(&hour, &minute, &seconds);
+    al_clock_get_date(&year, &month, &day);
+    al_clock_get_time(&hour, &minute, &seconds);
 
     // get CPU usage
     float cpu0 = 0, cpu1 = 0;
@@ -432,7 +431,7 @@ static void* scr_saver() {
   for (;;) {
     // get time
     uint16_t hour, minute, seconds;
-    sys_get_time(&hour, &minute, &seconds);
+    al_clock_get_time(&hour, &minute, &seconds);
 
     // get last sample
     al_sample_t sample = al_sensor_last();
@@ -529,7 +528,7 @@ static void* scr_saver() {
     /* Sleep Control */
 
     // determine duration
-    int64_t duration = sys_get_timestamp() - scr_saver_enter;
+    int64_t duration = al_clock_get_epoch() - scr_saver_enter;
 
     // power off if battery is low and not charging
     if (power.battery < 0.10 && !power.usb && !power.charging) {
@@ -690,7 +689,7 @@ static void* scr_view() {
     // parse time
     uint16_t hour;
     uint16_t minute;
-    sys_conv_timestamp(file->head.start + (int64_t)current.off, &hour, &minute, NULL);
+    al_clock_conv_epoch(file->head.start + (int64_t)current.off, &hour, &minute, NULL);
 
     // begin draw
     gfx_begin(false, advanced);
@@ -797,7 +796,7 @@ static void* scr_view() {
       scr_return_unlock = scr_view;
 
       // set enter
-      scr_saver_enter = sys_get_timestamp();
+      scr_saver_enter = al_clock_get_epoch();
 
       return scr_saver;
     }
@@ -960,7 +959,7 @@ static void* scr_create() {
     /* handle enter */
 
     // create measurement
-    scr_file = dat_create(sys_get_timestamp());
+    scr_file = dat_create(al_clock_get_epoch());
 
     // start recording
     rec_start(scr_file);
@@ -1338,7 +1337,7 @@ static void* scr_develop() {
       scr_return_unlock = scr_develop;
 
       // set enter
-      scr_saver_enter = sys_get_timestamp();
+      scr_saver_enter = al_clock_get_epoch();
 
       return scr_saver;
     }
@@ -1442,7 +1441,7 @@ static void* scr_menu() {
   for (;;) {
     // get time
     uint16_t hour, minute, seconds;
-    sys_get_time(&hour, &minute, &seconds);
+    al_clock_get_time(&hour, &minute, &seconds);
 
     // get last sample
     al_sample_t sample = al_sensor_last();
@@ -1645,7 +1644,7 @@ static void* scr_menu() {
       scr_return_unlock = scr_menu;
 
       // set enter
-      scr_saver_enter = sys_get_timestamp();
+      scr_saver_enter = al_clock_get_epoch();
 
       return scr_saver;
     }
@@ -1697,7 +1696,7 @@ static void* scr_time() {
 
   // assign current time
   uint16_t seconds;
-  sys_get_time(&hour.value, &minute.value, &seconds);
+  al_clock_get_time(&hour.value, &minute.value, &seconds);
 
   // add wheels
   lvx_wheel_create(&hour, row);
@@ -1741,10 +1740,7 @@ static void* scr_time() {
     /* handle enter */
 
     // save time
-    sys_set_time(hour.value, minute.value, 0);
-
-    // update clock
-    al_clock_update();
+    al_clock_set_time(hour.value, minute.value, 0);
 
     // show message
     gui_message(scr_trans()->time__continue, 5000);
@@ -1778,7 +1774,7 @@ static void* scr_date() {
   lvx_wheel_t year = {.value = 2023, .min = 2023, .max = 2999, .fixed = true};
 
   // assign current date
-  sys_get_date(&year.value, &month.value, &day.value);
+  al_clock_get_date(&year.value, &month.value, &day.value);
 
   // add wheels
   lvx_wheel_create(&day, row);
@@ -1823,10 +1819,7 @@ static void* scr_date() {
     /* handle enter */
 
     // save date
-    sys_set_date(year.value, month.value, day.value);
-
-    // update clock
-    al_clock_update();
+    al_clock_set_date(year.value, month.value, day.value);
 
     return scr_time;
   }

@@ -1,9 +1,9 @@
 #include <naos/sys.h>
 
 #include <al/sensor.h>
+#include <al/clock.h>
 
 #include "rec.h"
-#include "sys.h"
 #include "sig.h"
 
 #define REC_MIN_FREE_NEW (3 * CONFIG_WL_SECTOR_SIZE)
@@ -47,7 +47,7 @@ static void rec_task() {
     }
 
     // set offset
-    int64_t offset = sys_get_timestamp() - file->head.start;
+    int64_t offset = al_clock_get_epoch() - file->head.start;
     sample.off = (int32_t)offset;
 
     // append sample
@@ -141,7 +141,7 @@ void rec_mark() {
   }
 
   // calculate offset
-  int64_t offset = sys_get_timestamp() - file->head.start;
+  int64_t offset = al_clock_get_epoch() - file->head.start;
 
   // mark offset
   dat_mark(rec_current, (int32_t)offset);
