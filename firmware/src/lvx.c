@@ -14,8 +14,6 @@
 #include "sys.h"
 #include "gui.h"
 
-/* Helpers */
-
 static int lvx_num_digits(int n) {
   // calculate digits
   return n == 0 ? 1 : (int)(floor(log10(abs(n)))) + 1;
@@ -25,6 +23,28 @@ static lv_coord_t lvx_text_width(lv_obj_t* obj, const char* text) {
   const lv_font_t* font = lv_obj_get_style_text_font(obj, 0);
   lv_coord_t ls = lv_obj_get_style_text_letter_space(obj, 0);
   return lv_txt_get_width(text, strlen(text), font, ls, 0);
+}
+
+/* Formatting */
+
+const char* lvx_fmt(const char* fmt, ...) {
+  // prepare global storage
+  static char buffers[8][64];
+  static uint8_t num = 0;
+
+  // select string
+  char* str = buffers[num];
+  if (++num >= 8) {
+    num = 0;
+  }
+
+  // format string
+  va_list args;
+  va_start(args, fmt);
+  vsnprintf(str, 64, fmt, args);
+  va_end(args);
+
+  return str;
 }
 
 /* Wheel */
@@ -381,7 +401,7 @@ void lvx_chart_draw(lv_obj_t* canvas, lvx_chart_data_t data) {
     // format label
     uint16_t hour, minute;
     sys_conv_timestamp(data.offset + (int64_t)(pos), &hour, &minute, NULL);
-    const char* str = gui_fmt("%02d:%02d", hour, minute);
+    const char* str = lvx_fmt("%02d:%02d", hour, minute);
 
     // calculate coordinate
     lv_coord_t x = (lv_coord_t)a32_map_f(pos, (float)data.start, (float)data.end, 0, 288);

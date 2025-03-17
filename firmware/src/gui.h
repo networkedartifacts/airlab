@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-const char* gui_fmt(const char* fmt, ...);
 void gui_cleanup(bool refresh);
 
 void gui_write(const char* text);

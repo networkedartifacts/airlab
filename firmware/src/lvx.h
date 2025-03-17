@@ -5,6 +5,10 @@
 
 #include "sig.h"
 
+/* Formatting */
+
+const char *lvx_fmt(const char *fmt, ...);
+
 /* Wheel */
 
 typedef struct {

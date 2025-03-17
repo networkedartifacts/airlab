@@ -7,26 +7,6 @@
 #include "sig.h"
 #include "fnt.h"
 
-const char* gui_fmt(const char* fmt, ...) {
-  // prepare global storage
-  static char buffers[8][64];
-  static uint8_t num = 0;
-
-  // select string
-  char* str = buffers[num];
-  if (++num >= 8) {
-    num = 0;
-  }
-
-  // format string
-  va_list args;
-  va_start(args, fmt);
-  vsnprintf(str, 64, fmt, args);
-  va_end(args);
-
-  return str;
-}
-
 void gui_cleanup(bool refresh) {
   // clear group and screen
   gfx_begin(refresh, false);
@@ -241,7 +221,7 @@ int gui_list(int total, int start, const char* select, const char* cancel, gui_l
     }
 
     // update info
-    lv_label_set_text(info, gui_fmt("%d/%d", selected + 1, total));
+    lv_label_set_text(info, lvx_fmt("%d/%d", selected + 1, total));
 
     // end draw
     gfx_end(false, false);

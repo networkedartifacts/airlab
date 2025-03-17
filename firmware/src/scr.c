@@ -46,11 +46,11 @@ static scr_led_flag_t scr_led_flags = 0;
 
 static const char* scr_ms2str(int32_t ms) {
   if (ms > 1000 * 60 * 60) {  // hours
-    return gui_fmt("%dh", ms / 1000 / 60 / 60);
+    return lvx_fmt("%dh", ms / 1000 / 60 / 60);
   } else if (ms > 1000 * 60) {  // minutes
-    return gui_fmt("%dm", ms / 1000 / 60);
+    return lvx_fmt("%dm", ms / 1000 / 60);
   } else {  // seconds
-    return gui_fmt("%ds", ms / 1000);
+    return lvx_fmt("%ds", ms / 1000);
   }
 }
 
@@ -217,7 +217,7 @@ static const scr_trans_t* scr_trans() {
 
 static const char* scr_file_name(dat_file_t* file) {
   // return name
-  return gui_fmt(scr_trans()->measurement, file->head.num);
+  return lvx_fmt(scr_trans()->measurement, file->head.num);
 }
 
 static const char* scr_file_date(dat_file_t* file) {
@@ -329,7 +329,7 @@ static void* scr_info() {
     naos_cpu_get(&cpu0, &cpu1);
 
     // prepare text
-    const char* text = gui_fmt("%llds - %.0f%% - P%d - F%d\n%04d-%02d-%02d %02d:%02d:%02d\n%lu kB - %.1f%% - %.1f%%",
+    const char* text = lvx_fmt("%llds - %.0f%% - P%d - F%d\n%04d-%02d-%02d %02d:%02d:%02d\n%lu kB - %.1f%% - %.1f%%",
                                naos_millis() / 1000, bat.battery * 100, bat.usb, bat.fast, year, month, day, hour,
                                minute, seconds, esp_get_free_heap_size() / 1024, cpu0 * 100, cpu1 * 100);
 
@@ -372,7 +372,7 @@ static void* scr_sensor() {
     size_t num_30s = al_sensor_count(AL_SENSOR_30S);
 
     // prepare text
-    const char* text = gui_fmt("5s: %d / %d\n30s: %d / %d", num_5s, AL_SENSOR_NUM_5S, num_30s, AL_SENSOR_NUM_30S);
+    const char* text = lvx_fmt("5s: %d / %d\n30s: %d / %d", num_5s, AL_SENSOR_NUM_5S, num_30s, AL_SENSOR_NUM_30S);
 
     // update label
     gfx_begin(false, false);
@@ -481,18 +481,18 @@ static void* scr_saver() {
     // TODO: Show VOC and NOx values.
 
     // update values
-    lv_label_set_text(time, gui_fmt("%02d:%02d", hour, minute));
+    lv_label_set_text(time, lvx_fmt("%02d:%02d", hour, minute));
     if (vertical) {
       lv_label_set_text(co2, "ppm CO2");
       lv_label_set_text(tmp, "° Celsius");
       lv_label_set_text(hum, "% RH");
-      lv_label_set_text(co2_big, gui_fmt("%.0f", sample.co2));
-      lv_label_set_text(tmp_big, gui_fmt("%.1f", sample.tmp));
-      lv_label_set_text(hum_big, gui_fmt("%.1f", sample.hum));
+      lv_label_set_text(co2_big, lvx_fmt("%.0f", sample.co2));
+      lv_label_set_text(tmp_big, lvx_fmt("%.1f", sample.tmp));
+      lv_label_set_text(hum_big, lvx_fmt("%.1f", sample.hum));
     } else {
-      lv_label_set_text(co2, gui_fmt("%.0f ppm", sample.co2));
-      lv_label_set_text(tmp, gui_fmt("%.1f °C", sample.tmp));
-      lv_label_set_text(hum, gui_fmt("%.1f%% RH", sample.hum));
+      lv_label_set_text(co2, lvx_fmt("%.0f ppm", sample.co2));
+      lv_label_set_text(tmp, lvx_fmt("%.1f °C", sample.tmp));
+      lv_label_set_text(hum, lvx_fmt("%.1f%% RH", sample.hum));
     }
 
     // align objects
@@ -690,22 +690,22 @@ static void* scr_view() {
     gfx_begin(false, advanced);
 
     // update bar
-    bar.time = gui_fmt("%02d:%02d", hour, minute);
+    bar.time = lvx_fmt("%02d:%02d", hour, minute);
     if (recording) {
-      bar.mark = file->marks > 0 ? gui_fmt("(M%d)", file->marks) : "";
+      bar.mark = file->marks > 0 ? lvx_fmt("(M%d)", file->marks) : "";
     } else {
-      bar.mark = marks[index] > 0 ? gui_fmt("(M%d)", marks[index]) : "";
+      bar.mark = marks[index] > 0 ? lvx_fmt("(M%d)", marks[index]) : "";
     }
     if (mode == 0) {
-      bar.value = gui_fmt("%.0f ppm CO2", current.co2);
+      bar.value = lvx_fmt("%.0f ppm CO2", current.co2);
     } else if (mode == 1) {
-      bar.value = gui_fmt("%.1f °C", current.tmp);
+      bar.value = lvx_fmt("%.1f °C", current.tmp);
     } else if (mode == 2) {
-      bar.value = gui_fmt("%.1f%% RH", current.hum);
+      bar.value = lvx_fmt("%.1f%% RH", current.hum);
     } else if (mode == 3) {
-      bar.value = gui_fmt("%.0f VOC", current.voc);
+      bar.value = lvx_fmt("%.0f VOC", current.voc);
     } else if (mode == 4) {
-      bar.value = gui_fmt("%.0f NOx", current.nox);
+      bar.value = lvx_fmt("%.0f NOx", current.nox);
     }
     lvx_bar_update(&bar);
 
@@ -813,7 +813,7 @@ static void* scr_view() {
           rec_stop();
 
           // show message
-          gui_message(gui_fmt(scr_trans()->exit__stopped, scr_file_name(file)), 2000);
+          gui_message(lvx_fmt(scr_trans()->exit__stopped, scr_file_name(file)), 2000);
 
           // set action
           scr_action = STM_COMP_MEASUREMENT;
@@ -896,7 +896,7 @@ static void* scr_create() {
 
   // add name
   lv_obj_t* name = lv_label_create(lv_scr_act());
-  lv_label_set_text(name, gui_fmt(scr_trans()->create__name, dat_next()));
+  lv_label_set_text(name, lvx_fmt(scr_trans()->create__name, dat_next()));
   lv_obj_align(name, LV_ALIGN_TOP_LEFT, 5, 26);
 
   // add mode
@@ -906,7 +906,7 @@ static void* scr_create() {
 
   // add length
   lv_obj_t* length = lv_label_create(lv_scr_act());
-  lv_label_set_text(length, gui_fmt(scr_trans()->create__length, min_hours, max_hours));
+  lv_label_set_text(length, lvx_fmt(scr_trans()->create__length, min_hours, max_hours));
   lv_obj_align(length, LV_ALIGN_TOP_LEFT, 5, 68);
 
   // add signs
@@ -1016,7 +1016,7 @@ static void* scr_edit() {
     // handle delete
     if (event.type == SIG_LEFT) {
       // confirm deletion
-      const char* msg = gui_fmt(scr_trans()->delete__confirm, scr_file_name(file));
+      const char* msg = lvx_fmt(scr_trans()->delete__confirm, scr_file_name(file));
       if (!gui_confirm(msg, scr_trans()->delete__delete, scr_trans()->back, false, SCR_ACTION_TIMEOUT)) {
         return scr_edit;
       }
@@ -1024,7 +1024,7 @@ static void* scr_edit() {
       // delete file
       uint16_t num = file->head.num;
       dat_delete(file->head.num);
-      gui_message(gui_fmt(scr_trans()->delete__deleted, num), 2000);
+      gui_message(lvx_fmt(scr_trans()->delete__deleted, num), 2000);
 
       return scr_explore;
     }
@@ -1163,7 +1163,7 @@ static void* scr_settings() {
 
   // add storage
   lv_obj_t* storage = lv_label_create(lv_scr_act());
-  lv_label_set_text(storage, gui_fmt(scr_trans()->settings__storage, info.usage * 100.f));
+  lv_label_set_text(storage, lvx_fmt(scr_trans()->settings__storage, info.usage * 100.f));
   lv_obj_align(storage, LV_ALIGN_TOP_LEFT, 5, 26);
 
   // add signs
@@ -1435,21 +1435,21 @@ static void* scr_menu() {
     gfx_begin(false, false);
 
     // update bar
-    bar.time = gui_fmt("%02d:%02d", hour, minute);
+    bar.time = lvx_fmt("%02d:%02d", hour, minute);
     if (!sample.ok) {
       bar.value = scr_trans()->menu__no_data;
     } else if (mode == 0) {
-      bar.value = gui_fmt("%.0f ppm CO2", sample.co2);
+      bar.value = lvx_fmt("%.0f ppm CO2", sample.co2);
     } else if (mode == 1) {
-      bar.value = gui_fmt("%.1f °C", sample.tmp);
+      bar.value = lvx_fmt("%.1f °C", sample.tmp);
     } else if (mode == 2) {
-      bar.value = gui_fmt("%.1f%% RH", sample.hum);
+      bar.value = lvx_fmt("%.1f%% RH", sample.hum);
     } else if (mode == 3) {
-      bar.value = gui_fmt("%.0f VOC", sample.voc);
+      bar.value = lvx_fmt("%.0f VOC", sample.voc);
     } else if (mode == 4) {
-      bar.value = gui_fmt("%.0f NOx", sample.nox);
+      bar.value = lvx_fmt("%.0f NOx", sample.nox);
     } else if (mode == 5) {
-      bar.value = gui_fmt("%.0f hPa", sample.prs);
+      bar.value = lvx_fmt("%.0f hPa", sample.prs);
     }
     lvx_bar_update(&bar);
 
