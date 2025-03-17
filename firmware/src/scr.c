@@ -105,6 +105,89 @@ static void scr_message(const char* text, uint32_t timeout) {
   scr_cleanup(false);
 }
 
+static bool scr_confirm(const char* message, const char* confirm, const char* cancel, bool invert) {
+  // begin draw
+  gfx_begin(false, invert);
+
+  // add text
+  lv_obj_t* text = lv_label_create(lv_scr_act());
+  lv_label_set_text(text, message);
+  lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 25);
+  lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+
+  // add signs
+  lvx_sign_t next = {
+      .title = "A",
+      .text = confirm,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = cancel,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_create(&next, lv_scr_act());
+  lvx_sign_create(&back, lv_scr_act());
+
+  // end draw
+  gfx_end(false, false);
+
+  // await event
+  sig_event_t event = sig_await(SIG_META, SCR_ACTION_TIMEOUT);
+
+  // cleanup
+  scr_cleanup(false);
+
+  // handle escape and timeout
+  if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
+    return false;
+  }
+
+  return true;
+}
+
+static int scr_choose(const char* first, const char* second, bool invert) {
+  // begin draw
+  gfx_begin(false, invert);
+
+  // add signs
+  lvx_sign_t stop = {
+      .title = "A",
+      .text = first,
+      .align = LV_ALIGN_CENTER,
+      .offset = -15,
+  };
+  lvx_sign_t back = {
+      .title = "B",
+      .text = second,
+      .align = LV_ALIGN_CENTER,
+      .offset = 15,
+  };
+  lvx_sign_create(&stop, lv_scr_act());
+  lvx_sign_create(&back, lv_scr_act());
+
+  // end draw
+  gfx_end(false, false);
+
+  // await event
+  sig_event_t event = sig_await(SIG_META, SCR_ACTION_TIMEOUT);
+
+  // cleanup
+  scr_cleanup(false);
+
+  // return zero on timeout
+  if (event.type == SIG_TIMEOUT) {
+    return 0;
+  }
+
+  // return one on enter
+  if (event.type == SIG_ENTER) {
+    return 1;
+  }
+
+  return 2;
+}
+
 typedef struct {
   const char* title;
   const char* info;
@@ -348,7 +431,7 @@ static const scr_trans_t scr_trans_map[] = {
             .next = "Weiter",
             .cancel = "Abbrechen",
             .measurement = "Messung %u",
-            .exit__stop = "%s beenden",
+            .exit__stop = "Messung beenden",
             .exit__back = "Zurück zum Labor",
             .exit__stopped = "%s\n beendet!",
             .create__full = "Speicher voll!",
@@ -390,8 +473,8 @@ static const scr_trans_t scr_trans_map[] = {
             .next = "Next",
             .cancel = "Cancel",
             .measurement = "Measurement %u",
-            .exit__stop = "Stop %s",
-            .exit__back = "Back to Lab",
+            .exit__stop = "Stop Measurement",
+            .exit__back = "Go back to Lab",
             .exit__stopped = "%s\n stopped!",
             .create__full = "Storage full!",
             .create__new = "Create new measurement?",
@@ -460,7 +543,6 @@ static void* scr_settings();
 static void* scr_develop();
 static void* scr_date();
 static void* scr_language();
-static void* scr_intro();
 
 static void* scr_bubbles() {
   // begin draw
@@ -790,66 +872,6 @@ static void* scr_saver() {
   return scr_return_unlock;
 }
 
-static void* scr_exit() {
-  // get file
-  dat_file_t* file = dat_get_file(scr_file);
-
-  // begin draw
-  gfx_begin(false, true);
-
-  // add signs
-  lvx_sign_t stop = {
-      .title = "A",
-      .text = scr_fmt(scr_trans()->exit__stop, scr_file_name(file)),
-      .align = LV_ALIGN_CENTER,
-      .offset = -15,
-  };
-  lvx_sign_t back = {
-      .title = "B",
-      .text = scr_trans()->exit__back,
-      .align = LV_ALIGN_CENTER,
-      .offset = 15,
-  };
-  lvx_sign_create(&stop, lv_scr_act());
-  lvx_sign_create(&back, lv_scr_act());
-
-  // end draw
-  gfx_end(false, false);
-
-  // await event
-  sig_event_t event = sig_await(SIG_META, SCR_ACTION_TIMEOUT);
-
-  // cleanup
-  scr_cleanup(false);
-
-  // go back to view on timeout
-  if (event.type == SIG_TIMEOUT) {
-    return scr_view;
-  }
-
-  // set action
-  if (scr_action == 0) {
-    scr_action = STM_FROM_MEASUREMENT;
-  }
-
-  // handle enter
-  if (event.type == SIG_ENTER) {
-    // get file
-    dat_file_t* file = dat_get_file(rec_file());
-
-    // stop recording
-    rec_stop();
-
-    // show message
-    scr_message(scr_fmt(scr_trans()->exit__stopped, scr_file_name(file)), 2000);
-
-    // set action
-    scr_action = STM_COMP_MEASUREMENT;
-  }
-
-  return scr_menu;
-}
-
 static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum
@@ -1105,7 +1127,30 @@ static void* scr_view() {
 
       // handle recording
       if (recording) {
-        return scr_exit;
+        // choose option
+        int ret = scr_choose(scr_trans()->exit__stop, scr_trans()->exit__back, true);
+        if (ret == 0) {
+          return scr_view;
+        }
+
+        // set action
+        if (scr_action == 0) {
+          scr_action = STM_FROM_MEASUREMENT;
+        }
+
+        // handle stop
+        if (ret == 1) {
+          // stop recording
+          rec_stop();
+
+          // show message
+          scr_message(scr_fmt(scr_trans()->exit__stopped, scr_file_name(file)), 2000);
+
+          // set action
+          scr_action = STM_COMP_MEASUREMENT;
+        }
+
+        return scr_menu;
       }
 
       // set action
@@ -1246,61 +1291,6 @@ static void* scr_create() {
   }
 }
 
-static void* scr_delete() {
-  // begin draw
-  gfx_begin(false, false);
-
-  // get file
-  dat_file_t* file = dat_get_file(scr_file);
-
-  // add text
-  lv_obj_t* text = lv_label_create(lv_scr_act());
-  lv_label_set_text(text, scr_fmt(scr_trans()->delete__confirm, scr_file_name(file)));
-  lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 25);
-  lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-
-  // add signs
-  lvx_sign_t next = {
-      .title = "A",
-      .text = scr_trans()->delete__delete,
-      .align = LV_ALIGN_BOTTOM_RIGHT,
-  };
-  lvx_sign_t back = {
-      .title = "B",
-      .text = scr_trans()->back,
-      .align = LV_ALIGN_BOTTOM_LEFT,
-  };
-  lvx_sign_create(&next, lv_scr_act());
-  lvx_sign_create(&back, lv_scr_act());
-
-  // end draw
-  gfx_end(false, false);
-
-  // await event
-  sig_event_t event = sig_await(SIG_META, SCR_ACTION_TIMEOUT);
-
-  // cleanup
-  scr_cleanup(false);
-
-  // handle escape and timeout
-  if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
-    return scr_edit;
-  }
-
-  /* handle enter */
-
-  // capture num
-  uint16_t num = file->head.num;
-
-  // delete file
-  dat_delete(file->head.num);
-
-  // show message
-  scr_message(scr_fmt(scr_trans()->delete__deleted, num), 2000);
-
-  return scr_explore;
-}
-
 static void* scr_edit() {
   // begin draw
   gfx_begin(false, false);
@@ -1354,13 +1344,27 @@ static void* scr_edit() {
     // cleanup
     scr_cleanup(false);
 
+    // handle delete
+    if (event.type == SIG_LEFT) {
+      // confirm deletion
+      const char* msg = scr_fmt(scr_trans()->delete__confirm, scr_file_name(file));
+      if (!scr_confirm(msg, scr_trans()->delete__delete, scr_trans()->back, false)) {
+        return scr_edit;
+      }
+
+      // delete file
+      uint16_t num = file->head.num;
+      dat_delete(file->head.num);
+      scr_message(scr_fmt(scr_trans()->delete__deleted, num), 2000);
+
+      return scr_explore;
+    }
+
     // handle event
     switch (event.type) {
       case SIG_ESCAPE:
       case SIG_TIMEOUT:
         return scr_explore;
-      case SIG_LEFT:
-        return scr_delete;
       case SIG_ENTER:
         return scr_view;
       default:
@@ -1470,58 +1474,6 @@ static void* scr_usb() {
   return scr_menu;
 }
 
-static void* scr_reset() {
-  // begin draw
-  gfx_begin(false, true);
-
-  // add text
-  lv_obj_t* text = lv_label_create(lv_scr_act());
-  lv_label_set_text(text, scr_trans()->reset__confirm);
-  lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 25);
-  lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-
-  // add signs
-  lvx_sign_t next = {
-      .title = "A",
-      .text = scr_trans()->reset__yes,
-      .align = LV_ALIGN_BOTTOM_RIGHT,
-  };
-  lvx_sign_t back = {
-      .title = "B",
-      .text = scr_trans()->reset__no,
-      .align = LV_ALIGN_BOTTOM_LEFT,
-  };
-  lvx_sign_create(&next, lv_scr_act());
-  lvx_sign_create(&back, lv_scr_act());
-
-  // end draw
-  gfx_end(false, false);
-
-  // await event
-  sig_event_t event = sig_await(SIG_META, SCR_ACTION_TIMEOUT);
-
-  // cleanup
-  scr_cleanup(false);
-
-  // handle escape
-  if (event.type == SIG_ESCAPE || event.type == SIG_TIMEOUT) {
-    return scr_settings;
-  }
-
-  /* handle enter */
-
-  // reset data
-  dat_reset();
-
-  // show message
-  scr_message(scr_trans()->reset__reset, 2000);
-
-  // reset system
-  esp_restart();
-
-  return scr_intro;
-}
-
 static void* scr_settings() {
   // get storage info
   dat_info_t info = dat_info();
@@ -1590,14 +1542,29 @@ static void* scr_settings() {
     // cleanup
     scr_cleanup(false);
 
+    // handle reset
+    if (event.type == SIG_LEFT) {
+      // confirm reset
+      if (!scr_confirm(scr_trans()->reset__confirm, scr_trans()->reset__yes, scr_trans()->reset__no, true)) {
+        return scr_settings;
+      }
+
+      // reset data
+      dat_reset();
+
+      // show message
+      scr_message(scr_trans()->reset__reset, 2000);
+
+      // restart device
+      esp_restart();
+    }
+
     // handle event
     switch (event.type) {
       case SIG_UP:
         return scr_date;
       case SIG_DOWN:
         return scr_language;
-      case SIG_LEFT:
-        return scr_reset;
       case SIG_RIGHT:
         scr_power_off();
         break;
