@@ -452,8 +452,6 @@ static const char* scr_file_date(dat_file_t* file) {
 
 /* Screens */
 
-static void* scr_info();
-static void* scr_saver();
 static void* scr_view();
 static void* scr_edit();
 static void* scr_explore();
@@ -555,6 +553,47 @@ static void* scr_info() {
     const char* text = scr_fmt("%llds - %.0f%% - P%d - F%d\n%04d-%02d-%02d %02d:%02d:%02d\n%lu kB - %.1f%% - %.1f%%",
                                naos_millis() / 1000, bat.battery * 100, bat.usb, bat.fast, year, month, day, hour,
                                minute, seconds, esp_get_free_heap_size() / 1024, cpu0 * 100, cpu1 * 100);
+
+    // update label
+    gfx_begin(false, false);
+    lv_label_set_text(label, text);
+    gfx_end(false, false);
+
+    // await event
+    sig_event_t event = sig_await(SIG_KEYS, 1000);
+
+    // loop on timeout
+    if (event.type == SIG_TIMEOUT) {
+      continue;
+    }
+
+    // cleanup
+    scr_cleanup(false);
+
+    return scr_develop;
+  }
+}
+
+static void* scr_sensor() {
+  // begin draw
+  gfx_begin(false, false);
+
+  // add label
+  lv_obj_t* label = lv_label_create(lv_scr_act());
+  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_obj_set_style_text_line_space(label, 6, LV_PART_MAIN);
+
+  // end draw
+  gfx_end(true, false);
+
+  for (;;) {
+    // get power
+    size_t num_5s = al_sensor_count(AL_SENSOR_5S);
+    size_t num_30s = al_sensor_count(AL_SENSOR_30S);
+
+    // prepare text
+    const char* text = scr_fmt("5s: %d / %d\n30s: %d / %d", num_5s, AL_SENSOR_NUM_5S, num_30s, AL_SENSOR_NUM_30S);
 
     // update label
     gfx_begin(false, false);
@@ -1577,8 +1616,8 @@ static void* scr_settings() {
 static void* scr_develop() {
   // prepare labels
   const char* labels[] = {
-      "Light Sleep",  "Deep Sleep",    "Power Reset",  "Power Off",   "Ship Mode",
-      "Screen Saver", "Clear Display", "Test Bubbles", "System Info", NULL,
+      "Light Sleep",   "Deep Sleep",   "Power Reset", "Power Off",   "Ship Mode", "Screen Saver",
+      "Clear Display", "Test Bubbles", "System Info", "Sensor Data", NULL,
   };
 
   // handle list
@@ -1656,6 +1695,11 @@ static void* scr_develop() {
     // handle system info
     if (ret == 8) {
       return scr_info;
+    }
+
+    // handle sensor data
+    if (ret == 9) {
+      return scr_sensor;
     }
   }
 }

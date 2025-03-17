@@ -4,6 +4,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#define AL_SENSOR_NUM_5S 60    // 5min
+#define AL_SENSOR_NUM_30S 240  // 2h
+
 /**
  * The available sensors.
  */
