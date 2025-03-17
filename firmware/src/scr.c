@@ -27,7 +27,6 @@
 
 #define SCR_ACTION_TIMEOUT 10000
 #define SCR_IDLE_TIMEOUT 30000
-#define SCR_CHART_POINTS 72
 #define SCR_MIN_RESOLUTION 5000
 #define SCR_HIST_POINTS 8
 
@@ -574,7 +573,7 @@ static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum
   static bool advanced = false;
-  static dat_point_t scr_points[SCR_CHART_POINTS];
+  static dat_point_t scr_points[LVX_CHART_SIZE];
 
   // zero points
   memset(scr_points, 0, sizeof(scr_points));
@@ -621,11 +620,11 @@ static void* scr_view() {
     }
 
     // calculate resolution
-    int32_t resolution = file->stop / SCR_CHART_POINTS;
+    int32_t resolution = file->stop / LVX_CHART_SIZE;
     if (recording) {
       resolution = SCR_MIN_RESOLUTION;
     } else if (advanced) {
-      resolution = file->stop / 10 / SCR_CHART_POINTS;
+      resolution = file->stop / 10 / LVX_CHART_SIZE;
     }
     if (resolution < SCR_MIN_RESOLUTION) {
       resolution = SCR_MIN_RESOLUTION;
@@ -633,17 +632,17 @@ static void* scr_view() {
 
     // calculate range
     int32_t start = 0;
-    int32_t end = SCR_CHART_POINTS * resolution;
+    int32_t end = LVX_CHART_SIZE * resolution;
     if (recording) {
-      start = position - SCR_CHART_POINTS / 3 * 2 * resolution;
-      end = position + SCR_CHART_POINTS / 3 * resolution;
+      start = position - LVX_CHART_SIZE / 3 * 2 * resolution;
+      end = position + LVX_CHART_SIZE / 3 * resolution;
       if (start < 0) {
         end += start * -1;
         start = 0;
       }
     } else if (advanced) {
-      start = position - SCR_CHART_POINTS / 2 * resolution;
-      end = position + SCR_CHART_POINTS / 2 * resolution;
+      start = position - LVX_CHART_SIZE / 2 * resolution;
+      end = position + LVX_CHART_SIZE / 2 * resolution;
       if (start < 0) {
         end += start * -1;
         start = 0;
@@ -656,22 +655,24 @@ static void* scr_view() {
     }
 
     // calculate index
-    size_t index = roundf(a32_safe_map_f(position, start, end, 0, SCR_CHART_POINTS - 1));
+    size_t index = roundf(a32_safe_map_f(position, start, end, 0, LVX_CHART_SIZE - 1));
+
+    // TODO: Only query needed dimension.
 
     // query points
     if (file->size > 0) {
-      size_t num = dat_query(file->head.num, scr_points, SCR_CHART_POINTS, start, resolution);
+      size_t num = dat_query(file->head.num, scr_points, LVX_CHART_SIZE, start, resolution);
       if (recording) {
         index = num - 1;
       }
     }
 
     // find marks
-    uint8_t marks[SCR_CHART_POINTS] = {0};
+    uint8_t marks[LVX_CHART_SIZE] = {0};
     for (uint8_t i = 0; i < DAT_MARKS; i++) {
       if (file->head.marks[i] > 0) {
-        int32_t mark = roundf(a32_map_f(file->head.marks[i], start, end, 0, SCR_CHART_POINTS - 1));
-        if (mark >= 0 && mark <= SCR_CHART_POINTS - 1) {
+        int32_t mark = roundf(a32_map_f(file->head.marks[i], start, end, 0, LVX_CHART_SIZE - 1));
+        if (mark >= 0 && mark <= LVX_CHART_SIZE - 1) {
           marks[(size_t)mark] = i + 1;
         }
       }
@@ -708,73 +709,43 @@ static void* scr_view() {
     }
     lvx_bar_update(&bar);
 
-    // TODO: Adjust range if exceeding maximum.
-
-    // draw chart bars and marks
-    lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
+    // prepare range
     float range = mode == 0 ? 3000 : mode > 2 ? 500 : 100;
-    lv_draw_line_dsc_t bar_desc;
-    lv_draw_line_dsc_init(&bar_desc);
-    bar_desc.width = 2;
-    for (size_t i = 0; i < SCR_CHART_POINTS; i++) {
-      float value = mode == 0   ? scr_points[i].co2
-                    : mode == 1 ? scr_points[i].tmp
-                    : mode == 2 ? scr_points[i].hum
-                    : mode == 3 ? scr_points[i].voc
-                                : scr_points[i].nox;
-      lv_coord_t h = 2 + a32_safe_map_f(value, 0, range, 0, 78);
-      lv_point_t points[2] = {{.x = 1 + i * 4, .y = 80}, {.x = 1 + i * 4, .y = 80 - h}};
-      lv_canvas_draw_line(chart, points, 2, &bar_desc);
-      if (marks[i] > 0) {
-        points[0].y = 82;
-        points[1].y = 84;
-        lv_canvas_draw_line(chart, points, 2, &bar_desc);
+
+    // collect values
+    float values[LVX_CHART_SIZE];
+    for (size_t i = 0; i < LVX_CHART_SIZE; i++) {
+      dat_point_t point = scr_points[i];
+      if (mode == 0) {
+        values[i] = point.co2;
+      } else if (mode == 1) {
+        values[i] = point.tmp;
+      } else if (mode == 2) {
+        values[i] = point.hum;
+      } else if (mode == 3) {
+        values[i] = point.voc;
+      } else if (mode == 4) {
+        values[i] = point.nox;
+      }
+      if (values[i] > range) {
+        range = values[i];
       }
     }
 
-    // draw chart arrows
-    if (advanced) {
-      lv_draw_img_dsc_t img_draw;
-      lv_draw_img_dsc_init(&img_draw);
-      if (start > 0) {
-        lv_canvas_draw_img(chart, 0, 96 - 7, &img_arrow_left, &img_draw);
-      }
-      if (end < file->stop) {
-        lv_canvas_draw_img(chart, 288 - 9, 96 - 7, &img_arrow_right, &img_draw);
-      }
-    }
-
-    // draw chart labels
-    lv_draw_label_dsc_t lbl_desc;
-    lv_draw_label_dsc_init(&lbl_desc);
-    lbl_desc.font = &fnt_8;
-    lbl_desc.align = LV_TEXT_ALIGN_LEFT;
-    for (size_t i = 0; i < 3; i++) {
-      // labels are position on the nearest minute mark using the following grid
-      // < 1/6 |   1/3   |   1/3   |   1/3   | 1/6 >
-
-      // get minuted aligned position
-      float step = (float)(end - start) / 6.f;
-      float pos = (float)start + step + (float)(i) * (step * 2);
-      pos = roundf(pos / 60000) * 60000;
-
-      // format label
-      sys_conv_timestamp(file->head.start + (int64_t)(pos), &hour, &minute, NULL);
-      const char* str = gui_fmt("%02d:%02d", hour, minute);
-
-      // calculate coordinate
-      lv_coord_t x = (lv_coord_t)a32_map_f(pos, (float)start, (float)end, 0, 288);
-      x -= lv_txt_get_width(str, strlen(str), &fnt_8, 0, 0) / 2;
-
-      // draw label
-      lv_canvas_draw_text(chart, x, 88, 99, &lbl_desc, str);
-    }
-
-    // draw chart position if not recording
-    if (!recording) {
-      lv_point_t points[2] = {{.x = 1 + index * 4, .y = 87}, {.x = 1 + index * 4, .y = 96}};
-      lv_canvas_draw_line(chart, points, 2, &bar_desc);
-    }
+    // draw chart
+    lvx_chart_data_t chart_data = {
+        .range = range,
+        .values = values,
+        .marks = marks,
+        .arrows = advanced,
+        .offset = file->head.start,
+        .start = start,
+        .end = end,
+        .stop = file->stop,
+        .cursor = !recording,
+        .index = index,
+    };
+    lvx_chart_draw(chart, chart_data);
 
     // end draw
     gfx_end(false, false);

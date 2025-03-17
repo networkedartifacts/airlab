@@ -68,6 +68,25 @@ typedef struct {
 void lvx_bubble_create(lvx_bubble_t *bubble, lv_obj_t *parent);
 void lvx_bubble_update(lvx_bubble_t *bubble);
 
+/* Canvas */
+
+#define LVX_CHART_SIZE 72
+
+typedef struct {
+  float range;
+  float *values;
+  uint8_t *marks;
+  bool arrows;
+  int64_t offset;  // ms since 1970
+  int32_t start;   // relative to offset
+  int32_t end;     // relative to offset
+  int32_t stop;    // relative to offset
+  bool cursor;
+  int index;
+} lvx_chart_data_t;
+
+void lvx_chart_draw(lv_obj_t *canvas, lvx_chart_data_t data);
+
 /* Helpers */
 
 bool lvx_handle(sig_event_t event, bool focus);

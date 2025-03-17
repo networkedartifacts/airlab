@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <art32/numbers.h>
 
 #include <al/power.h>
 
@@ -10,6 +11,8 @@
 #include "fnt.h"
 #include "img.h"
 #include "rec.h"
+#include "sys.h"
+#include "gui.h"
 
 /* Helpers */
 
@@ -323,6 +326,78 @@ void lvx_bubble_update(lvx_bubble_t* bubble) {
     // update label
     lv_obj_add_flag(bubble->_label, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text(bubble->_label, "");
+  }
+}
+
+/* Canvas */
+
+void lvx_chart_draw(lv_obj_t* canvas, lvx_chart_data_t data) {
+  // draw chart bars and marks
+  lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
+  lv_draw_line_dsc_t bar_desc;
+  lv_draw_line_dsc_init(&bar_desc);
+  bar_desc.width = 2;
+  for (size_t i = 0; i < LVX_CHART_SIZE; i++) {
+    float value = data.values[i];
+    lv_coord_t h = 2 + (lv_coord_t)a32_safe_map_f(value, 0, data.range, 0, 78);
+    lv_point_t points[2] = {
+        {.x = 1 + i * 4, .y = 80},
+        {.x = 1 + i * 4, .y = 80 - h},
+    };
+    lv_canvas_draw_line(canvas, points, 2, &bar_desc);
+    if (data.marks[i] > 0) {
+      points[0].y = 82;
+      points[1].y = 84;
+      lv_canvas_draw_line(canvas, points, 2, &bar_desc);
+    }
+  }
+
+  // draw chart arrows
+  if (data.arrows) {
+    lv_draw_img_dsc_t img_draw;
+    lv_draw_img_dsc_init(&img_draw);
+    if (data.start > 0) {
+      lv_canvas_draw_img(canvas, 0, 96 - 7, &img_arrow_left, &img_draw);
+    }
+    if (data.end < data.stop) {
+      lv_canvas_draw_img(canvas, 288 - 9, 96 - 7, &img_arrow_right, &img_draw);
+    }
+  }
+
+  // draw chart labels
+  lv_draw_label_dsc_t lbl_desc;
+  lv_draw_label_dsc_init(&lbl_desc);
+  lbl_desc.font = &fnt_8;
+  lbl_desc.align = LV_TEXT_ALIGN_LEFT;
+  for (size_t i = 0; i < 3; i++) {
+    // labels are position on the nearest minute mark using the following grid
+    // < 1/6 |   1/3   |   1/3   |   1/3   | 1/6 >
+
+    // get minuted aligned position
+    float step = (float)(data.end - data.start) / 6.f;
+    float pos = (float)data.start + step + (float)(i) * (step * 2);
+    pos = roundf(pos / 60000) * 60000;
+
+    // format label
+    uint16_t hour, minute;
+    sys_conv_timestamp(data.offset + (int64_t)(pos), &hour, &minute, NULL);
+    const char* str = gui_fmt("%02d:%02d", hour, minute);
+
+    // calculate coordinate
+    lv_coord_t x = (lv_coord_t)a32_map_f(pos, (float)data.start, (float)data.end, 0, 288);
+    x -= lv_txt_get_width(str, strlen(str), &fnt_8, 0, 0) / 2;
+
+    // draw label
+    lv_canvas_draw_text(canvas, x, 88, 99, &lbl_desc, str);
+  }
+
+  // draw cursor if requested
+  if (data.cursor) {
+    lv_point_t points[2] = {
+        {.x = 1 + data.index * 4, .y = 87},
+        {.x = 1 + data.index * 4, .y = 96},
+    };
+    lv_canvas_draw_line(canvas, points, 2, &bar_desc);
   }
 }
 
