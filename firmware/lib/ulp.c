@@ -49,10 +49,10 @@ int al_ulp_readings() {
   return (int)ulp_counter;
 }
 
-al_sensor_raw_t al_ulp_get_reading(int index) {
+al_sensor_hal_data_t al_ulp_get_reading(int index) {
   // return zero if no readings
   if (ulp_counter == 0) {
-    return (al_sensor_raw_t){0};
+    return (al_sensor_hal_data_t){0};
   }
 
   // set last reading on under/overflow
@@ -60,5 +60,5 @@ al_sensor_raw_t al_ulp_get_reading(int index) {
     index = (int)ulp_counter - 1;
   }
 
-  return ((al_sensor_raw_t*)&ulp_readings)[index];
+  return ((al_sensor_hal_data_t*)&ulp_readings)[index];
 }

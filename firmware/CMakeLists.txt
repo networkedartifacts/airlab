@@ -19,6 +19,7 @@ set(SOURCE_FILES
         lib/al/power.h
         lib/al/sensor.h
         lib/al/touch.h
+        lib/ulp/main.c
         lib/accel.c
         lib/buttons.c
         lib/buzzer.c

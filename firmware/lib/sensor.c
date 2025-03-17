@@ -40,11 +40,11 @@ static void al_sensor_debug(const char *msg) {
   naos_log("al-sns: HAL %s", msg);
 }
 
-static al_sensor_sample_t al_sensor_ingest(al_sensor_raw_t raw) {
+static al_sensor_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   // calculate ppm, °C, % rH
-  float co2 = (float)raw.co2;
-  float tmp = -45.f + 175.f * ((float)raw.tmp / (float)(UINT16_MAX));
-  float hum = 100.f * ((float)raw.hum / (float)(UINT16_MAX));
+  float co2 = (float)data.co2;
+  float tmp = -45.f + 175.f * ((float)data.tmp / (float)(UINT16_MAX));
+  float hum = 100.f * ((float)data.hum / (float)(UINT16_MAX));
   if (AL_SENSOR_DEBUG) {
     naos_log("al-sns: SCD values: co2=%.0f tmp=%.1f hum=%.1f", co2, tmp, hum);
   }
@@ -56,14 +56,14 @@ static al_sensor_sample_t al_sensor_ingest(al_sensor_raw_t raw) {
   // perform gas index calculation
   int32_t voc_index = 0;
   int32_t nox_index = 0;
-  GasIndexAlgorithm_process(&al_sensor_voc_params, raw.voc, &voc_index);
-  GasIndexAlgorithm_process(&al_sensor_nox_params, raw.nox, &nox_index);
+  GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
+  GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
   if (AL_SENSOR_DEBUG) {
     naos_log("al-sns: SGP values: voc=%d nox=%d", voc_index, nox_index);
   }
 
   // calculate pressure
-  float prs = (float)raw.prs / 4096.f;
+  float prs = (float)data.prs / 4096.f;
   if (AL_SENSOR_DEBUG) {
     naos_log("al-sns: LPS pressure: %.2f hPa", prs);
   }
@@ -117,19 +117,19 @@ static void al_sensor_check() {
   naos_lock(al_sensor_mutex);
 
   // check if SCD measurement is available
-  if (!al_sensor_ready()) {
+  if (!al_sensor_hal_ready()) {
     naos_unlock(al_sensor_mutex);
     return;
   }
 
   // read sensor
-  al_sensor_raw_t raw;
-  if (!al_sensor_read(&raw)) {
+  al_sensor_hal_data_t data;
+  if (!al_sensor_hal_read(&data)) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // ingest reading
-  al_sensor_sample_t sample = al_sensor_ingest(raw);
+  // ingest data
+  al_sensor_sample_t sample = al_sensor_ingest(data);
 
   // release mutex
   naos_unlock(al_sensor_mutex);
@@ -148,8 +148,8 @@ void al_sensor_init(bool reset) {
   al_sensor_mutex = naos_mutex();
   al_sensor_signal = naos_signal();
 
-  // wire sensor
-  al_sensor_wire((al_sensor_ops_t){
+  // wire sensor HAL
+  al_sensor_hal_wire((al_sensor_hal_ops_t){
       .transfer = al_sensor_transfer,
       .delay = naos_delay,
       .debug = al_sensor_debug,
@@ -167,7 +167,7 @@ void al_sensor_init(bool reset) {
     }
 
     // reset sensor
-    if (!al_sensor_reset()) {
+    if (!al_sensor_hal_reset()) {
       ESP_ERROR_CHECK(ESP_FAIL);
     }
 

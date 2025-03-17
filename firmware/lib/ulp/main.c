@@ -9,9 +9,9 @@
 #define READINGS 16  // 80s
 #define DEBUG false
 
-static al_sensor_raw_t raw = {0};
+static al_sensor_hal_data_t data = {0};
 volatile uint8_t counter = 0;
-volatile al_sensor_raw_t readings[READINGS] = {0};
+volatile al_sensor_hal_data_t readings[READINGS] = {0};
 
 static bool transfer(uint8_t addr, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl) {
   // set slave address
@@ -55,12 +55,12 @@ int main(void) {
   ulp_riscv_uart_cfg_t cfg = {.tx_pin = 3};
   ulp_riscv_uart_t uart;
   ulp_riscv_uart_init(&uart, &cfg);
-  ulp_riscv_print_install((putc_fn_t)ulp_riscv_uart_putc, &uart);
+  ulp_riscv_print_install(ulp_riscv_uart_putc, &uart);
   ulp_riscv_print_str("\nstart\n");
 #endif
 
   // wire sensor
-  al_sensor_wire((al_sensor_ops_t){
+  al_sensor_hal_wire((al_sensor_hal_ops_t){
       .transfer = transfer,
       .delay = delay,
       .debug = debug,
@@ -77,17 +77,17 @@ int main(void) {
 #endif
 
     // check if ready
-    if (!al_sensor_ready()) {
+    if (!al_sensor_hal_ready()) {
       continue;
     }
 
     // read sensor
-    if (!al_sensor_read(&raw)) {
+    if (!al_sensor_hal_read(&data)) {
       continue;
     }
 
     // store reading
-    readings[counter] = raw;
+    readings[counter] = data;
 
 #if DEBUG
     // log
