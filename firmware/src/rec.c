@@ -22,7 +22,7 @@ static void rec_task() {
   for (;;) {
     // await next sample (without mutex)
     naos_unlock(rec_mutex);
-    al_sensor_sample_t sample = al_sensor_next();
+    al_sample_t sample = al_sensor_next();
     naos_lock(rec_mutex);
 
     // check free space

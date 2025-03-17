@@ -17,6 +17,7 @@ set(SOURCE_FILES
         lib/al/epd.h
         lib/al/led.h
         lib/al/power.h
+        lib/al/sample.h
         lib/al/sensor.h
         lib/al/touch.h
         lib/ulp/main.c

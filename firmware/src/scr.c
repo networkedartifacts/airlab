@@ -435,7 +435,7 @@ static void* scr_saver() {
     sys_get_time(&hour, &minute, &seconds);
 
     // get last sample
-    al_sensor_sample_t sample = al_sensor_last();
+    al_sample_t sample = al_sensor_last();
 
     // await sample, if missing (after reset)
     if (!sample.co2) {
@@ -1432,7 +1432,7 @@ static void* scr_menu() {
     sys_get_time(&hour, &minute, &seconds);
 
     // get last sample
-    al_sensor_sample_t sample = al_sensor_last();
+    al_sample_t sample = al_sensor_last();
 
     // query sensor
     float values[SCR_HIST_POINTS] = {0};

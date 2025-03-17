@@ -9,7 +9,7 @@
 
 static QueueHandle_t sig_queue;
 
-static void sig_sensor(al_sensor_sample_t) {
+static void sig_sensor(al_sample_t) {
   // dispatch event
   sig_dispatch((sig_event_t){
       .type = SIG_SENSOR,

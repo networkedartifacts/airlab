@@ -25,8 +25,8 @@ RTC_FAST_ATTR static uint8_t al_sensor_store_pos_30s = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_count_5s = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_count_30s = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_skip_5s = 0;
-RTC_FAST_ATTR static al_sensor_sample_t al_sensor_store_5s[AL_SENSOR_NUM_5S] = {0};
-RTC_FAST_ATTR static al_sensor_sample_t al_sensor_store_30s[AL_SENSOR_NUM_30S] = {0};
+RTC_FAST_ATTR static al_sample_t al_sensor_store_5s[AL_SENSOR_NUM_5S] = {0};
+RTC_FAST_ATTR static al_sample_t al_sensor_store_30s[AL_SENSOR_NUM_30S] = {0};
 
 static bool al_sensor_transfer(uint8_t target, uint8_t *wd, size_t wl, uint8_t *rd, size_t rl) {
   return al_i2c_transfer(target, wd, wl, rd, rl, 1000) == ESP_OK;
@@ -37,7 +37,7 @@ static void al_sensor_debug(const char *msg) {
   naos_log("al-sns: HAL %s", msg);
 }
 
-static al_sensor_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
+static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   // calculate ppm, °C, % rH
   float co2 = (float)data.co2;
   float tmp = -45.f + 175.f * ((float)data.tmp / (float)(UINT16_MAX));
@@ -66,7 +66,7 @@ static al_sensor_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   }
 
   // create sample
-  al_sensor_sample_t sample = {
+  al_sample_t sample = {
       .co2 = co2,
       .tmp = tmp,
       .hum = hum,
@@ -125,7 +125,7 @@ static void al_sensor_check() {
   }
 
   // ingest data
-  al_sensor_sample_t sample = al_sensor_ingest(data);
+  al_sample_t sample = al_sensor_ingest(data);
 
   // release mutex
   naos_unlock(al_sensor_mutex);
@@ -187,25 +187,25 @@ void al_sensor_config(al_sensor_hook_t hook) {
   al_sensor_hook = hook;
 }
 
-al_sensor_sample_t al_sensor_last() {
+al_sample_t al_sensor_last() {
   // get sample
   naos_lock(al_sensor_mutex);
   int pos = al_sensor_store_pos_5s - 1;
   if (pos < 0) {
     pos = AL_SENSOR_NUM_5S - 1;
   }
-  al_sensor_sample_t sample = al_sensor_store_5s[pos];
+  al_sample_t sample = al_sensor_store_5s[pos];
   naos_unlock(al_sensor_mutex);
 
   return sample;
 }
 
-al_sensor_sample_t al_sensor_next() {
+al_sample_t al_sensor_next() {
   // await signal
   naos_await(al_sensor_signal, 1, true);
 
   // get last sample
-  al_sensor_sample_t sample = al_sensor_last();
+  al_sample_t sample = al_sensor_last();
 
   return sample;
 }
@@ -219,9 +219,9 @@ size_t al_sensor_count(al_sample_store_t store) {
   }
 }
 
-al_sensor_sample_t al_sensor_get(al_sample_store_t store, int num) {
+al_sample_t al_sensor_get(al_sample_store_t store, int num) {
   // get store info
-  al_sensor_sample_t *samples = al_sensor_store_5s;
+  al_sample_t *samples = al_sensor_store_5s;
   int count = al_sensor_store_count_5s;
   int pos = al_sensor_store_pos_5s;
   if (store == AL_SENSOR_30S) {
@@ -261,7 +261,7 @@ size_t al_sensor_query(al_sample_store_t store, al_sensor_t sensor, int num, flo
 
   // copy values
   for (int i = from; i < to; i++) {
-    al_sensor_sample_t sample = al_sensor_get(store, i);
+    al_sample_t sample = al_sensor_get(store, i);
     switch (sensor) {
       case AL_SENSOR_CO2:
         values[i] = sample.co2;

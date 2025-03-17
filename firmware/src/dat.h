@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include <al/sensor.h>
+#include <al/sample.h>
 
 #define DAT_MARKS 99
 
@@ -19,7 +19,7 @@ typedef struct __attribute__((packed)) {
 
 typedef struct __attribute__((packed)) {
   int32_t offset;  // ms since start (24d)
-  al_sensor_sample_t sample;
+  al_sample_t sample;
 } dat_point_t;
 
 typedef struct {
