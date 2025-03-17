@@ -210,7 +210,7 @@ al_sample_t al_sensor_next() {
   return sample;
 }
 
-size_t al_sensor_count(al_sample_store_t store) {
+size_t al_sensor_count(al_sensor_store_t store) {
   // return store count
   if (store == AL_SENSOR_5S) {
     return al_sensor_store_count_5s;
@@ -219,7 +219,7 @@ size_t al_sensor_count(al_sample_store_t store) {
   }
 }
 
-al_sample_t al_sensor_get(al_sample_store_t store, int num) {
+al_sample_t al_sensor_get(al_sensor_store_t store, int num) {
   // get store info
   al_sample_t *samples = al_sensor_store_5s;
   int count = al_sensor_store_count_5s;
@@ -246,17 +246,17 @@ al_sample_t al_sensor_get(al_sample_store_t store, int num) {
 
 static size_t al_sensor_source_count(void *ctx) {
   // get count
-  return al_sensor_count((al_sample_store_t)(int)ctx);
+  return al_sensor_count((al_sensor_store_t)(int)ctx);
 }
 
 static void al_sensor_source_read(void *ctx, al_sample_t *samples, size_t num, size_t offset) {
   // read samples
   for (size_t i = 0; i < num; i++) {
-    samples[i] = al_sensor_get((al_sample_store_t)(int)ctx, (int)(offset + i));
+    samples[i] = al_sensor_get((al_sensor_store_t)(int)ctx, (int)(offset + i));
   }
 }
 
-al_sample_source_t al_sensor_source(al_sample_store_t store) {
+al_sample_source_t al_sensor_source(al_sensor_store_t store) {
   return (al_sample_source_t){
       .ctx = (void *)(int)store,
       .count = al_sensor_source_count,

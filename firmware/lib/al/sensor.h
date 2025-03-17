@@ -9,12 +9,12 @@
 #define AL_SENSOR_NUM_30S 180  // 90min
 
 /**
- * The available sample stores.
+ * The available stores.
  */
 typedef enum {
   AL_SENSOR_5S,
   AL_SENSOR_30S,
-} al_sample_store_t;
+} al_sensor_store_t;
 
 /**
  * A sensor hook.
@@ -50,7 +50,7 @@ al_sample_t al_sensor_next();
  * @param store The store.
  * @return The sample count.
  */
-size_t al_sensor_count(al_sample_store_t store);
+size_t al_sensor_count(al_sensor_store_t store);
 
 /**
  * Gets a sensor sample from a store.
@@ -58,7 +58,7 @@ size_t al_sensor_count(al_sample_store_t store);
  * @param store The store.
  * @param num The sample index if positive or the offset from the last sample if negative.
  */
-al_sample_t al_sensor_get(al_sample_store_t store, int num);
+al_sample_t al_sensor_get(al_sensor_store_t store, int num);
 
 /**
  * Returns a sample source for a store.
@@ -66,6 +66,6 @@ al_sample_t al_sensor_get(al_sample_store_t store, int num);
  * @param store The store.
  * @return The sample source.
  */
-al_sample_source_t al_sensor_source(al_sample_store_t store);
+al_sample_source_t al_sensor_source(al_sensor_store_t store);
 
 #endif  // AL_SENSOR_H
