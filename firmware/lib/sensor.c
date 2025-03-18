@@ -73,6 +73,24 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
              sample.co2, sample.tmp, sample.hum, sample.voc, sample.nox, sample.prs, sample.off, data.epoch);
   }
 
+  // shift 5s sample to the 30s store, if necessary
+  if (al_sensor_store_count_5s == AL_SENSOR_NUM_5S) {
+    if (al_sensor_store_skip_5s > 0) {
+      al_sensor_store_skip_5s--;
+    } else {
+      al_sample_t shift = al_sensor_store_5s[al_sensor_store_pos_5s];
+      al_sensor_store_30s[al_sensor_store_pos_30s] = shift;
+      al_sensor_store_pos_30s++;
+      if (al_sensor_store_pos_30s >= AL_SENSOR_NUM_30S) {
+        al_sensor_store_pos_30s = 0;
+      }
+      if (al_sensor_store_count_30s < AL_SENSOR_NUM_30S) {
+        al_sensor_store_count_30s++;
+      }
+      al_sensor_store_skip_5s = 5;
+    }
+  }
+
   // add sample to 5s store
   al_sensor_store_5s[al_sensor_store_pos_5s] = sample;
   al_sensor_store_pos_5s++;
@@ -81,21 +99,6 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   }
   if (al_sensor_store_count_5s < AL_SENSOR_NUM_5S) {
     al_sensor_store_count_5s++;
-  }
-
-  // add sample to 30s store, if not skipped
-  if (al_sensor_store_skip_5s == 0) {
-    al_sensor_store_30s[al_sensor_store_pos_30s] = sample;
-    al_sensor_store_pos_30s++;
-    if (al_sensor_store_pos_30s >= AL_SENSOR_NUM_30S) {
-      al_sensor_store_pos_30s = 0;
-    }
-    if (al_sensor_store_count_30s < AL_SENSOR_NUM_30S) {
-      al_sensor_store_count_30s++;
-    }
-    al_sensor_store_skip_5s = 5;
-  } else {
-    al_sensor_store_skip_5s--;
   }
 
   // log store count
@@ -211,6 +214,15 @@ void al_sensor_config(al_sensor_hook_t hook) {
   al_sensor_hook = hook;
 }
 
+al_sample_t al_sensor_first() {
+  // get sample
+  if (al_sensor_count(AL_SENSOR_30S) > 0) {
+    return al_sensor_get(AL_SENSOR_30S, 0);
+  } else {
+    return al_sensor_get(AL_SENSOR_5S, 0);
+  }
+}
+
 al_sample_t al_sensor_last() {
   // get sample
   naos_lock(al_sensor_mutex);
@@ -235,23 +247,37 @@ al_sample_t al_sensor_next() {
 }
 
 size_t al_sensor_count(al_sensor_store_t store) {
+  // lock mutex
+  naos_lock(al_sensor_mutex);
+
   // return store count
+  size_t count = 0;
   if (store == AL_SENSOR_5S) {
-    return al_sensor_store_count_5s;
+    count = al_sensor_store_count_5s;
   } else {
-    return al_sensor_store_count_30s;
+    count = al_sensor_store_count_30s;
   }
+
+  // unlock mutex
+  naos_unlock(al_sensor_mutex);
+
+  return count;
 }
 
 al_sample_t al_sensor_get(al_sensor_store_t store, int num) {
+  // lock mutex
+  naos_lock(al_sensor_mutex);
+
   // get store info
   al_sample_t *samples = al_sensor_store_5s;
   int count = al_sensor_store_count_5s;
   int pos = al_sensor_store_pos_5s;
+  int length = AL_SENSOR_NUM_5S;
   if (store == AL_SENSOR_30S) {
     samples = al_sensor_store_30s;
     count = al_sensor_store_count_30s;
     pos = al_sensor_store_pos_30s;
+    length = AL_SENSOR_NUM_30S;
   }
 
   // calculate absolute position
@@ -262,47 +288,57 @@ al_sample_t al_sensor_get(al_sensor_store_t store, int num) {
     num = count - 1;
   }
 
-  // calculate relative position
-  size_t n = (pos + 1 + num) % count;
+  // calculate index
+  size_t index = num;
+  if (count == length) {
+    index = (pos + num) % length;
+  }
 
-  return samples[n];
+  // get sample
+  al_sample_t sample = samples[index];
+
+  // unlock mutex
+  naos_unlock(al_sensor_mutex);
+
+  return sample;
 }
 
 static size_t al_sensor_source_count(void *ctx) {
-  // get count
-  return al_sensor_count((al_sensor_store_t)(int)ctx);
+  // return cumulative count
+  return al_sensor_count(AL_SENSOR_30S) + al_sensor_count(AL_SENSOR_5S);
 }
 
 static int64_t al_sensor_source_start(void *ctx) {
-  // get first sample
-  al_sample_t sample = al_sensor_get((al_sensor_store_t)(int)ctx, 0);
-
-  // get start
-  return al_sensor_store_epoch + sample.off;
+  // return epoch based on oldest sample
+  return al_sensor_store_epoch + al_sensor_first().off;
 }
 
 static int32_t al_sensor_source_stop(void *ctx) {
-  // get first sample
-  al_sample_t sample = al_sensor_get((al_sensor_store_t)(int)ctx, 0);
-
-  // get stop
-  return al_sensor_last().off - sample.off;
+  // return stop based on newest and oldest sample
+  return al_sensor_last().off - al_sensor_first().off;
 }
 
 static void al_sensor_source_read(void *ctx, al_sample_t *samples, size_t num, size_t offset) {
   // get first sample
-  al_sample_t sample = al_sensor_get((al_sensor_store_t)(int)ctx, 0);
+  al_sample_t first = al_sensor_first();
+
+  // get 30s count
+  int count_30s = (int)al_sensor_count(AL_SENSOR_30S);
 
   // read samples
   for (size_t i = 0; i < num; i++) {
-    samples[i] = al_sensor_get((al_sensor_store_t)(int)ctx, (int)(offset + i));
-    samples[i].off -= sample.off;
+    int index = (int)(offset + i);
+    if (index < count_30s) {
+      samples[i] = al_sensor_get(AL_SENSOR_30S, index);
+    } else {
+      samples[i] = al_sensor_get(AL_SENSOR_5S, index - count_30s);
+    }
+    samples[i].off -= first.off;
   }
 }
 
-al_sample_source_t al_sensor_source(al_sensor_store_t store) {
+al_sample_source_t al_sensor_source() {
   return (al_sample_source_t){
-      .ctx = (void *)(int)store,
       .count = al_sensor_source_count,
       .start = al_sensor_source_start,
       .stop = al_sensor_source_stop,

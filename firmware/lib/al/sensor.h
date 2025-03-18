@@ -29,7 +29,16 @@ typedef void (*al_sensor_hook_t)(al_sample_t sample);
 void al_sensor_config(al_sensor_hook_t hook);
 
 /**
- * Returns the last sensor sample.
+ * Returns the first (oldest) sensor sample.
+ *
+ * @note Might be zero right after reset, check the `co2` field.
+ *
+ * @return The first sensor sample.
+ */
+al_sample_t al_sensor_first();
+
+/**
+ * Returns the last (newest) sensor sample.
  *
  * @note Might be zero right after reset, check the `co2` field.
  *
@@ -61,11 +70,10 @@ size_t al_sensor_count(al_sensor_store_t store);
 al_sample_t al_sensor_get(al_sensor_store_t store, int num);
 
 /**
- * Returns a sample source for a store.
+ * Returns a combined sample source for both stores.
  *
- * @param store The store.
  * @return The sample source.
  */
-al_sample_source_t al_sensor_source(al_sensor_store_t store);
+al_sample_source_t al_sensor_source();
 
 #endif  // AL_SENSOR_H

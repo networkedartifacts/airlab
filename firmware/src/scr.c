@@ -612,7 +612,7 @@ static void* scr_view() {
   // prepare source
   al_sample_source_t source = {0};
   if (file == NULL) {
-    source = al_sensor_source(AL_SENSOR_30S);
+    source = al_sensor_source();
   } else {
     source = dat_source(scr_file);
   }
@@ -1468,7 +1468,7 @@ static void* scr_menu() {
   stm_entry_t* statement = NULL;
 
   // prepare sample source
-  al_sample_source_t source = al_sensor_source(AL_SENSOR_5S);
+  al_sample_source_t source = al_sensor_source();
 
   for (;;) {
     // get time
