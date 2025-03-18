@@ -3,7 +3,7 @@
 
 #include <lvgl.h>
 
-void gfx_init();
+void gfx_init(bool reset);
 
 void gfx_begin(bool refresh, bool invert);
 void gfx_end(bool skip, bool wait);

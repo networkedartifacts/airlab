@@ -15,13 +15,17 @@ static void setup() {
   // init core
   al_init();
 
-  // print trigger
-  naos_log("main: trigger=%d", al_trigger());
+  // get trigger
+  al_trigger_t trigger = al_trigger();
+  naos_log("main: trigger=%d", trigger);
+
+  // determine reset
+  bool reset = trigger == AL_RESET;
 
   // initialize
   sig_init();
   hmi_init();
-  gfx_init();
+  gfx_init(reset);
   dat_init();
   rec_init();
 

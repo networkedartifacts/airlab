@@ -104,7 +104,7 @@ static void gfx_log(const char* buf) { printf("%s", buf); }
 static void gfx_log(const char* _) {}
 #endif
 
-void gfx_init() {
+void gfx_init(bool reset) {
   // create mutex and signal
   gfx_mutex = naos_mutex();
   gfx_signal = naos_signal();
@@ -145,8 +145,8 @@ void gfx_init() {
   // register logger
   lv_log_register_print_cb(gfx_log);
 
-  // skip initial draw
-  gfx_skip = true;
+  // skip initial draw, if not reset
+  gfx_skip = !reset;
 
   // run task
   naos_run("gfx", 8192, 1, gfx_task);
