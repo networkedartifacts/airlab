@@ -4,7 +4,7 @@
 
 #define AL_SAMPLE_QUERY_BATCH 32
 
-#define AL_SAMPLE_LERP(a, b, f) (a * (1.f - f) + (b * f))
+#define AL_SAMPLE_LERP(a, b, f) ((float)a * (1.f - f) + ((float)b * f))
 
 bool al_sample_valid(al_sample_t sample) {
   // a sample is valid if CO2 is not zero
@@ -15,17 +15,17 @@ float al_sample_read(al_sample_t sample, al_sensor_t sensor) {
   // return value
   switch (sensor) {
     case AL_SENSOR_CO2:
-      return sample.co2;
+      return (float)sample.co2;
     case AL_SENSOR_TMP:
-      return sample.tmp;
+      return (float)sample.tmp / 100.f;
     case AL_SENSOR_HUM:
-      return sample.hum;
+      return (float)sample.hum / 100.f;
     case AL_SENSOR_VOC:
-      return sample.voc;
+      return (float)sample.voc;
     case AL_SENSOR_NOX:
-      return sample.nox;
+      return (float)sample.nox;
     case AL_SENSOR_PRS:
-      return sample.prs;
+      return (float)sample.prs;
     default:
       return 0;
   }

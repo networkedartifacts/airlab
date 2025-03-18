@@ -22,10 +22,10 @@ AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
 
 RTC_FAST_ATTR static int64_t al_sensor_store_epoch = 0;
-RTC_FAST_ATTR static uint8_t al_sensor_store_pos_5s = 0;
-RTC_FAST_ATTR static uint8_t al_sensor_store_pos_30s = 0;
-RTC_FAST_ATTR static uint8_t al_sensor_store_count_5s = 0;
-RTC_FAST_ATTR static uint8_t al_sensor_store_count_30s = 0;
+RTC_FAST_ATTR static uint16_t al_sensor_store_pos_5s = 0;
+RTC_FAST_ATTR static uint16_t al_sensor_store_pos_30s = 0;
+RTC_FAST_ATTR static uint16_t al_sensor_store_count_5s = 0;
+RTC_FAST_ATTR static uint16_t al_sensor_store_count_30s = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_skip_5s = 0;
 RTC_FAST_ATTR static al_sample_t al_sensor_store_5s[AL_SENSOR_NUM_5S] = {0};
 RTC_FAST_ATTR static al_sample_t al_sensor_store_30s[AL_SENSOR_NUM_30S] = {0};
@@ -61,12 +61,12 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   // create sample
   al_sample_t sample = {
       .off = (int32_t)(data.epoch - al_sensor_store_epoch),
-      .co2 = co2,
-      .tmp = tmp,
-      .hum = hum,
-      .voc = (float)voc_index,
-      .nox = (float)nox_index,
-      .prs = prs,
+      .co2 = (int16_t)co2,
+      .tmp = (int16_t)(tmp * 100.f),
+      .hum = (int16_t)(hum * 100.f),
+      .voc = (int16_t)voc_index,
+      .nox = (int16_t)nox_index,
+      .prs = (int16_t)prs,
   };
   if (AL_SENSOR_DEBUG) {
     naos_log("al-sns: ingest co2=%.0f tmp=%.1f hum=%.1f voc=%.1f nox=%.1f prs=%.0f ingest off=%d, epoch=%lld",

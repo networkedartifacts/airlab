@@ -22,12 +22,12 @@ typedef enum {
  */
 typedef struct __attribute__((packed)) {
   int32_t off;  // ms
-  float co2;    // ppm
-  float tmp;    // °C
-  float hum;    // % rH
-  float voc;    // indexed
-  float nox;    // indexed
-  float prs;    // hPa
+  int16_t co2;  // ppm
+  int16_t tmp;  // °C (shifted by 100)
+  int16_t hum;  // % rH (shifted by 100)
+  int16_t voc;  // indexed
+  int16_t nox;  // indexed
+  int16_t prs;  // hPa
 } al_sample_t;
 
 /**

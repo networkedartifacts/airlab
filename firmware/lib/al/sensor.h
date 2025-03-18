@@ -5,8 +5,8 @@
 
 #include <al/sample.h>
 
-#define AL_SENSOR_NUM_5S 60    // 5min
-#define AL_SENSOR_NUM_30S 180  // 90min
+#define AL_SENSOR_NUM_5S 120   // 10min
+#define AL_SENSOR_NUM_30S 360  // 3h
 
 /**
  * The available stores.
