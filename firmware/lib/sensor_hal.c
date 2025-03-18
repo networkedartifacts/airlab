@@ -151,6 +151,9 @@ bool al_sensor_hal_read(al_sensor_hal_data_t* data) {
   AL_CHECK(al_sensor_hal_read_lps(0x2a, &al_sensor_hal_bt[2]));
   data->prs = al_sensor_hal_bt[0] | al_sensor_hal_bt[1] << 8 | al_sensor_hal_bt[2] << 16;
 
+  // set epoch
+  data->epoch = al_sensor_hal_ops.epoch();
+
   return true;
 }
 

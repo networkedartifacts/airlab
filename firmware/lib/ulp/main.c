@@ -10,6 +10,7 @@
 #define DEBUG false
 
 static al_sensor_hal_data_t data = {0};
+volatile int64_t start = 0;
 volatile uint8_t counter = 0;
 volatile al_sensor_hal_data_t readings[READINGS] = {0};
 
@@ -49,6 +50,14 @@ static void debug(const char* msg) {
 #endif
 }
 
+static int64_t epoch() {
+  // calculate milliseconds from cycles
+  int cycles = ULP_RISCV_GET_CCOUNT();
+  int millis = (int)(cycles / (ULP_RISCV_CYCLES_PER_MS));
+
+  return start + (int64_t)millis;
+}
+
 int main(void) {
   // initialize UART
 #if DEBUG
@@ -64,12 +73,13 @@ int main(void) {
       .transfer = transfer,
       .delay = delay,
       .debug = debug,
+      .epoch = epoch,
   });
 
   // read sensor
   for (;;) {
     // wait
-    delay(1000);
+    delay(100);
 
 #if DEBUG
     // log

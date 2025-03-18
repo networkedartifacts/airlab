@@ -3,18 +3,20 @@
 #include <ulp_riscv_i2c.h>
 #include <esp_sleep.h>
 
+#include <al/clock.h>
+
 #include "internal.h"
 #include "sensor_hal.h"
 
 #include "ulp_al.h"
 
-extern const uint8_t ulp_bin_start[] asm("_binary_ulp_al_bin_start");
-extern const uint8_t ulp_bin_end[] asm("_binary_ulp_al_bin_end");
+extern const uint8_t al_ulp_bin_start[] asm("_binary_ulp_al_bin_start");
+extern const uint8_t al_ulp_bin_end[] asm("_binary_ulp_al_bin_end");
 
 void al_ulp_start() {
   // load ULP program
-  naos_log("al-ulp: length: %d", ulp_bin_end - ulp_bin_start);
-  ESP_ERROR_CHECK(ulp_riscv_load_binary(ulp_bin_start, ulp_bin_end - ulp_bin_start));
+  naos_log("al-ulp: length: %d", al_ulp_bin_end - al_ulp_bin_start);
+  ESP_ERROR_CHECK(ulp_riscv_load_binary(al_ulp_bin_start, al_ulp_bin_end - al_ulp_bin_start));
 
   // configure ULP wake period
   ESP_ERROR_CHECK(ulp_set_wakeup_period(0, 1000 * 1000));
@@ -31,6 +33,10 @@ void al_ulp_start() {
   // start ULP program
   ESP_ERROR_CHECK(ulp_riscv_run());
   ulp_riscv_timer_resume();
+
+  // store epoch
+  int64_t *start = (int64_t *)&ulp_start;
+  *start = al_clock_get_epoch();
 }
 
 void al_ulp_stop() {
@@ -60,5 +66,5 @@ al_sensor_hal_data_t al_ulp_get_reading(int index) {
     index = (int)ulp_counter - 1;
   }
 
-  return ((al_sensor_hal_data_t*)&ulp_readings)[index];
+  return ((al_sensor_hal_data_t *)&ulp_readings)[index];
 }

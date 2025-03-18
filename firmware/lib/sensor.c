@@ -2,6 +2,7 @@
 #include <naos/sys.h>
 
 #include <al/sensor.h>
+#include <al/clock.h>
 
 #include "internal.h"
 #include "sensor_hal.h"
@@ -20,6 +21,7 @@ static al_sensor_hook_t al_sensor_hook;
 AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
 
+RTC_FAST_ATTR static int64_t al_sensor_store_epoch = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_pos_5s = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_pos_30s = 0;
 RTC_FAST_ATTR static uint8_t al_sensor_store_count_5s = 0;
@@ -42,9 +44,6 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   float co2 = (float)data.co2;
   float tmp = -45.f + 175.f * ((float)data.tmp / (float)(UINT16_MAX));
   float hum = 100.f * ((float)data.hum / (float)(UINT16_MAX));
-  if (AL_SENSOR_DEBUG) {
-    naos_log("al-sns: SCD values: co2=%.0f tmp=%.1f hum=%.1f", co2, tmp, hum);
-  }
 
   // update sampling interval
   // gas_voc_params.mSamplingInterval = input.delta;
@@ -55,18 +54,13 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   int32_t nox_index = 0;
   GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
   GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
-  if (AL_SENSOR_DEBUG) {
-    naos_log("al-sns: SGP values: voc=%d nox=%d", voc_index, nox_index);
-  }
 
   // calculate pressure
   float prs = (float)data.prs / 4096.f;
-  if (AL_SENSOR_DEBUG) {
-    naos_log("al-sns: LPS pressure: %.2f hPa", prs);
-  }
 
   // create sample
   al_sample_t sample = {
+      .off = (int32_t)(data.epoch - al_sensor_store_epoch),
       .co2 = co2,
       .tmp = tmp,
       .hum = hum,
@@ -74,6 +68,10 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
       .nox = (float)nox_index,
       .prs = prs,
   };
+  if (AL_SENSOR_DEBUG) {
+    naos_log("al-sns: ingest co2=%.0f tmp=%.1f hum=%.1f voc=%.1f nox=%.1f prs=%.0f ingest off=%d, epoch=%lld",
+             sample.co2, sample.tmp, sample.hum, sample.voc, sample.nox, sample.prs, sample.off, data.epoch);
+  }
 
   // add sample to 5s store
   al_sensor_store_5s[al_sensor_store_pos_5s] = sample;
@@ -149,6 +147,7 @@ void al_sensor_init(bool reset) {
       .transfer = al_sensor_transfer,
       .delay = naos_delay,
       .debug = al_sensor_debug,
+      .epoch = al_clock_get_epoch,
   });
 
   // perform reset
@@ -172,6 +171,31 @@ void al_sensor_init(bool reset) {
     GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
   }
 
+  // get time
+  int64_t now = al_clock_get_epoch();
+
+  // handle zero store epoch
+  if (al_sensor_store_epoch == 0) {
+    al_sensor_store_epoch = now - 12 * 60 * 60 * 1000;
+  }
+
+  // handle outdated store epoch
+  if (now - al_sensor_store_epoch > 24 * 60 * 60 * 1000) {
+    // determine shift
+    int64_t shift = (now - al_sensor_store_epoch) / 2;
+
+    // update epoch
+    al_sensor_store_epoch += shift;
+
+    // update stores
+    for (int i = 0; i < al_sensor_store_count_5s; i++) {
+      al_sensor_store_5s[i].off -= (int32_t)shift;
+    }
+    for (int i = 0; i < al_sensor_store_count_30s; i++) {
+      al_sensor_store_30s[i].off -= (int32_t)shift;
+    }
+  }
+
   // ingest ULP readings
   naos_log("al-sns: ULP readings=%d", al_ulp_readings());
   for (int i = 0; i < al_ulp_readings(); i++) {
@@ -179,7 +203,7 @@ void al_sensor_init(bool reset) {
   }
 
   // run check task
-  naos_repeat("al-sns", 1000, al_sensor_check);
+  naos_repeat("al-sns", 100, al_sensor_check);
 }
 
 void al_sensor_config(al_sensor_hook_t hook) {
