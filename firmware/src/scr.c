@@ -41,6 +41,11 @@ DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
 static scr_led_flag_t scr_led_flags = 0;
 
+static const char* scr_field_fmt[] = {
+    [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
+    [AL_SAMPLE_VOC] = "%.0f VOC",     [AL_SAMPLE_NOX] = "%.0f NOx", [AL_SAMPLE_PRS] = "%.0f hPa",
+};
+
 /* Helpers */
 
 static const char* scr_ms2str(int32_t ms) {
@@ -477,7 +482,7 @@ static void* scr_saver() {
       lv_img_set_src(battery, &img_bat0);
     }
 
-    // TODO: Show VOC and NOx values.
+    // TODO: Show VOC, NOx and pressure.
 
     // update values
     lv_label_set_text(time, lvx_fmt("%02d:%02d", hour, minute));
@@ -718,19 +723,7 @@ static void* scr_view() {
         bar.mark = marks[index] > 0 ? lvx_fmt("(M%d)", marks[index]) : "";
       }
     }
-    if (mode == 0) {
-      bar.value = lvx_fmt("%.0f ppm CO2", al_sample_read(current, AL_SAMPLE_CO2));
-    } else if (mode == 1) {
-      bar.value = lvx_fmt("%.1f °C", al_sample_read(current, AL_SAMPLE_TMP));
-    } else if (mode == 2) {
-      bar.value = lvx_fmt("%.1f%% RH", al_sample_read(current, AL_SAMPLE_HUM));
-    } else if (mode == 3) {
-      bar.value = lvx_fmt("%.0f VOC", al_sample_read(current, AL_SAMPLE_VOC));
-    } else if (mode == 4) {
-      bar.value = lvx_fmt("%.0f NOx", al_sample_read(current, AL_SAMPLE_NOX));
-    } else if (mode == 5) {
-      bar.value = lvx_fmt("%.0f hPa", al_sample_read(current, AL_SAMPLE_PRS));
-    }
+    bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(current, mode));
     lvx_bar_update(&bar);
 
     // prepare range
@@ -1481,18 +1474,8 @@ static void* scr_menu() {
     bar.time = lvx_fmt("%02d:%02d", hour, minute);
     if (!al_sample_valid(sample)) {
       bar.value = scr_trans()->menu__no_data;
-    } else if (mode == 0) {
-      bar.value = lvx_fmt("%.0f ppm CO2", al_sample_read(sample, AL_SAMPLE_CO2));
-    } else if (mode == 1) {
-      bar.value = lvx_fmt("%.1f °C", al_sample_read(sample, AL_SAMPLE_TMP));
-    } else if (mode == 2) {
-      bar.value = lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SAMPLE_HUM));
-    } else if (mode == 3) {
-      bar.value = lvx_fmt("%.0f VOC", al_sample_read(sample, AL_SAMPLE_VOC));
-    } else if (mode == 4) {
-      bar.value = lvx_fmt("%.0f NOx", al_sample_read(sample, AL_SAMPLE_NOX));
-    } else if (mode == 5) {
-      bar.value = lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SAMPLE_PRS));
+    } else {
+      bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(sample, mode));
     }
     lvx_bar_update(&bar);
 
