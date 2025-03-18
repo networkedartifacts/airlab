@@ -30,6 +30,15 @@ typedef struct __attribute__((packed)) {
 } al_sample_t;
 
 /**
+ * Reads a sensor value from a sample.
+ *
+ * @param sample The sample.
+ * @param sensor The sensor.
+ * @return The sensor value.
+ */
+float al_sample_read(al_sample_t sample, al_sensor_t sensor);
+
+/**
  * Linearly interpolates between two samples.
  *
  * @param a Sample A.

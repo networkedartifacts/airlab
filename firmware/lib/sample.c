@@ -6,6 +6,26 @@
 
 #define AL_SAMPLE_LERP(a, b, f) (a * (1.f - f) + (b * f))
 
+float al_sample_read(al_sample_t sample, al_sensor_t sensor) {
+  // return value
+  switch (sensor) {
+    case AL_SENSOR_CO2:
+      return sample.co2;
+    case AL_SENSOR_TMP:
+      return sample.tmp;
+    case AL_SENSOR_HUM:
+      return sample.hum;
+    case AL_SENSOR_VOC:
+      return sample.voc;
+    case AL_SENSOR_NOX:
+      return sample.nox;
+    case AL_SENSOR_PRS:
+      return sample.prs;
+    default:
+      return 0;
+  }
+}
+
 al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset) {
   // calculate factor
   float f = 1.f / (float)(b.off - a.off) * (float)(offset - a.off);
@@ -142,31 +162,9 @@ size_t al_sample_pick(al_sample_source_t *source, al_sensor_t sensor, int num, f
 
   // fill values
   for (int i = from; i < to; i++) {
-    // read sample
     al_sample_t sample;
     source->read(source->ctx, &sample, 1, i);
-
-    // copy value
-    switch (sensor) {
-      case AL_SENSOR_CO2:
-        values[i] = sample.co2;
-        break;
-      case AL_SENSOR_TMP:
-        values[i] = sample.tmp;
-        break;
-      case AL_SENSOR_HUM:
-        values[i] = sample.hum;
-        break;
-      case AL_SENSOR_VOC:
-        values[i] = sample.voc;
-        break;
-      case AL_SENSOR_NOX:
-        values[i] = sample.nox;
-        break;
-      case AL_SENSOR_PRS:
-        values[i] = sample.prs;
-        break;
-    }
+    values[i] = al_sample_read(sample, sensor);
   }
 
   // calculate min/max

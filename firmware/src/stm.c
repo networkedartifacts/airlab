@@ -207,6 +207,11 @@ stm_entry_t* stm_query(bool exclaim, stm_action_t action) {
     // get entry
     stm_entry_t* entry = &stm_entries[i];
 
+    // calculate values
+    float co2 =  al_sample_read(sample, AL_SENSOR_CO2);
+    float tmp =  al_sample_read(sample, AL_SENSOR_TMP);
+    float hum =  al_sample_read(sample, AL_SENSOR_HUM);
+
     // set selection
     entry->selected = true;
 
@@ -221,23 +226,23 @@ stm_entry_t* stm_query(bool exclaim, stm_action_t action) {
     }
 
     // check co2
-    if (entry->co2_min != 0 && (!ok || sample.co2 < entry->co2_min)) {
+    if (entry->co2_min != 0 && (!ok || co2 < entry->co2_min)) {
       entry->selected = false;
-    } else if (entry->co2_max != 0 && (!ok || sample.co2 > entry->co2_max)) {
+    } else if (entry->co2_max != 0 && (!ok || co2 > entry->co2_max)) {
       entry->selected = false;
     }
 
     // check temperature
-    if (entry->tmp_min != 0 && (!ok || sample.tmp < entry->tmp_min)) {
+    if (entry->tmp_min != 0 && (!ok || tmp < entry->tmp_min)) {
       entry->selected = false;
-    } else if (entry->tmp_max != 0 && (!ok || sample.tmp > entry->tmp_max)) {
+    } else if (entry->tmp_max != 0 && (!ok || tmp > entry->tmp_max)) {
       entry->selected = false;
     }
 
     // check humidity
-    if (entry->hum_min != 0 && (!ok || sample.hum < entry->hum_min)) {
+    if (entry->hum_min != 0 && (!ok || hum < entry->hum_min)) {
       entry->selected = false;
-    } else if (entry->hum_max != 0 && (!ok || sample.hum > entry->hum_max)) {
+    } else if (entry->hum_max != 0 && (!ok || hum > entry->hum_max)) {
       entry->selected = false;
     }
 
