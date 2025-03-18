@@ -485,13 +485,13 @@ static void* scr_saver() {
       lv_label_set_text(co2, "ppm CO2");
       lv_label_set_text(tmp, "° Celsius");
       lv_label_set_text(hum, "% RH");
-      lv_label_set_text(co2_big, lvx_fmt("%.0f", al_sample_read(sample, AL_SENSOR_CO2)));
-      lv_label_set_text(tmp_big, lvx_fmt("%.1f", al_sample_read(sample, AL_SENSOR_TMP)));
-      lv_label_set_text(hum_big, lvx_fmt("%.1f", al_sample_read(sample, AL_SENSOR_HUM)));
+      lv_label_set_text(co2_big, lvx_fmt("%.0f", al_sample_read(sample, AL_SAMPLE_CO2)));
+      lv_label_set_text(tmp_big, lvx_fmt("%.1f", al_sample_read(sample, AL_SAMPLE_TMP)));
+      lv_label_set_text(hum_big, lvx_fmt("%.1f", al_sample_read(sample, AL_SAMPLE_HUM)));
     } else {
-      lv_label_set_text(co2, lvx_fmt("%.0f ppm", al_sample_read(sample, AL_SENSOR_CO2)));
-      lv_label_set_text(tmp, lvx_fmt("%.1f °C", al_sample_read(sample, AL_SENSOR_TMP)));
-      lv_label_set_text(hum, lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SENSOR_HUM)));
+      lv_label_set_text(co2, lvx_fmt("%.0f ppm", al_sample_read(sample, AL_SAMPLE_CO2)));
+      lv_label_set_text(tmp, lvx_fmt("%.1f °C", al_sample_read(sample, AL_SAMPLE_TMP)));
+      lv_label_set_text(hum, lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SAMPLE_HUM)));
     }
 
     // align objects
@@ -719,17 +719,17 @@ static void* scr_view() {
       }
     }
     if (mode == 0) {
-      bar.value = lvx_fmt("%.0f ppm CO2", al_sample_read(current, AL_SENSOR_CO2));
+      bar.value = lvx_fmt("%.0f ppm CO2", al_sample_read(current, AL_SAMPLE_CO2));
     } else if (mode == 1) {
-      bar.value = lvx_fmt("%.1f °C", al_sample_read(current, AL_SENSOR_TMP));
+      bar.value = lvx_fmt("%.1f °C", al_sample_read(current, AL_SAMPLE_TMP));
     } else if (mode == 2) {
-      bar.value = lvx_fmt("%.1f%% RH", al_sample_read(current, AL_SENSOR_HUM));
+      bar.value = lvx_fmt("%.1f%% RH", al_sample_read(current, AL_SAMPLE_HUM));
     } else if (mode == 3) {
-      bar.value = lvx_fmt("%.0f VOC", al_sample_read(current, AL_SENSOR_VOC));
+      bar.value = lvx_fmt("%.0f VOC", al_sample_read(current, AL_SAMPLE_VOC));
     } else if (mode == 4) {
-      bar.value = lvx_fmt("%.0f NOx", al_sample_read(current, AL_SENSOR_NOX));
+      bar.value = lvx_fmt("%.0f NOx", al_sample_read(current, AL_SAMPLE_NOX));
     } else if (mode == 5) {
-      bar.value = lvx_fmt("%.0f hPa", al_sample_read(current, AL_SENSOR_PRS));
+      bar.value = lvx_fmt("%.0f hPa", al_sample_read(current, AL_SAMPLE_PRS));
     }
     lvx_bar_update(&bar);
 
@@ -1467,7 +1467,7 @@ static void* scr_menu() {
     // query sensor
     float values[SCR_HIST_POINTS] = {0};
     float min = 0, max = 0;
-    al_sample_pick(&source, (al_sensor_t)mode, SCR_HIST_POINTS, values, &min, &max);
+    al_sample_pick(&source, (al_sample_field_t)mode, SCR_HIST_POINTS, values, &min, &max);
 
     // query statement
     if (statement == NULL && (exclaim || fun)) {
@@ -1482,17 +1482,17 @@ static void* scr_menu() {
     if (!al_sample_valid(sample)) {
       bar.value = scr_trans()->menu__no_data;
     } else if (mode == 0) {
-      bar.value = lvx_fmt("%.0f ppm CO2", al_sample_read(sample, AL_SENSOR_CO2));
+      bar.value = lvx_fmt("%.0f ppm CO2", al_sample_read(sample, AL_SAMPLE_CO2));
     } else if (mode == 1) {
-      bar.value = lvx_fmt("%.1f °C", al_sample_read(sample, AL_SENSOR_TMP));
+      bar.value = lvx_fmt("%.1f °C", al_sample_read(sample, AL_SAMPLE_TMP));
     } else if (mode == 2) {
-      bar.value = lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SENSOR_HUM));
+      bar.value = lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SAMPLE_HUM));
     } else if (mode == 3) {
-      bar.value = lvx_fmt("%.0f VOC", al_sample_read(sample, AL_SENSOR_VOC));
+      bar.value = lvx_fmt("%.0f VOC", al_sample_read(sample, AL_SAMPLE_VOC));
     } else if (mode == 4) {
-      bar.value = lvx_fmt("%.0f NOx", al_sample_read(sample, AL_SENSOR_NOX));
+      bar.value = lvx_fmt("%.0f NOx", al_sample_read(sample, AL_SAMPLE_NOX));
     } else if (mode == 5) {
-      bar.value = lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SENSOR_PRS));
+      bar.value = lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SAMPLE_PRS));
     }
     lvx_bar_update(&bar);
 

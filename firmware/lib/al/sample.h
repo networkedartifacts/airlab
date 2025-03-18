@@ -6,18 +6,6 @@
 #include <stddef.h>
 
 /**
- * The available sensors.
- */
-typedef enum {
-  AL_SENSOR_CO2,
-  AL_SENSOR_TMP,
-  AL_SENSOR_HUM,
-  AL_SENSOR_VOC,
-  AL_SENSOR_NOX,
-  AL_SENSOR_PRS,
-} al_sensor_t;
-
-/**
  * A single sample.
  */
 typedef struct __attribute__((packed)) {
@@ -31,6 +19,18 @@ typedef struct __attribute__((packed)) {
 } al_sample_t;
 
 /**
+ * The available sample fields.
+ */
+typedef enum {
+  AL_SAMPLE_CO2,
+  AL_SAMPLE_TMP,
+  AL_SAMPLE_HUM,
+  AL_SAMPLE_VOC,
+  AL_SAMPLE_NOX,
+  AL_SAMPLE_PRS,
+} al_sample_field_t;
+
+/**
  * Checks if a sample is valid.
  *
  * @return True if the sample is valid.
@@ -38,13 +38,13 @@ typedef struct __attribute__((packed)) {
 bool al_sample_valid(al_sample_t);
 
 /**
- * Reads a sensor value from a sample.
+ * Reads a value from a sample.
  *
  * @param sample The sample.
- * @param sensor The sensor.
- * @return The sensor value.
+ * @param field The field.
+ * @return The value.
  */
-float al_sample_read(al_sample_t sample, al_sensor_t sensor);
+float al_sample_read(al_sample_t sample, al_sample_field_t field);
 
 /**
  * Linearly interpolates between two samples.
@@ -61,6 +61,8 @@ al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset);
  *
  * @param ctx The context.
  * @param count A function to count the number of samples.
+ * @param start A function to get the start time.
+ * @param stop A function to get the stop time.
  * @param read A function to read samples.
  */
 typedef struct {
@@ -97,13 +99,14 @@ size_t al_sample_query(al_sample_source_t *source, al_sample_t *samples, size_t 
  * Pick values from a sample source.
  *
  * @param source The source.
- * @param sensor The sensor.
+ * @param field The field.
  * @param num The sample index if positive or the offset from the last sample if negative.
- * @param values The sensor values.
- * @param min The minimum sensor value.
- * @param max The maximum sensor value.
- * @return The sensor history.
+ * @param values The values.
+ * @param min The minimum value.
+ * @param max The maximum value.
+ * @return The number of values picked.
  */
-size_t al_sample_pick(al_sample_source_t *source, al_sensor_t sensor, int num, float *values, float *min, float *max);
+size_t al_sample_pick(al_sample_source_t *source, al_sample_field_t field, int num, float *values, float *min,
+                      float *max);
 
 #endif  // AL_SAMPLE_H

@@ -209,8 +209,8 @@ stm_entry_t* stm_query(bool exclaim, stm_action_t action) {
 
     // calculate values
     float co2 = al_sample_read(sample, AL_SENSOR_CO2);
-    float tmp = al_sample_read(sample, AL_SENSOR_TMP);
-    float hum = al_sample_read(sample, AL_SENSOR_HUM);
+    float tmp = al_sample_read(sample, AL_SAMPLE_TMP);
+    float hum = al_sample_read(sample, AL_SAMPLE_HUM);
 
     // set selection
     entry->selected = true;

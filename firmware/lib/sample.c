@@ -11,20 +11,20 @@ bool al_sample_valid(al_sample_t sample) {
   return sample.co2 != 0;
 }
 
-float al_sample_read(al_sample_t sample, al_sensor_t sensor) {
+float al_sample_read(al_sample_t sample, al_sample_field_t field) {
   // return value
-  switch (sensor) {
-    case AL_SENSOR_CO2:
+  switch (field) {
+    case AL_SAMPLE_CO2:
       return (float)sample.co2;
-    case AL_SENSOR_TMP:
+    case AL_SAMPLE_TMP:
       return (float)sample.tmp / 100.f;
-    case AL_SENSOR_HUM:
+    case AL_SAMPLE_HUM:
       return (float)sample.hum / 100.f;
-    case AL_SENSOR_VOC:
+    case AL_SAMPLE_VOC:
       return (float)sample.voc;
-    case AL_SENSOR_NOX:
+    case AL_SAMPLE_NOX:
       return (float)sample.nox;
-    case AL_SENSOR_PRS:
+    case AL_SAMPLE_PRS:
       return (float)sample.prs;
     default:
       return 0;
@@ -150,7 +150,8 @@ size_t al_sample_query(al_sample_source_t *source, al_sample_t *samples, size_t 
   return count;
 }
 
-size_t al_sample_pick(al_sample_source_t *source, al_sensor_t sensor, int num, float *values, float *min, float *max) {
+size_t al_sample_pick(al_sample_source_t *source, al_sample_field_t field, int num, float *values, float *min,
+                      float *max) {
   // limit number to count
   int count = (int)source->count(source->ctx);
   if (num > count) {
@@ -169,7 +170,7 @@ size_t al_sample_pick(al_sample_source_t *source, al_sensor_t sensor, int num, f
   for (int i = from; i < to; i++) {
     al_sample_t sample;
     source->read(source->ctx, &sample, 1, i);
-    values[i] = al_sample_read(sample, sensor);
+    values[i] = al_sample_read(sample, field);
   }
 
   // calculate min/max
