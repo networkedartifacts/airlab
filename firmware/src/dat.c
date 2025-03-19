@@ -15,8 +15,10 @@
 #include "sig.h"
 
 #define DAT_ROOT "/fs"
-#define DAT_COUNTER "COUNTER.BIN"
-#define DAT_NAME_FMT "FILE%04u.BIN"
+#define DAT_DATA_DIR "data"
+#define DAT_DUMP_DIR "dump"
+#define DAT_COUNTER "counter.bin"
+#define DAT_NAME_FMT "file-%04u.bin"
 #define DAT_FILES 128
 #define DAT_DEBUG false
 
@@ -93,10 +95,12 @@ static bool dat_access() {
   return true;
 }
 
-static void dat_read_file(const char *name, void *buf, size_t offset, size_t length) {
+static void dat_read_file(const char *dir, const char *name, void *buf, size_t offset, size_t length) {
   // prepare path
   char path[32] = {0};
   strcat(path, DAT_ROOT "/");
+  strcat(path, dir);
+  strcat(path, "/");
   strcat(path, name);
 
   // log
@@ -128,10 +132,12 @@ static void dat_read_file(const char *name, void *buf, size_t offset, size_t len
   fclose(file);
 }
 
-static void dat_write_file(const char *name, void *buf, size_t offset, size_t length, bool truncate) {
+static void dat_write_file(const char *dir, const char *name, void *buf, size_t offset, size_t length, bool truncate) {
   // prepare path
   char path[32] = {0};
   strcat(path, DAT_ROOT "/");
+  strcat(path, dir);
+  strcat(path, "/");
   strcat(path, name);
 
   // log
@@ -163,10 +169,12 @@ static void dat_write_file(const char *name, void *buf, size_t offset, size_t le
   fclose(file);
 }
 
-static void dat_delete_file(const char *name) {
+static void dat_delete_file(const char *dir, const char *name) {
   // prepare path
   char path[32] = {0};
   strcat(path, DAT_ROOT "/");
+  strcat(path, dir);
+  strcat(path, "/");
   strcat(path, name);
 
   // log
@@ -193,18 +201,21 @@ void dat_init() {
   };
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(DAT_ROOT, "storage", &mount_config, &dat_wl_handle));
 
-  // check for tag
+  // check access
   if (!dat_access()) {
     naos_log("dat: no access, formatting storage...");
     ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(DAT_ROOT, "storage"));
     naos_log("dat: storage formatted!");
   }
 
+  // ensure directory
+  mkdir(DAT_ROOT "/" DAT_DATA_DIR, 0777);
+
   // clear list
   dat_files_length = 0;
 
   // open directory
-  DIR *dir = opendir(DAT_ROOT);
+  DIR *dir = opendir(DAT_ROOT "/" DAT_DATA_DIR);
   if (dir == NULL) {
     ESP_ERROR_CHECK(errno);
   }
@@ -230,7 +241,7 @@ void dat_init() {
     // handle counter
     if (strcmp(entry->d_name, DAT_COUNTER) == 0) {
       uint16_t counter = 0;
-      dat_read_file(entry->d_name, (uint8_t *)&counter, 0, sizeof(counter));
+      dat_read_file(DAT_DATA_DIR, entry->d_name, (uint8_t *)&counter, 0, sizeof(counter));
       dat_counter = counter;
       continue;
     }
@@ -240,6 +251,7 @@ void dat_init() {
     // prepare path
     char path[32] = {0};
     strcat(path, DAT_ROOT "/");
+    strcat(path, DAT_DATA_DIR "/");
     strcat(path, entry->d_name);
 
     // stat file
@@ -259,7 +271,7 @@ void dat_init() {
 
     // read head
     dat_head_t head = {0};
-    dat_read_file(entry->d_name, &head, 0, sizeof(head));
+    dat_read_file(DAT_DATA_DIR, entry->d_name, &head, 0, sizeof(head));
 
     // prepare file
     dat_file_t file = {.head = head};
@@ -268,7 +280,7 @@ void dat_init() {
     // read last sample and set stop if available
     if (file.size > 0) {
       al_sample_t sample;
-      dat_read_file(entry->d_name, &sample, sizeof(dat_head_t) + (file.size - 1) * sizeof(al_sample_t),
+      dat_read_file(DAT_DATA_DIR, entry->d_name, &sample, sizeof(dat_head_t) + (file.size - 1) * sizeof(al_sample_t),
                     sizeof(al_sample_t));
       file.stop = sample.off;
     }
@@ -363,10 +375,10 @@ uint16_t dat_create(int64_t start) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, head.num);
 
   // write file
-  dat_write_file(name, &head, 0, sizeof(head), true);
+  dat_write_file(DAT_DATA_DIR, name, &head, 0, sizeof(head), true);
 
   // write counter
-  dat_write_file(DAT_COUNTER, &head.num, 0, sizeof(head.num), true);
+  dat_write_file(DAT_DATA_DIR, DAT_COUNTER, &head.num, 0, sizeof(head.num), true);
 
   // prepare file
   dat_file_t file = {.head = head};
@@ -402,7 +414,7 @@ void dat_mark(uint16_t num, int32_t offset) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // update head
-  dat_write_file(name, &file->head, 0, sizeof(dat_head_t), false);
+  dat_write_file(DAT_DATA_DIR, name, &file->head, 0, sizeof(dat_head_t), false);
 }
 
 void dat_append(uint16_t num, al_sample_t *samples, size_t count) {
@@ -423,13 +435,13 @@ void dat_append(uint16_t num, al_sample_t *samples, size_t count) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // append samples
-  dat_write_file(name, samples, offset, length, false);
+  dat_write_file(DAT_DATA_DIR, name, samples, offset, length, false);
 
   // update head
   file->size += count;
 
   // update head
-  dat_write_file(name, &file->head, 0, sizeof(dat_head_t), false);
+  dat_write_file(DAT_DATA_DIR, name, &file->head, 0, sizeof(dat_head_t), false);
 
   // update file
   file->stop = samples[count - 1].off;
@@ -453,7 +465,7 @@ void dat_read(uint16_t num, al_sample_t *samples, size_t count, size_t start) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // read samples
-  dat_read_file(name, samples, offset, length);
+  dat_read_file(DAT_DATA_DIR, name, samples, offset, length);
 }
 
 void dat_delete(uint16_t num) {
@@ -468,7 +480,7 @@ void dat_delete(uint16_t num) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // delete file
-  dat_delete_file(name);
+  dat_delete_file(DAT_DATA_DIR, name);
 
   // remove file from list
   dat_files_length--;
@@ -583,5 +595,5 @@ void dat_disable_usb() {
 
 void dat_dump(const char *name, const void *data, size_t size) {
   // truncate and write file
-  dat_write_file(name, (void *)data, 0, size, true);
+  dat_write_file(DAT_DUMP_DIR, name, (void *)data, 0, size, true);
 }
