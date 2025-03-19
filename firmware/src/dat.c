@@ -15,7 +15,6 @@
 #include "sig.h"
 
 #define DAT_ROOT "/fs"
-#define DAT_TAG "TAG.BIN"
 #define DAT_COUNTER "COUNTER.BIN"
 #define DAT_NAME_FMT "FILE%04u.BIN"
 #define DAT_FILES 128
@@ -73,6 +72,25 @@ static void dat_usb_msc_cb(tinyusb_msc_event_t *event) {
         .type = SIG_EJECT,
     });
   }
+}
+
+static bool dat_access() {
+  // open file
+  FILE *file = fopen(DAT_ROOT "/TEST", "w");
+  if (file == NULL) {
+    return false;
+  }
+
+  // close file
+  fclose(file);
+
+  // remove file
+  int ret = remove(DAT_ROOT "/TEST");
+  if (ret != 0) {
+    return false;
+  }
+
+  return true;
 }
 
 static void dat_read_file(const char *name, void *buf, size_t offset, size_t length) {
@@ -179,10 +197,9 @@ void dat_init() {
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(DAT_ROOT, "storage", &mount_config, &dat_wl_handle));
 
   // check for tag
-  if (access(DAT_ROOT "/" DAT_TAG, F_OK) != 0) {
-    naos_log("dat: missing tag, formatting storage...");
+  if (!dat_access()) {
+    naos_log("dat: no access, formatting storage...");
     ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(DAT_ROOT, "storage"));
-    dat_write_file(DAT_TAG, NULL, 0, 0, true);
     naos_log("dat: storage formatted!");
   }
 
@@ -210,11 +227,6 @@ void dat_init() {
 
     // handle specials
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-      continue;
-    }
-
-    // skip tag
-    if (strcmp(entry->d_name, DAT_TAG) == 0) {
       continue;
     }
 
