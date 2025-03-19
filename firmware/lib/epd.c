@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <naos/sys.h>
+#include <string.h>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 
@@ -40,7 +41,7 @@ static const uint8_t al_epd_lut_full[153] = {
 
 static naos_mutex_t al_epd_mutex;
 static spi_device_handle_t al_epd_device;
-static uint8_t *al_epd_buffer = NULL;
+static uint8_t al_epd_buffer[AL_EPD_BUFFER];
 
 /* SPI helper */
 
@@ -318,11 +319,8 @@ void al_epd_init() {
   // create mutex
   al_epd_mutex = naos_mutex();
 
-  // allocate buffers
-  al_epd_buffer = calloc(AL_EPD_BUFFER, sizeof(uint8_t));
-  if (al_epd_buffer == NULL) {
-    ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
-  }
+  // clear buffer
+  memset(al_epd_buffer, 0, sizeof(al_epd_buffer));
 
   // initialize pins
   gpio_config_t pin = {

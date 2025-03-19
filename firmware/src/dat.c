@@ -22,7 +22,7 @@
 
 static wl_handle_t dat_wl_handle;
 static uint16_t dat_counter;
-static dat_file_t *dat_files;
+static dat_file_t dat_files[DAT_FILES];
 static size_t dat_files_length = 0;
 
 // TODO: Handle file overflow.
@@ -182,11 +182,8 @@ static void dat_delete_file(const char *name) {
 }
 
 void dat_init() {
-  // allocate files
-  dat_files = calloc(DAT_FILES, sizeof(dat_file_t));
-  if (dat_files == NULL) {
-    ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
-  }
+  // clear files
+  memset(dat_files, 0, sizeof(dat_files));
 
   // mount FAT file system
   const esp_vfs_fat_mount_config_t mount_config = {
