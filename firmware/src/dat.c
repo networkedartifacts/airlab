@@ -517,23 +517,8 @@ al_sample_source_t dat_source(uint16_t num) {
 }
 
 void dat_reset() {
-  // open directory
-  DIR *dir = opendir(DAT_ROOT);
-  if (dir == NULL) {
-    ESP_ERROR_CHECK(errno);
-  }
-
-  // read directory entries
-  for (;;) {
-    struct dirent *entry = readdir(dir);
-    if (entry == NULL) {
-      break;
-    }
-    dat_delete_file(entry->d_name);
-  }
-
-  // close directory
-  closedir(dir);
+  // format storage
+  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(DAT_ROOT, "storage"));
 
   // reset counter and length
   dat_counter = 0;
