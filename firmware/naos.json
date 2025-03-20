@@ -31,6 +31,12 @@
     "CONFIG_ULP_COPROC_TYPE_RISCV": "y",
     "CONFIG_ULP_COPROC_RESERVE_MEM": "4096"
   },
+  "partitions": {
+    "total": 8,
+    "alpha": 25,
+    "beta": 25,
+    "storage": 50
+  },
   "components": {
     "lib": {
       "path": "./lib"
