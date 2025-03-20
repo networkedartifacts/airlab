@@ -51,6 +51,7 @@ typedef struct {
   lv_obj_t *_time;
   lv_obj_t *_pwr;
   lv_obj_t *_rec;
+  lv_obj_t *_con;
   lv_obj_t *_mrk;
   lv_obj_t *_val;
   lv_obj_t *_ar1;

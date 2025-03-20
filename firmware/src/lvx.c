@@ -263,6 +263,14 @@ void lvx_bar_create(lvx_bar_t* bar, lv_obj_t* parent) {
     lv_obj_align(bar->_rec, LV_ALIGN_TOP_LEFT, 80, 5);
   }
 
+  // add connected icon
+  bar->_con = lv_img_create(parent);
+  lv_img_set_src(bar->_con, &img_connected);
+  lv_obj_align(bar->_con, LV_ALIGN_TOP_LEFT, 100, 5);
+  if (naos_status() != NAOS_NETWORKED) {
+    lv_obj_add_flag(bar->_con, LV_OBJ_FLAG_HIDDEN);
+  }
+
   // add mark label
   bar->_mrk = lv_label_create(parent);
   lv_obj_align(bar->_mrk, LV_ALIGN_TOP_LEFT, 100, 5);
@@ -298,6 +306,13 @@ void lvx_bar_update(lvx_bar_t* bar) {
     lv_img_set_src(bar->_pwr, &img_bat1);
   } else {
     lv_img_set_src(bar->_pwr, &img_bat0);
+  }
+
+  // update connected icon
+  if (naos_status() == NAOS_NETWORKED) {
+    lv_obj_clear_flag(bar->_con, LV_OBJ_FLAG_HIDDEN);
+  } else {
+    lv_obj_add_flag(bar->_con, LV_OBJ_FLAG_HIDDEN);
   }
 
   // update mark
