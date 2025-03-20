@@ -73,6 +73,11 @@ static void scr_power_off() {
   al_power_off();
 }
 
+static bool scr_keep_alive() {
+  // keep alive if powered and networked
+  return al_power_get().usb && naos_status() == NAOS_NETWORKED;
+}
+
 /* Translations */
 
 typedef enum {
@@ -559,27 +564,52 @@ static void* scr_saver() {
       scr_power_off();
     }
 
-    // deep sleep for 1min if not recording
+    // check if recording
     if (!rec_running()) {
-      // perform deep sleep
-      al_sleep(true, 60 * 1000);
+      if (scr_keep_alive()) {
+        // wait one second
+        sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_MOTION, 60 * 1000);
 
-      // no return
+        // handle unlock
+        if (event.type & SIG_KEYS) {
+          break;
+        }
+
+        continue;
+      } else {
+        // sleep for one second (no return)
+        al_sleep(true, 60 * 1000);
+      }
     }
 
-    // otherwise, light sleep for 5s-30s (0-5min) if recording
+    // calculate timeout: 5s-30s (0-5min)
     int64_t timeout = a32_safe_map_l(duration, 0, 300000, 5000, 30000);
-    al_sleep(false, timeout);
 
-    // capture enter when unlocked
-    al_trigger_t trigger = al_trigger();
-    if (trigger == AL_BUTTON) {
-      sig_await(SIG_ENTER, 1000);
-    }
+    // check keep alive
+    if (scr_keep_alive()) {
+      // wait some time
+      sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_MOTION, timeout);
 
-    // handle unlock
-    if (trigger == AL_BUTTON) {
-      break;
+      // handle unlock
+      if (event.type & SIG_KEYS) {
+        break;
+      }
+    } else {
+      // TODO: Also use deep sleep here?
+
+      // light sleep for some time
+      al_sleep(false, timeout);
+
+      // capture enter when unlocked
+      al_trigger_t trigger = al_trigger();
+      if (trigger == AL_BUTTON) {
+        sig_await(SIG_ENTER, 1000);
+      }
+
+      // handle unlock
+      if (trigger == AL_BUTTON) {
+        break;
+      }
     }
 
     // await next measurement or stop
