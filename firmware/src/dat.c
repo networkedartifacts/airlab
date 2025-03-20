@@ -11,6 +11,8 @@
 #include <tinyusb.h>
 #include <tusb_msc_storage.h>
 
+#include <al/sensor.h>
+
 #include "dat.h"
 #include "sig.h"
 
@@ -527,6 +529,43 @@ al_sample_source_t dat_source(uint16_t num) {
   };
 }
 
+bool dat_import(uint16_t num) {
+  // find file
+  dat_file_t *file = dat_find(num, NULL);
+  if (file == NULL) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // prepare source
+  al_sample_source_t source = al_sensor_source();
+
+  // get source info
+  size_t count = source.count(source.ctx);
+
+  // calculate size
+  size_t size = sizeof(dat_head_t) + (count * sizeof(al_sample_t)) + 1024;
+
+  // check space
+  if (size > dat_info().free) {
+    return false;
+  }
+
+  // append samples
+  for (size_t i = 0; i < count; i += 32) {
+    // read samples
+    size_t n = MIN(file->size - i, 32);
+    al_sample_t samples[32];
+    source.read(source.ctx, samples, n, i);
+
+    // TODO: Improve writing speed or report progress.
+
+    // append samples
+    dat_append(num, samples, n);
+  }
+
+  return true;
+}
+
 bool dat_export(uint16_t num) {
   // ensure directory
   mkdir(DAT_ROOT "/" DAT_EXPORT_DIR, 0777);
@@ -540,9 +579,8 @@ bool dat_export(uint16_t num) {
   // calculate size
   size_t size = sizeof(dat_head_t) + (file->size * sizeof(al_sample_t)) + 1024;
 
-  // get space
-  dat_info_t info = dat_info();
-  if (size > info.free) {
+  // check space
+  if (size > dat_info().free) {
     return false;
   }
 
@@ -560,10 +598,7 @@ bool dat_export(uint16_t num) {
   // write samples
   for (size_t i = 0; i < file->size; i += 32) {
     // read samples
-    size_t count = file->size - i;
-    if (count > 32) {
-      count = 32;
-    }
+    size_t count = MIN(file->size - i, 32);
     al_sample_t samples[32];
     dat_read(num, samples, count, i);
 

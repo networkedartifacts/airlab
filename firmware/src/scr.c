@@ -98,6 +98,9 @@ typedef struct {
   const char* create__name;
   const char* create__length;
   const char* create__start;
+  const char* create__import;
+  const char* create__importing;
+  const char* create__imported;
   const char* delete__confirm;
   const char* delete__delete;
   const char* delete__deleted;
@@ -145,6 +148,9 @@ static const scr_trans_t scr_trans_map[] = {
             .create__name = "Messung %u",
             .create__length = "Länge ca. %d-%d Stunden",
             .create__start = "Starten",
+            .create__import = "Bestehende Daten importieren?",
+            .create__importing = "Importiere Daten...",
+            .create__imported = "Import erfolgreich!",
             .delete__confirm = "%s\nwirklich löschen?",
             .delete__delete = "Löschen",
             .delete__deleted = "Messung %d\nerfolgreich gelöscht!",
@@ -190,6 +196,9 @@ static const scr_trans_t scr_trans_map[] = {
             .create__name = "Measurement %u",
             .create__length = "Length approx. %d-%d hours",
             .create__start = "Start",
+            .create__import = "Import existing data?",
+            .create__importing = "Importing data...",
+            .create__imported = "Import successful!",
             .delete__confirm = "Really delete %s?",
             .delete__delete = "Delete",
             .delete__deleted = "Measurement %d\nsuccessfully deleted!",
@@ -975,8 +984,27 @@ static void* scr_create() {
 
     /* handle enter */
 
+    // confirm import
+    bool import =
+        gui_confirm(scr_trans()->create__import, scr_trans()->yes, scr_trans()->no, false, SCR_ACTION_TIMEOUT);
+
+    // determine epoch
+    int64_t epoch = al_clock_get_epoch();
+    if (import) {
+      al_sample_source_t source = al_sensor_source();
+      epoch = source.start(source.ctx);
+    }
+
     // create measurement
-    scr_file = dat_create(al_clock_get_epoch());
+    scr_file = dat_create(epoch);
+
+    // confirm and perform data import
+    if (import) {
+      gui_write(scr_trans()->create__importing);
+      dat_import(scr_file);
+      gui_cleanup(false);
+      gui_message(scr_trans()->create__imported, 2000);
+    }
 
     // start recording
     rec_start(scr_file);
