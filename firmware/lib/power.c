@@ -149,7 +149,7 @@ void al_power_check() {
   }
 
   // update max current setting to 900mA
-  if (al_power_state.fast != fast_charge) {
+  if (al_power_state.charging && al_power_state.fast != fast_charge) {
     al_power_bq25601.reg0.iindpm = al_power_state.fast ? 0x8 : 0x4;
     al_power_write(0x00, al_power_bq25601.reg0.raw);
   }
