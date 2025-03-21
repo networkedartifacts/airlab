@@ -489,6 +489,9 @@ static void* scr_saver() {
     // set display rotation
     lv_disp_set_rotation(NULL, acc.rotation / 90);
 
+    // update status
+    lvx_status_update(&status);
+
     // TODO: Show VOC, NOx and pressure.
 
     // update values
