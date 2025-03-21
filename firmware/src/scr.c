@@ -73,11 +73,6 @@ static void scr_power_off() {
   al_power_off();
 }
 
-static bool scr_keep_alive() {
-  // keep alive if powered and networked
-  return al_power_get().usb && naos_status() == NAOS_NETWORKED;
-}
-
 /* Translations */
 
 typedef enum {
@@ -546,7 +541,7 @@ static void* scr_saver() {
 
     // check if recording
     if (!rec_running()) {
-      if (scr_keep_alive()) {
+      if (power.usb) {
         // wait one second
         sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_MOTION, 60 * 1000);
 
@@ -565,8 +560,8 @@ static void* scr_saver() {
     // calculate timeout: 5s-30s (0-5min)
     int64_t timeout = a32_safe_map_l(duration, 0, 300000, 5000, 30000);
 
-    // check keep alive
-    if (scr_keep_alive()) {
+    // check if powered
+    if (power.usb) {
       // wait some time
       sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_MOTION, timeout);
 
