@@ -1,4 +1,5 @@
 #include <naos.h>
+#include <naos/fs.h>
 #include <naos/ble.h>
 #include <naos/wifi.h>
 #include <naos/mqtt.h>
@@ -49,6 +50,7 @@ static void network() {
   naos_delay(5000);
 
   // run network
+  naos_fs_install((naos_fs_config_t){.root = DAT_ROOT});
   naos_ble_init((naos_ble_config_t){});
   naos_wifi_init();
   naos_mqtt_init(1);

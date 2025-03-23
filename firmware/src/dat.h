@@ -6,6 +6,7 @@
 
 #include <al/sample.h>
 
+#define DAT_ROOT "/fs"
 #define DAT_MARKS 99
 
 typedef struct __attribute__((packed)) {

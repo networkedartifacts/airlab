@@ -16,7 +16,6 @@
 #include "dat.h"
 #include "sig.h"
 
-#define DAT_ROOT "/fs"
 #define DAT_DATA_DIR "data"
 #define DAT_EXPORT_DIR "export"
 #define DAT_DUMP_DIR "dump"
