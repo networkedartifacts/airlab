@@ -9,7 +9,6 @@
 
 #include <al/core.h>
 #include <al/accel.h>
-#include <al/led.h>
 #include <al/power.h>
 #include <al/clock.h>
 #include <al/sensor.h>
@@ -23,23 +22,18 @@
 #include "rec.h"
 #include "dev.h"
 #include "stm.h"
+#include "hmi.h"
 
 #define SCR_ACTION_TIMEOUT 10000
 #define SCR_IDLE_TIMEOUT 30000
 #define SCR_MIN_RESOLUTION 5000
 #define SCR_HIST_POINTS 8
 
-typedef enum {
-  SCR_LED_USB = 1 << 0,
-  SCR_LED_OFF = 1 << 1,
-} scr_led_flag_t;
-
 static stm_action_t scr_action = 0;
 DEV_KEEP static uint16_t scr_file = 0;
 DEV_KEEP static int64_t scr_saver_enter = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
-static scr_led_flag_t scr_led_flags = 0;
 
 static const char* scr_field_fmt[] = {
     [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
@@ -59,8 +53,8 @@ static const char* scr_ms2str(int32_t ms) {
 }
 
 static void scr_power_off() {
-  // turn off LED
-  scr_led_flags |= SCR_LED_OFF;
+  // set off flag
+  hmi_set_flag(HMI_FLAG_OFF);
 
   // cleanup screen
   gui_cleanup(true);
@@ -1001,8 +995,19 @@ static void* scr_create() {
 
     // confirm and perform data import
     if (import) {
+      // write message
       gui_write(scr_trans()->create__importing);
+
+      // set flag
+      hmi_set_flag(HMI_FLAG_PROCESS);
+
+      // perform import
       dat_import(scr_file);
+
+      // clear flag
+      hmi_clear_flag(HMI_FLAG_PROCESS);
+
+      // write message
       gui_cleanup(false);
       gui_message(scr_trans()->create__imported, 2000);
     }
@@ -1097,8 +1102,17 @@ static void* scr_edit() {
 
     // handle export
     if (event.type == SIG_RIGHT) {
+      // set flag
+      hmi_set_flag(HMI_FLAG_PROCESS);
+
+      // perform export
+      bool ok = dat_export(scr_file);
+
+      // clear flag
+      hmi_clear_flag(HMI_FLAG_PROCESS);
+
       // export file
-      if (!dat_export(scr_file)) {
+      if (!ok) {
         gui_message(scr_trans()->edit__export_fail, 2000);
       } else {
         gui_message(scr_trans()->edit__export_done, 2000);
@@ -1189,8 +1203,8 @@ static void* scr_usb() {
     return scr_menu;
   }
 
-  // set USB flag
-  scr_led_flags |= SCR_LED_USB;
+  // set modal flag
+  hmi_set_flag(HMI_FLAG_MODAL);
 
   // begin draw
   gfx_begin(false, false);
@@ -1223,8 +1237,8 @@ static void* scr_usb() {
   // cleanup
   gui_cleanup(false);
 
-  // clear USB flag
-  scr_led_flags &= ~SCR_LED_USB;
+  // clear modal flag
+  hmi_clear_flag(HMI_FLAG_MODAL);
 
   // show message on eject
   if (event.type == SIG_EJECT) {
@@ -1951,46 +1965,7 @@ static void scr_task() {
   }
 }
 
-void scr_led() {
-  // handle off
-  if (scr_led_flags & SCR_LED_OFF) {
-    al_led_set(0, 0, 0);
-    return;
-  }
-
-  // get power state
-  al_power_state_t state = al_power_get();
-
-  // get recording state
-  bool recording = rec_running();
-
-  // determine color
-  float r = 0, g = 0, b = 0;
-  if (scr_led_flags & SCR_LED_USB) {
-    r = .8f;
-    b = .7f;
-  } else if (recording) {
-    r = .8f;
-    g = .02f;
-    b = .02f;
-  } else {
-    r = .7f;
-    g = .15f;
-    b = .2f;
-  }
-
-  // set LED
-  if (state.usb) {
-    al_led_set(r, g, b);
-  } else {
-    al_led_flash(r, g, b);
-  }
-}
-
 void scr_run() {
   // run screen task
   naos_run("scr", 8192, 1, scr_task);
-
-  // run led control
-  naos_repeat("led", 500, scr_led);
 }

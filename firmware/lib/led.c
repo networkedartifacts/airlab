@@ -1,4 +1,6 @@
 #include <esp_err.h>
+#include <math.h>
+#include <naos.h>
 
 #include <al/led.h>
 
@@ -47,16 +49,18 @@ void al_led_set(float r, float g, float b) {
   al_led_write(0x08, (uint8_t)(AL_LED_LIMIT(r) * 191), false);
 }
 
-void al_led_flash(float r, float g, float b) {
+void al_led_flash(float p, float f, float r, float g, float b) {
   // configure flash period
-  al_led_write(0x01, 38, false);  // ~5s (0.256 + v * 0.128)
+  uint8_t period = (uint8_t)((p - 0.256f) / 0.128f);
+  al_led_write(0x01, period, false);
 
   // configure ON percentage
-  al_led_write(0x02, 12, false);  // 12% = 0.6s
-  al_led_write(0x03, 12, false);  // 12% = 0.6s
+  al_led_write(0x02, (uint8_t)(f * 100.f), false);
+  al_led_write(0x03, (uint8_t)(f * 100.f), false);
 
   // configure rise/fall times
-  al_led_write(0x05, 0b00100010, false);  // 256/256ms
+  uint8_t rf = (uint8_t)fminf(p * f / 2.f * 1000.f / 128.f, 15);
+  al_led_write(0x05, rf << 4 | rf, false);
 
   // set LEDs on/off
   uint8_t state = (b > 0) << 1 | (g > 0) << 3 | (r > 0) << 5;
