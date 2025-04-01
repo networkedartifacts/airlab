@@ -149,6 +149,11 @@ void gfx_init(bool reset) {
   // skip initial draw, if not reset
   gfx_skip = !reset;
 
+  // clear screen on reset
+  if (reset) {
+    al_epd_update(gfx_frame, false);
+  }
+
   // run task
   naos_run("gfx", 8192, 1, gfx_task);
 }
