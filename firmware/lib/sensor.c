@@ -204,7 +204,7 @@ void al_sensor_init(bool reset) {
     }
 
     // reset sensor
-    if (!al_sensor_hal_reset()) {
+    if (!al_sensor_hal_config(false)) {
       ESP_ERROR_CHECK(ESP_FAIL);
     }
 

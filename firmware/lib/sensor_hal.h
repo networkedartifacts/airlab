@@ -24,7 +24,7 @@ typedef struct {
 
 void al_sensor_hal_wire(al_sensor_hal_ops_t ops);
 
-bool al_sensor_hal_reset();
+bool al_sensor_hal_config(bool low_power);
 
 bool al_sensor_hal_ready();
 

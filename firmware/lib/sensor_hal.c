@@ -99,24 +99,24 @@ void al_sensor_hal_wire(al_sensor_hal_ops_t ops) {
   al_sensor_hal_ops = ops;
 }
 
-bool al_sensor_hal_reset() {
+bool al_sensor_hal_config(bool low_power) {
   // wake up SCD
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x36f6, 0, 0, true));
+  al_sensor_hal_ops.delay(30);
 
-  // stop SDC periodic measurement
+  // stop SCD periodic measurement
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x3f86, 0, 0, true));
   al_sensor_hal_ops.delay(500);
 
   // start SCD periodic measurement
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x21b1, 0, 0, false));
+  if (low_power) {
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x21ac, 0, 0, false));
+  } else {
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x21b1, 0, 0, false));
+  }
 
   // start LPS periodic measurement (10Hz, LPF on)
   AL_CHECK(al_sensor_hal_write_lps(0x10, 0x28));
-
-  // condition SGP sensor
-  // al_sensor_write[0] = 0x8000;
-  // al_sensor_write[1] = 0x6666;
-  // al_sensor_transfer(AL_SENSOR_SGP, 0x2612, 2, 1, false);
 
   return true;
 }
