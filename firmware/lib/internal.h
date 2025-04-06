@@ -1,6 +1,9 @@
 #ifndef AL_INTERNAL_H
 #define AL_INTERNAL_H
 
+#include <esp_err.h>
+#include <esp_attr.h>
+
 #include "sensor_hal.h"
 
 // data stored in RTC slow memory
@@ -26,6 +29,8 @@ void al_led_init(bool reset);
 void al_power_init();
 void al_sensor_init(bool reset);
 void al_touch_init(bool reset);
+
+void al_sensor_low_power(bool on);
 
 void al_touch_sleep();
 void al_touch_wake();

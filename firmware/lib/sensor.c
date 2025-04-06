@@ -14,6 +14,7 @@ static naos_mutex_t al_sensor_mutex;
 static naos_signal_t al_sensor_signal;
 static al_sensor_hook_t al_sensor_hook;
 
+AL_KEEP static bool al_sensor_low_power_on = false;
 AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
 
@@ -151,6 +152,15 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
 static void al_sensor_check() {
   // acquire mutex
   naos_lock(al_sensor_mutex);
+
+  // exit low power mode after 5s
+  if (al_sensor_low_power_on && naos_millis() > 5000) {
+    al_sensor_hal_config(false);
+    al_sensor_low_power_on = false;
+    if (AL_SENSOR_DEBUG) {
+      naos_log("al-sns: low power off");
+    }
+  }
 
   // check if SCD measurement is available
   if (!al_sensor_hal_ready()) {
@@ -377,4 +387,29 @@ al_sample_source_t al_sensor_source() {
       .stop = al_sensor_source_stop,
       .read = al_sensor_source_read,
   };
+}
+
+void al_sensor_low_power(bool on) {
+  // lock mutex
+  naos_lock(al_sensor_mutex);
+
+  // check flag
+  if (al_sensor_low_power_on == on) {
+    naos_unlock(al_sensor_mutex);
+    return;
+  }
+
+  // set low power mode
+  al_sensor_hal_config(on);
+
+  // set flag
+  al_sensor_low_power_on = on;
+
+  // log state
+  if (AL_SENSOR_DEBUG) {
+    naos_log("al-sns: low power on=%d", on);
+  }
+
+  // unlock mutex
+  naos_unlock(al_sensor_mutex);
 }
