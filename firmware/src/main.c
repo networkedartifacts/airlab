@@ -4,6 +4,7 @@
 
 #include <al/core.h>
 #include <al/power.h>
+#include <al/sensor.h>
 
 #include "dev.h"
 #include "sig.h"
@@ -19,9 +20,14 @@ static float battery() {
   return al_power_get().battery;
 }
 
-static void storage() {
+static void sync() {
   // update storage metric
   naos_set_d("storage", dat_info().usage);
+
+  // configure interval
+  if (naos_get_l("long-interval") != al_sensor_get_interval()) {
+    al_sensor_set_interval(naos_get_l("long-interval"));
+  }
 }
 
 static void setup() {
@@ -43,8 +49,8 @@ static void setup() {
   rec_init();
   com_init();
 
-  // update storage
-  naos_repeat("storage", 1000, storage);
+  // run sync
+  naos_repeat("sync", 1000, sync);
 
   // run screen
   scr_run();
@@ -52,6 +58,7 @@ static void setup() {
 
 static naos_param_t params[] = {
     {.name = "storage", .type = NAOS_DOUBLE},
+    {.name = "long-interval", .type = NAOS_LONG, .default_l = 60},
 };
 
 static naos_config_t config = {

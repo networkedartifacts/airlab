@@ -5,17 +5,15 @@
 
 #include <al/sample.h>
 
-#define AL_SENSOR_NUM_5S 60    // 5m
-#define AL_SENSOR_NUM_30S 120  // 1h
-#define AL_SENSOR_NUM_1M 300   // 5h
+#define AL_SENSOR_NUM_SHORT 180  // 15min-1.5h (5s/30s)
+#define AL_SENSOR_NUM_LONG 300   // 2.5h-75h (30s/15m)
 
 /**
  * The available stores.
  */
 typedef enum {
-  AL_SENSOR_5S,
-  AL_SENSOR_30S,
-  AL_SENSOR_1M,
+  AL_SENSOR_SHORT,
+  AL_SENSOR_LONG,
 } al_sensor_store_t;
 
 /**
@@ -29,6 +27,20 @@ typedef void (*al_sensor_hook_t)(al_sample_t sample);
  * @param hook The sensor hook.
  */
 void al_sensor_config(al_sensor_hook_t hook);
+
+/**
+ * Returns the interval at which short term samples are moved to long term storage.
+ *
+ * @return The interval in seconds.
+ */
+int al_sensor_get_interval();
+
+/**
+ * Sets the interval at which short term samples are moved to long term storage.
+ *
+ * @param interval The interval in seconds.
+ */
+void al_sensor_set_interval(int interval);
 
 /**
  * Returns the first (oldest) sensor sample.

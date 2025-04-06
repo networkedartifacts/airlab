@@ -389,11 +389,12 @@ static void* scr_sensor() {
 
   for (;;) {
     // get power
-    size_t num_5s = al_sensor_count(AL_SENSOR_5S);
-    size_t num_30s = al_sensor_count(AL_SENSOR_30S);
+    size_t num_short = al_sensor_count(AL_SENSOR_SHORT);
+    size_t num_long = al_sensor_count(AL_SENSOR_LONG);
 
     // prepare text
-    const char* text = lvx_fmt("5s: %d / %d\n30s: %d / %d", num_5s, AL_SENSOR_NUM_5S, num_30s, AL_SENSOR_NUM_30S);
+    const char* text =
+        lvx_fmt("short: %d / %d\nlong: %d / %d", num_short, AL_SENSOR_NUM_SHORT, num_long, AL_SENSOR_NUM_LONG);
 
     // update label
     gfx_begin(false, false);
