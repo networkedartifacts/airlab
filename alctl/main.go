@@ -19,6 +19,20 @@ import (
 var fast = flag.Bool("fast", false, "fast mode")
 var scale = flag.Int("scale", 1, "scale factor")
 var format = flag.String("format", "png", "output format")
+var grey = flag.Bool("grey", false, "use grey palette")
+
+func makePalette() color.Palette {
+	if *grey {
+		return color.Palette{
+			color.RGBA{R: 0xee, G: 0xee, B: 0xee, A: 0xFF},
+			color.RGBA{R: 0x22, G: 0x22, B: 0x22, A: 0xFF},
+		}
+	}
+	return color.Palette{
+		color.White,
+		color.Black,
+	}
+}
 
 func main() {
 	// parse flags
@@ -61,10 +75,7 @@ func convert(glob string, format string) {
 		}
 
 		// convert image
-		img := convertImage(data, color.Palette{
-			color.White,
-			color.Black,
-		}, *scale)
+		img := convertImage(data, makePalette(), *scale)
 
 		// encode image
 		var out bytes.Buffer
@@ -129,10 +140,7 @@ func animate(glob string) {
 	})
 
 	// prepare palette
-	palette := color.Palette{
-		color.White,
-		color.Black,
-	}
+	palette := makePalette()
 
 	// prepare GIF
 	gifImage := &gif.GIF{
