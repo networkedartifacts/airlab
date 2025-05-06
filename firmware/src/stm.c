@@ -8,7 +8,7 @@ stm_entry_t stm_entries[] = {
     /* Exclaims */
     {
         .text_de = "Willkommen im Air Lab! Sieh dich doch einmal um. Berühren ist erlaubt!",
-        .text_en = "Welcome to the Air Lab! Feel free to look around. Touching is allowed!",
+        .text_en = "Welcome to the Air Lab! Please look around. Touching is allowed!",
         .mood = STM_HAPPY,
         .exclaim = true,
         .action = STM_FROM_INTRO,
