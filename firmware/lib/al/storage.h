@@ -1,6 +1,8 @@
 #ifndef AL_STORAGE_H
 #define AL_STORAGE_H
 
+#include <stdint.h>
+
 /**
  * The storage root directory.
  */
