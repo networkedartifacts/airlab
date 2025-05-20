@@ -34,7 +34,7 @@ static sig_type_t hmi_map[] = {
     SIG_ENTER, SIG_ESCAPE, SIG_UP, SIG_RIGHT, SIG_DOWN, SIG_LEFT,
 };
 
-static void hmi_accel_hook(al_accel_state_t) {
+static void hmi_accel_hook(al_accel_state_t state) {
   // dispatch event
   sig_dispatch((sig_event_t){
       .type = SIG_MOTION,
