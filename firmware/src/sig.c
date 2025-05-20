@@ -1,7 +1,6 @@
 #include <naos.h>
 #include <naos/sys.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/queue.h>
+#include <esp_err.h>
 
 #include <al/sensor.h>
 
@@ -9,9 +8,9 @@
 
 #define SIG_DEBUG false
 
-static QueueHandle_t sig_queue;
+static naos_queue_t sig_queue;
 
-static void sig_sensor(al_sample_t) {
+static void sig_sensor(al_sample_t sample) {
   // dispatch event
   sig_dispatch((sig_event_t){
       .type = SIG_SENSOR,
@@ -20,7 +19,7 @@ static void sig_sensor(al_sample_t) {
 
 void sig_init() {
   // create queue
-  sig_queue = xQueueCreate(3, sizeof(sig_event_t));
+  sig_queue = naos_queue(3, sizeof(sig_event_t));
 
   // wire sensor
   al_sensor_config(sig_sensor);
@@ -33,7 +32,7 @@ void sig_dispatch(sig_event_t event) {
   }
 
   // add event to queue or drop if full
-  if (xQueueSendToBack(sig_queue, &event, 0)) {
+  if (naos_push(sig_queue, &event, 0)) {
     if (SIG_DEBUG) {
       naos_log("sig: queued %d", event.type);
     }
@@ -51,7 +50,7 @@ sig_event_t sig_await(sig_type_t filter, int64_t timeout) {
       filter |= SIG_TIMEOUT;
     }
   } else {
-    timeout = portMAX_DELAY;
+    timeout = -1;
   }
 
   // get deadline
@@ -60,7 +59,7 @@ sig_event_t sig_await(sig_type_t filter, int64_t timeout) {
   for (;;) {
     // get next event
     sig_event_t event = {.type = SIG_TIMEOUT};
-    xQueueReceive(sig_queue, &event, timeout / portTICK_PERIOD_MS);
+    naos_pop(sig_queue, &event, (int32_t)timeout);
     if (SIG_DEBUG) {
       naos_log("sig: dequeued %d", event.type);
     }
