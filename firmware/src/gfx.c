@@ -1,6 +1,5 @@
 #include <naos.h>
 #include <naos/sys.h>
-#include <lvgl/src/misc/lv_log.h>
 
 #include <al/epd.h>
 #include <esp_heap_caps.h>
@@ -13,7 +12,6 @@
 #define GFX_WIDTH AL_EPD_HEIGHT
 #define GFX_HEIGHT AL_EPD_WIDTH
 #define GFX_DEBUG false
-#define GFX_TRACE false
 
 // Docs: https://docs.lvgl.io/master/index.html
 
@@ -100,12 +98,6 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
   naos_trigger(gfx_signal, 1, false);
 }
 
-#if GFX_TRACE
-static void gfx_log(const char* buf) { printf("%s", buf); }
-#else
-static void gfx_log(const char* _) {}
-#endif
-
 static naos_param_t gfx_params[] = {
   {.name = "gfx-record", .type = NAOS_BOOL, .sync_b =  &gfx_record},
 };
@@ -153,9 +145,6 @@ void gfx_init(bool reset) {
 
   // assign theme to display
   lv_disp_set_theme(gfx_display, gfx_theme);
-
-  // register logger
-  lv_log_register_print_cb(gfx_log);
 
   // skip initial draw, if not reset
   gfx_skip = !reset;
