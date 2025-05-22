@@ -29,6 +29,11 @@ static size_t al_store_index(al_store_t store, int num) {
     length = AL_STORE_NUM_LONG;
   }
 
+  // check count
+  if (count == 0) {
+    return 0;
+  }
+
   // calculate absolute position
   if (num < 0) {
     num = count + num;
