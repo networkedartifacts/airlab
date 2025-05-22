@@ -553,7 +553,19 @@ static void* scr_saver() {
         continue;
       } else {
         // sleep for one second (no return)
-        al_sleep(true, 60 * 1000);
+        al_trigger_t trigger = al_sleep(true, 60 * 1000);
+
+        // capture enter when unlocked
+        if (trigger == AL_BUTTON) {
+          sig_await(SIG_ENTER, 1000);
+        }
+
+        // handle unlock
+        if (trigger == AL_BUTTON) {
+          break;
+        }
+
+        continue;
       }
     }
 
@@ -573,10 +585,9 @@ static void* scr_saver() {
       // TODO: Also use deep sleep here?
 
       // light sleep for some time
-      al_sleep(false, timeout);
+      al_trigger_t trigger = al_sleep(false, timeout);
 
       // capture enter when unlocked
-      al_trigger_t trigger = al_trigger();
       if (trigger == AL_BUTTON) {
         sig_await(SIG_ENTER, 1000);
       }
@@ -1384,10 +1395,10 @@ static void* scr_develop() {
       scr_return_unlock = scr_develop;
 
       // perform sleep
-      al_sleep(ret == 1, 0);
+      al_trigger_t trigger = al_sleep(ret == 1, 0);
 
       // capture enter when unlocked
-      if (al_trigger() == AL_BUTTON) {
+      if (trigger == AL_BUTTON) {
         sig_await(SIG_ENTER, 1000);
       }
 
@@ -1952,26 +1963,24 @@ static void* scr_intro() {
 
 /* Management */
 
+static void* (*scr_handler)() = scr_menu;
+
 static void scr_task() {
-  // prepare handler
-  void* (*handler)() = scr_menu;
-
-  // handle return
-  al_trigger_t trigger = al_trigger();
-  if (trigger == AL_BUTTON && scr_return_unlock != NULL) {
-    handler = scr_return_unlock;
-  } else if ((trigger == AL_TIMEOUT || trigger == AL_MOTION) && scr_return_timeout != NULL) {
-    handler = scr_return_timeout;
-  }
-
   // call handlers
   for (;;) {
-    void* next = handler();
-    handler = next;
+    void* next = scr_handler();
+    scr_handler = next;
   }
 }
 
-void scr_run() {
+void scr_run(al_trigger_t trigger) {
+  // handle return
+  if (trigger == AL_BUTTON && scr_return_unlock != NULL) {
+    scr_handler = scr_return_unlock;
+  } else if ((trigger == AL_TIMEOUT || trigger == AL_MOTION) && scr_return_timeout != NULL) {
+    scr_handler = scr_return_timeout;
+  }
+
   // run screen task
   naos_run("scr", 8192, 1, scr_task);
 }

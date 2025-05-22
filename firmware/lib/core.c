@@ -16,7 +16,29 @@
 
 static naos_mutex_t al_i2c_mutex;
 
-void al_init() {
+static al_trigger_t al_trigger() {
+  // get cause
+  esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+
+  // handle timer
+  if (cause == ESP_SLEEP_WAKEUP_TIMER) {
+    return AL_TIMEOUT;
+  }
+
+  // handle external
+  if (cause == ESP_SLEEP_WAKEUP_EXT1) {
+    uint64_t status = esp_sleep_get_ext1_wakeup_status();
+    if ((status & AL_BUTTONS) != 0) {
+      return AL_BUTTON;
+    } else if ((status & BIT64(AL_ACCEL_INT)) != 0) {
+      return AL_MOTION;
+    }
+  }
+
+  return AL_RESET;
+}
+
+al_trigger_t al_init() {
   // stop ULP program
   al_ulp_stop();
 
@@ -71,6 +93,8 @@ void al_init() {
   // configure wakeup source
   uint64_t pin_mask = AL_BUTTONS | BIT64(AL_ACCEL_INT);
   ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(pin_mask, ESP_EXT1_WAKEUP_ANY_LOW));
+
+  return al_trigger();
 }
 
 esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout) {
@@ -93,7 +117,7 @@ esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx,
   return err;
 }
 
-void al_sleep(bool deep, uint64_t timeout) {
+al_trigger_t al_sleep(bool deep, uint64_t timeout) {
   // get power state
   al_power_state_t state = al_power_get();
 
@@ -140,26 +164,6 @@ void al_sleep(bool deep, uint64_t timeout) {
 
   // wake peripherals
   al_touch_wake();
-}
 
-al_trigger_t al_trigger() {
-  // get cause
-  esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-
-  // handle timer
-  if (cause == ESP_SLEEP_WAKEUP_TIMER) {
-    return AL_TIMEOUT;
-  }
-
-  // handle external
-  if (cause == ESP_SLEEP_WAKEUP_EXT1) {
-    uint64_t status = esp_sleep_get_ext1_wakeup_status();
-    if ((status & AL_BUTTONS) != 0) {
-      return AL_BUTTON;
-    } else if ((status & BIT64(AL_ACCEL_INT)) != 0) {
-      return AL_MOTION;
-    }
-  }
-
-  return AL_RESET;
+  return al_trigger();
 }

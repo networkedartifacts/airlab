@@ -33,11 +33,7 @@ static void sync() {
 
 static void setup() {
   // init core
-  al_init();
-
-  // get trigger
-  al_trigger_t trigger = al_trigger();
-  naos_log("main: trigger=%d", trigger);
+  al_trigger_t trigger = al_init();
 
   // determine reset
   bool reset = trigger == AL_RESET;
@@ -54,7 +50,7 @@ static void setup() {
   naos_repeat("sync", 1000, sync);
 
   // run screen
-  scr_run();
+  scr_run(trigger);
 }
 
 static naos_param_t params[] = {
