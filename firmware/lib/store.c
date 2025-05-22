@@ -1,6 +1,7 @@
 #include <naos.h>
 #include <naos/sys.h>
 #include <esp_attr.h>
+#include <esp_err.h>
 
 #include <al/store.h>
 
@@ -76,13 +77,17 @@ int64_t al_store_get_epoch() {
 }
 
 void al_store_set_epoch(int64_t base) {
+  // lock mutex
+  naos_lock(al_store_mutex);
+
   // determine shift
   int64_t shift = base - al_store_epoch;
+  if (shift < 0) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
 
   // set base
-  naos_lock(al_store_mutex);
   al_store_epoch = base;
-  naos_unlock(al_store_mutex);
 
   // update stores
   for (int i = 0; i < al_store_count_short; i++) {
@@ -91,9 +96,15 @@ void al_store_set_epoch(int64_t base) {
   for (int i = 0; i < al_store_count_long; i++) {
     al_store_long[i].off -= (int32_t)shift;
   }
+
+  // unlock mutex
+  naos_unlock(al_store_mutex);
 }
 
 void al_store_ingest(al_sample_t sample) {
+  // lock mutex
+  naos_lock(al_store_mutex);
+
   // check if short store is at capacity
   if (al_store_count_short == AL_STORE_NUM_SHORT) {
     // determine if we need to move a sample
@@ -147,6 +158,9 @@ void al_store_ingest(al_sample_t sample) {
   if (AL_STORE_DEBUG) {
     naos_log("al-str: store short=%d long=%d", al_store_count_short, al_store_count_long);
   }
+
+  // unlock mutex
+  naos_unlock(al_store_mutex);
 }
 
 al_sample_t al_store_first() {

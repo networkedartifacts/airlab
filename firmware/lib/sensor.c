@@ -145,6 +145,7 @@ void al_sensor_init(bool reset) {
   // handle zero store epoch
   if (al_sensor_store_epoch == 0) {
     al_sensor_store_epoch = now - 12 * 60 * 60 * 1000;
+    al_store_set_epoch(al_sensor_store_epoch);
   }
 
   // handle outdated store epoch
