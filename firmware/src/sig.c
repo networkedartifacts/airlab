@@ -50,18 +50,30 @@ sig_event_t sig_await(sig_type_t filter, int64_t timeout) {
       filter |= SIG_TIMEOUT;
     }
   } else {
-    timeout = -1;
+    timeout = -1;  // no timeout
   }
 
   // get deadline
   int64_t deadline = naos_millis() + timeout;
 
   for (;;) {
+    // update timeout
+    if (timeout > 0) {
+      int64_t now = naos_millis();
+      if (now >= deadline) {
+        return (sig_event_t){.type = SIG_TIMEOUT};
+      }
+      timeout = deadline - now;
+      if (SIG_DEBUG) {
+        naos_log("sig: adjusted timeout %lld", timeout);
+      }
+    }
+
     // get next event
     sig_event_t event = {.type = SIG_TIMEOUT};
     naos_pop(sig_queue, &event, (int32_t)timeout);
     if (SIG_DEBUG) {
-      naos_log("sig: dequeued %d", event.type);
+      naos_log("sig: dequeued %d (timeout=%lld)", event.type, timeout);
     }
 
     // apply filter if provided
@@ -69,14 +81,6 @@ sig_event_t sig_await(sig_type_t filter, int64_t timeout) {
       if (SIG_DEBUG) {
         naos_log("sig: skipping %d", event.type);
       }
-
-      // update timeout
-      timeout = deadline - naos_millis();
-      if (timeout < 0) {
-        event.type = SIG_TIMEOUT;
-        return event;
-      }
-
       continue;
     }
 
