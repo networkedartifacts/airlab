@@ -99,7 +99,8 @@ al_storage_info_t al_storage_info() {
   uint32_t free_clusters;
   FRESULT res = f_getfree(AL_STORAGE_ROOT, &free_clusters, &fs);
   if (res != FR_OK) {
-    ESP_ERROR_CHECK(res);
+    // ESP_ERROR_CHECK(res);
+    return (al_storage_info_t){0};
   }
 
   // calculate total and free sectors
