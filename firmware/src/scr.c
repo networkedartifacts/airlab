@@ -1345,6 +1345,8 @@ static void* scr_settings() {
 
       // restart device
       esp_restart();
+
+      continue;
     }
 
     // handle event
