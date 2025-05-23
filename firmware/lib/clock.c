@@ -176,7 +176,7 @@ void al_clock_init() {
 
   // get time
   time_t t = time(NULL);
-  struct tm *cal = gmtime(&t);
+  struct tm *cal = localtime(&t);
 
   // update time
   cal->tm_year = state.year - 1900;
@@ -195,7 +195,7 @@ void al_clock_init() {
 void al_clock_update() {
   // get time
   time_t t = time(NULL);
-  struct tm *cal = gmtime(&t);
+  struct tm *cal = localtime(&t);
 
   // prepare state
   al_clock_state_t state = {

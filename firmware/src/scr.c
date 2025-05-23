@@ -6,8 +6,6 @@
 #include <art32/numbers.h>
 #include <lvgl.h>
 #include <math.h>
-#include <utime.h>
-#include <time.h>
 
 #include <al/core.h>
 #include <al/accel.h>
@@ -242,13 +240,12 @@ static const char* scr_file_name(dat_file_t* file) {
 }
 
 static const char* scr_file_date(dat_file_t* file) {
-  static char buf[24];
+  // get date
+  uint16_t year, month, day;
+  al_clock_epoch_date(file->head.start, &year, &month, &day);
 
   // format date
-  time_t time = (time_t)(file->head.start / 1000);
-  struct tm ts = *gmtime(&time);
-  strftime(buf, sizeof(buf), "%d.%m.%Y", &ts);
-  return buf;
+  return lvx_fmt("%d.%d.%d", day, month, year);
 }
 
 static const char* scr_file_info(dat_file_t* file) {
@@ -744,7 +741,7 @@ static void* scr_view() {
     // parse time
     uint16_t hour;
     uint16_t minute;
-    al_clock_conv_epoch(source_start + (int64_t)current.off, &hour, &minute, NULL);
+    al_clock_epoch_time(source_start + (int64_t)current.off, &hour, &minute, NULL);
 
     // begin draw
     gfx_begin(false, advanced);

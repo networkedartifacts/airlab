@@ -432,7 +432,7 @@ void lvx_chart_draw(lvx_chart_t chart) {
 
     // format label
     uint16_t hour, minute;
-    al_clock_conv_epoch(chart.offset + (int64_t)(pos), &hour, &minute, NULL);
+    al_clock_epoch_time(chart.offset + (int64_t)(pos), &hour, &minute, NULL);
     const char* str = lvx_fmt("%02d:%02d", hour, minute);
 
     // calculate coordinate
