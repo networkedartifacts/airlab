@@ -1167,6 +1167,9 @@ static gui_list_item_t scr_explore_cb(int num, void* ctx) {
 }
 
 static void* scr_explore() {
+  // prepare state
+  static int offset = 0;
+
   // get total
   size_t total = dat_count();
 
@@ -1182,20 +1185,20 @@ static void* scr_explore() {
   }
 
   // show list
-  int ret = gui_list((int)total + 1, start, scr_trans()->explore__open, scr_trans()->back, scr_explore_cb, NULL,
-                     SCR_ACTION_TIMEOUT);
-  if (ret < 0) {
+  int selected = gui_list((int)total + 1, start, &offset, scr_trans()->explore__open, scr_trans()->back, scr_explore_cb,
+                          NULL, SCR_ACTION_TIMEOUT);
+  if (selected < 0) {
     return scr_menu;
   }
 
   // handle create
-  if (ret == 0) {
+  if (selected == 0) {
     scr_file = 0;
     return scr_create;
   }
 
   // set file
-  scr_file = dat_get(ret - 1)->head.num;
+  scr_file = dat_get(selected - 1)->head.num;
 
   return scr_edit;
 }
@@ -1372,7 +1375,8 @@ static void* scr_settings() {
 
 static void* scr_develop() {
   // prepare variables
-  static int ret = 0;
+  static int selected = 0;
+  static int offset = 0;
 
   // prepare labels
   const char* labels[] = {
@@ -1380,27 +1384,27 @@ static void* scr_develop() {
       "Ship Mode",   "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info",  NULL,
   };
 
-  // handle list
   for (;;) {
-    ret = gui_list_strings(ret, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
-    if (ret < 0) {
+    // select item
+    selected = gui_list_strings(selected, &offset, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
+    if (selected < 0) {
       return scr_menu;
     }
 
     // handle system info
-    if (ret == 0) {
+    if (selected == 0) {
       return scr_info;
     }
 
     // handle sensor data
-    if (ret == 1) {
+    if (selected == 1) {
       return scr_sensor;
     }
 
     // handle light/deep sleep
-    if (ret == 2 || ret == 3) {
+    if (selected == 2 || selected == 3) {
       // determine deep
-      bool deep = ret == 3;
+      bool deep = selected == 3;
 
       // log sleep
       naos_log("sleeping... (deep=%d)", deep);
@@ -1431,17 +1435,17 @@ static void* scr_develop() {
     }
 
     // handle power reset
-    if (ret == 4) {
+    if (selected == 4) {
       esp_restart();
     }
 
     // handle power off
-    if (ret == 5) {
+    if (selected == 5) {
       scr_power_off();
     }
 
     // handle ship mode
-    if (ret == 6) {
+    if (selected == 6) {
       // show message
       gui_write("Ship Mode\n\nConnect USB and\npress A to exit.");
       naos_delay(1000);
@@ -1454,7 +1458,7 @@ static void* scr_develop() {
     }
 
     // handle screen saver
-    if (ret == 7) {
+    if (selected == 7) {
       // set return
       scr_return_unlock = scr_develop;
 
@@ -1465,17 +1469,17 @@ static void* scr_develop() {
     }
 
     // handle clear display
-    if (ret == 8) {
+    if (selected == 8) {
       gui_cleanup(true);
     }
 
     // handle bubbles test
-    if (ret == 9) {
+    if (selected == 9) {
       return scr_bubbles;
     }
 
     // handle touch info
-    if (ret == 10) {
+    if (selected == 10) {
       // prepare data
       float position = NAN;
       float scroll = 0;
@@ -1953,20 +1957,21 @@ static void* scr_date() {
 }
 
 static void* scr_language() {
+  // prepare state
+  static int offset = 0;
+
   // show message
   gui_message(scr_trans()->language__message, 5000);
 
-  // prepare labels
+  // select language
   const char* labels[] = {"Deutsch", "English", NULL};
-
-  // add row
-  int ret = gui_list_strings(scr_lang, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
-  if (ret < 0) {
+  int selected = gui_list_strings(scr_lang, &offset, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
+  if (selected < 0) {
     return scr_settings;
   }
 
   // set language
-  scr_lang = ret;
+  scr_lang = selected;
 
   return scr_settings;
 }

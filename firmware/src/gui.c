@@ -121,32 +121,25 @@ int gui_choose(const char* first, const char* second, bool invert, int64_t timeo
   return 2;
 }
 
-int gui_list(int total, int start, const char* select, const char* cancel, gui_list_cb_t cb, void* ctx,
+int gui_list(int total, int selected, int* offset, const char* select, const char* cancel, gui_list_cb_t cb, void* ctx,
              int64_t timeout) {
-  // prepare variables
-  static int selected = 0;
-  static int offset = 0;
-
   // handle empty
   if (total <= 0) {
     return -1;
   }
 
   // limit start
-  if (start < 0) {
-    start = 0;
-  } else if (start >= total) {
-    start = total - 1;
+  if (selected < 0) {
+    selected = 0;
+  } else if (selected >= total) {
+    selected = total - 1;
   }
 
-  // set selected
-  selected = start;
-
   // adjust offset
-  if (selected > offset + 3) {
-    offset = selected - 3;
-  } else if (selected < offset) {
-    offset = selected;
+  if (selected > *offset + 3) {
+    *offset = selected - 3;
+  } else if (selected < *offset) {
+    *offset = selected;
   }
 
   // begin draw
@@ -161,9 +154,9 @@ int gui_list(int total, int start, const char* select, const char* cancel, gui_l
     names[i] = lv_label_create(lv_scr_act());
     infos[i] = lv_label_create(lv_scr_act());
     lv_obj_set_size(rects[i], lv_pct(100), 25);
-    lv_obj_align(rects[i], LV_ALIGN_TOP_LEFT, 0, 0 + i * 25);
-    lv_obj_align(names[i], LV_ALIGN_TOP_LEFT, 5, 5 + i * 25);
-    lv_obj_align(infos[i], LV_ALIGN_TOP_RIGHT, -(5 - FNT_OFF), 5 + i * 25);
+    lv_obj_align(rects[i], LV_ALIGN_TOP_LEFT, 0, (lv_coord_t)(0 + i * 25));
+    lv_obj_align(names[i], LV_ALIGN_TOP_LEFT, 5, (lv_coord_t)(5 + i * 25));
+    lv_obj_align(infos[i], LV_ALIGN_TOP_RIGHT, -(5 - FNT_OFF), (lv_coord_t)(5 + i * 25));
     lv_obj_set_style_border_width(rects[i], 0, LV_PART_MAIN);
     lv_obj_set_style_radius(rects[i], 0, LV_PART_MAIN);
   }
@@ -196,7 +189,7 @@ int gui_list(int total, int start, const char* select, const char* cancel, gui_l
     // fill list
     for (int i = 0; i < +4; i++) {
       // get index
-      int index = offset + i;
+      int index = *offset + i;
 
       // handle empty
       if (index >= total) {
@@ -249,10 +242,10 @@ int gui_list(int total, int start, const char* select, const char* cancel, gui_l
       while (selected > total - 1) {
         selected -= total;
       }
-      if (selected > offset + 3) {
-        offset = selected - 3;
-      } else if (selected < offset) {
-        offset = selected;
+      if (selected > *offset + 3) {
+        *offset = selected - 3;
+      } else if (selected < *offset) {
+        *offset = selected;
       }
       continue;
     }
@@ -278,7 +271,8 @@ static gui_list_item_t scr_list_strings_cb(int num, void* ctx) {
   return (gui_list_item_t){((const char**)ctx)[num], ""};
 }
 
-int gui_list_strings(int start, const char** strings, const char* select, const char* cancel, int64_t timeout) {
+int gui_list_strings(int start, int* offset, const char** strings, const char* select, const char* cancel,
+                     int64_t timeout) {
   // count strings
   int total = 0;
   while (strings[total] != NULL) {
@@ -286,7 +280,7 @@ int gui_list_strings(int start, const char** strings, const char* select, const 
   }
 
   // show list
-  int ret = gui_list(total, start, select, cancel, scr_list_strings_cb, strings, timeout);
+  int ret = gui_list(total, start, offset, select, cancel, scr_list_strings_cb, strings, timeout);
 
   return ret;
 }
