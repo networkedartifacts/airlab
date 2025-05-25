@@ -29,8 +29,9 @@ typedef enum {
 typedef struct {
   sig_type_t type;
   union {
-    bool repeat;  // keys
-    float touch;  // touch, scroll
+    bool repeat;     // keys
+    float position;  // touch
+    float scroll;    // scroll
   };
 } sig_event_t;
 

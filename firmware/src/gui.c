@@ -239,7 +239,7 @@ int gui_list(int total, int start, const char* select, const char* cancel, gui_l
     // handle arrows
     if ((event.type & (SIG_UP | SIG_DOWN | SIG_SCROLL)) != 0) {
       if (event.type == SIG_SCROLL) {
-        selected += (int)(event.touch);
+        selected += (int)event.scroll;
       } else {
         selected += event.type == SIG_UP ? -1 : 1;
       }

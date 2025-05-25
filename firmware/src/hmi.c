@@ -24,7 +24,7 @@
 #define HMI_LED_WHITE .7f, .15f, .2f
 
 static naos_mutex_t hmi_mutex;
-static float hmi_touch_delta = 0;
+static float hmi_touch_scroll = 0;
 static uint8_t hmi_button_state = 0;
 static int64_t hmi_button_times[8] = {0};
 static int8_t hmi_button_counts[8] = {0};
@@ -67,35 +67,32 @@ static void hmi_touch_hook(float position) {
   // set state
   previous = position;
 
-  // update delta
+  // update scroll
   naos_lock(hmi_mutex);
-  hmi_touch_delta += delta;
+  hmi_touch_scroll += delta;
   naos_unlock(hmi_mutex);
 
   // dispatch event
   sig_dispatch((sig_event_t){
       .type = SIG_TOUCH,
-      .touch = position,
+      .position = position,
   });
 }
 
 static void hmi_touch_check() {
-  // capture delta
+  // capture scroll
   naos_lock(hmi_mutex);
-  float delta = hmi_touch_delta;
-  hmi_touch_delta = 0;
+  float scroll = hmi_touch_scroll;
+  hmi_touch_scroll = 0;
   naos_unlock(hmi_mutex);
 
-  // stop, if zero
-  if (delta == 0) {
-    return;
+  // dispatch event, if non-zero
+  if (scroll != 0) {
+    sig_dispatch((sig_event_t){
+        .type = SIG_SCROLL,
+        .scroll = scroll,
+    });
   }
-
-  // dispatch event
-  sig_dispatch((sig_event_t){
-      .type = SIG_SCROLL,
-      .touch = delta,
-  });
 }
 
 static void hmi_button_check() {

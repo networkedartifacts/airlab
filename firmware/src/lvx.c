@@ -474,7 +474,7 @@ bool lvx_handle(sig_event_t event, bool focus) {
 
   // handle scroll
   if (event.type == SIG_SCROLL) {
-    int distance = (int)(event.touch);
+    int distance = (int)event.scroll;
     if (distance < 0) {
       for (int i = 0; i < -distance; i++) {
         lv_group_send_data(gfx_get_group(), LV_KEY_DOWN);
