@@ -117,7 +117,7 @@ static naos_msg_reply_t com_handle(naos_msg_t msg) {
   return reply;
 }
 
-static void com_ha_config_device(const char *did, const char *fwv) {
+static void com_ha_config_device(const char *hat, const char *did, const char *fwv) {
   // allocate buffer
   void *buf = malloc(128 + 1024);
   if (!buf) {
@@ -125,7 +125,7 @@ static void com_ha_config_device(const char *did, const char *fwv) {
   }
 
   // calculate topic
-  int r = snprintf(buf, 128, "homeassistant/device/%s/config", did);
+  int r = snprintf(buf, 128, "%s/device/%s/config", hat, did);
   if (r < 0 || r >= 128) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -158,8 +158,8 @@ static void com_ha_config_device(const char *did, const char *fwv) {
   free(buf);
 }
 
-static void com_ha_config_sensor(const char *did, const char *bt, const char *uid, const char *t, const char *n,
-                                 const char *uom, const char *dc) {
+static void com_ha_config_sensor(const char *hat, const char *did, const char *bt, const char *uid, const char *t,
+                                 const char *n, const char *uom, const char *dc) {
   // allocate buffer
   void *buf = malloc(128 + 1024);
   if (!buf) {
@@ -167,7 +167,7 @@ static void com_ha_config_sensor(const char *did, const char *bt, const char *ui
   }
 
   // calculate topic
-  int r = snprintf(buf, 128, "homeassistant/sensor/%s/%s/config", did, uid);
+  int r = snprintf(buf, 128, "%s/sensor/%s/%s/config", hat, did, uid);
   if (r < 0 || r >= 128) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -244,21 +244,23 @@ static void com_online() {
   const char *device_id = naos_get_s("device-id");
   const char *firmware_version = naos_get_s("device-version");
   const char *base_topic = naos_get_s("base-topic");
+  const char *ha_topic = naos_get_s("mqtt-ha-topic");
 
   // configure device
-  com_ha_config_device(device_id, firmware_version);
+  com_ha_config_device(ha_topic, device_id, firmware_version);
 
   // configure sensors
-  com_ha_config_sensor(device_id, base_topic, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide");
-  com_ha_config_sensor(device_id, base_topic, "al-tmp", "tmp", "Temperature", "°C", "temperature");
-  com_ha_config_sensor(device_id, base_topic, "al-hum", "hum", "Humidity", "%", "humidity");
-  com_ha_config_sensor(device_id, base_topic, "al-voc", "voc", "VOC", "", "aqi");
-  com_ha_config_sensor(device_id, base_topic, "al-nox", "nox", "NOx", "", "aqi");
-  com_ha_config_sensor(device_id, base_topic, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure");
+  com_ha_config_sensor(ha_topic, device_id, base_topic, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide");
+  com_ha_config_sensor(ha_topic, device_id, base_topic, "al-tmp", "tmp", "Temperature", "°C", "temperature");
+  com_ha_config_sensor(ha_topic, device_id, base_topic, "al-hum", "hum", "Humidity", "%", "humidity");
+  com_ha_config_sensor(ha_topic, device_id, base_topic, "al-voc", "voc", "VOC", "", "aqi");
+  com_ha_config_sensor(ha_topic, device_id, base_topic, "al-nox", "nox", "NOx", "", "aqi");
+  com_ha_config_sensor(ha_topic, device_id, base_topic, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure");
 }
 
 static naos_param_t com_params[] = {
     {.name = "mqtt-ha", .type = NAOS_BOOL, .sync_b = &com_mqtt_ha},
+    {.name = "mqtt-ha-topic", .type = NAOS_STRING, .default_s = "homeassistant"},
 };
 
 void com_init() {
