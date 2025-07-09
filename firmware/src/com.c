@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <naos.h>
 #include <naos/msg.h>
@@ -6,6 +7,7 @@
 #include <naos/wifi.h>
 #include <naos/mqtt.h>
 #include <naos/sys.h>
+#include <esp_err.h>
 
 #include <al/sensor.h>
 #include <al/store.h>
@@ -55,7 +57,7 @@ static naos_msg_reply_t com_cmd_sensor_read(naos_msg_t msg) {
   if (!naos_msg_send((naos_msg_t){
           .session = msg.session,
           .endpoint = ENDPOINT,
-          .data = (uint8_t*)&start,
+          .data = (uint8_t *)&start,
           .len = sizeof(start),
       })) {
     return NAOS_MSG_ERROR;
@@ -71,7 +73,7 @@ static naos_msg_reply_t com_cmd_sensor_read(naos_msg_t msg) {
     if (!naos_msg_send((naos_msg_t){
             .session = msg.session,
             .endpoint = ENDPOINT,
-            .data = (uint8_t*)&sample,
+            .data = (uint8_t *)&sample,
             .len = sizeof(sample),
         })) {
       return NAOS_MSG_ERROR;
@@ -115,6 +117,87 @@ static naos_msg_reply_t com_handle(naos_msg_t msg) {
   return reply;
 }
 
+static void com_ha_config_device(const char *did, const char *fwv) {
+  // allocate buffer
+  void *buf = malloc(128 + 1024);
+  if (!buf) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // calculate topic
+  int r = snprintf(buf, 128, "homeassistant/device/%s/config", did);
+  if (r < 0 || r >= 128) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // calculate message
+#define DEV_TPL                           \
+  ("{"                                    \
+   "  \"device\": {"                      \
+   "    \"ids\": \"%s\","                 \
+   "    \"name\": \"Air Lab\","           \
+   "    \"mf\": \"Networked Artifacts\"," \
+   "    \"mdl\": \"NA-AL1\","             \
+   "    \"sw\": \"%s\","                  \
+   "    \"sn\": \"%s\","                  \
+   "    \"hw\": \"R4\""                   \
+   "  },"                                 \
+   "  \"origin\": {"                      \
+   "    \"name\":\"Air Lab\""             \
+   "  }"                                  \
+   "}")
+  r = snprintf(buf + 128, 1024, DEV_TPL, did, fwv, did);
+  if (r < 0 || r >= 1024) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // publish discovery message
+  naos_publish_s(buf, buf + 128, 0, true, NAOS_GLOBAL);
+
+  // release buffer
+  free(buf);
+}
+
+static void com_ha_config_sensor(const char *did, const char *bt, const char *uid, const char *t, const char *n,
+                                 const char *uom, const char *dc) {
+  // allocate buffer
+  void *buf = malloc(128 + 1024);
+  if (!buf) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // calculate topic
+  int r = snprintf(buf, 128, "homeassistant/sensor/%s/%s/config", did, uid);
+  if (r < 0 || r >= 128) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // calculate message
+#define SEN_TPL                          \
+  ("{"                                   \
+   "  \"name\": \"%s\","                 \
+   "  \"state_topic\": \"%s/%s\","       \
+   "  \"unit_of_measurement\": \"%s\", " \
+   "  \"device_class\": \"%s\","         \
+   "  \"state_class\": \"measurement\"," \
+   "  \"unique_id\": \"%s\","            \
+   "  \"device\": {"                     \
+   "    \"identifiers\": \"%s\","        \
+   "    \"name\": \"Air Lab\""           \
+   "  }"                                 \
+   "}")
+  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom, dc, uid, did);
+  if (r < 0 || r >= 1024) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // publish discovery message
+  naos_publish_s(buf, buf + 128, 0, true, NAOS_GLOBAL);
+
+  // release buffer
+  free(buf);
+}
+
 static void com_task() {
   // wait some time
   naos_delay(5000);
@@ -142,134 +225,41 @@ static void com_task() {
     }
 
     // publish sample
-    if (com_mqtt_ha) {
-      naos_publish_d("airlab/co2", al_sample_read(sample, AL_SAMPLE_CO2), 0, false, NAOS_GLOBAL);
-      naos_publish_d("airlab/tmp", al_sample_read(sample, AL_SAMPLE_TMP), 0, false, NAOS_GLOBAL);
-      naos_publish_d("airlab/hum", al_sample_read(sample, AL_SAMPLE_HUM), 0, false, NAOS_GLOBAL);
-      naos_publish_d("airlab/voc", al_sample_read(sample, AL_SAMPLE_VOC), 0, false, NAOS_GLOBAL);
-      naos_publish_d("airlab/nox", al_sample_read(sample, AL_SAMPLE_NOX), 0, false, NAOS_GLOBAL);
-      naos_publish_d("airlab/prs", al_sample_read(sample, AL_SAMPLE_PRS), 0, false, NAOS_GLOBAL);
-    } else {
-      naos_publish_d("co2", al_sample_read(sample, AL_SAMPLE_CO2), 0, false, NAOS_LOCAL);
-      naos_publish_d("tmp", al_sample_read(sample, AL_SAMPLE_TMP), 0, false, NAOS_LOCAL);
-      naos_publish_d("hum", al_sample_read(sample, AL_SAMPLE_HUM), 0, false, NAOS_LOCAL);
-      naos_publish_d("voc", al_sample_read(sample, AL_SAMPLE_VOC), 0, false, NAOS_LOCAL);
-      naos_publish_d("nox", al_sample_read(sample, AL_SAMPLE_NOX), 0, false, NAOS_LOCAL);
-      naos_publish_d("prs", al_sample_read(sample, AL_SAMPLE_PRS), 0, false, NAOS_LOCAL);
-    }
+    naos_publish_d("co2", al_sample_read(sample, AL_SAMPLE_CO2), 0, false, NAOS_LOCAL);
+    naos_publish_d("tmp", al_sample_read(sample, AL_SAMPLE_TMP), 0, false, NAOS_LOCAL);
+    naos_publish_d("hum", al_sample_read(sample, AL_SAMPLE_HUM), 0, false, NAOS_LOCAL);
+    naos_publish_d("voc", al_sample_read(sample, AL_SAMPLE_VOC), 0, false, NAOS_LOCAL);
+    naos_publish_d("nox", al_sample_read(sample, AL_SAMPLE_NOX), 0, false, NAOS_LOCAL);
+    naos_publish_d("prs", al_sample_read(sample, AL_SAMPLE_PRS), 0, false, NAOS_LOCAL);
   }
 }
 
-static naos_param_t com_params[] = {
-    {.name = "mqtt-ha", .type = NAOS_BOOL, .sync_b = &com_mqtt_ha},
-};
-
-void com_online() {
+static void com_online() {
   // check if home assistant is enabled
   if (!com_mqtt_ha) {
     return;
   }
 
-  // prepare discovery messages
-  const char* co2 =
-      "{"
-      "  \"name\": \"CO2\","
-      "  \"state_topic\": \"airlab/co2\","
-      "  \"unit_of_measurement\": \"ppm\", "
-      "  \"device_class\": \"carbon_dioxide\","
-      "  \"state_class\": \"measurement\","
-      "  \"unique_id\": \"al_co2\","
-      "  \"device\": {"
-      "    \"identifiers\": [\"al_01\"],"
-      "    \"name\": \"Air Lab\","
-      "    \"manufacturer\": \"Networked Artifacts\","
-      "    \"model\": \"R3-2025\""
-      "  }"
-      "}";
-  const char* tmp =
-      "{"
-      "  \"name\": \"Temperature\","
-      "  \"state_topic\": \"airlab/tmp\","
-      "  \"unit_of_measurement\": \"°C\", "
-      "  \"device_class\": \"temperature\","
-      "  \"state_class\": \"measurement\","
-      "  \"unique_id\": \"al_tmp\","
-      "  \"device\": {"
-      "    \"identifiers\": [\"al_01\"],"
-      "    \"name\": \"Air Lab\","
-      "    \"manufacturer\": \"Networked Artifacts\","
-      "    \"model\": \"R3-2025\""
-      "  }"
-      "}";
-  const char* hum =
-      "{"
-      "  \"name\": \"Humidity\","
-      "  \"state_topic\": \"airlab/hum\","
-      "  \"unit_of_measurement\": \"%\","
-      "  \"device_class\": \"humidity\","
-      "  \"state_class\": \"measurement\","
-      "  \"unique_id\": \"al_hum\","
-      "  \"device\": {"
-      "    \"identifiers\": [\"al_01\"],"
-      "    \"name\": \"Air Lab\","
-      "    \"manufacturer\": \"Networked Artifacts\","
-      "    \"model\": \"R3-2025\""
-      "  }"
-      "}";
-  const char* voc =
-      "{"
-      "  \"name\": \"VOC\","
-      "  \"state_topic\": \"airlab/voc\","
-      "  \"unit_of_measurement\": \"\","
-      "  \"device_class\": \"aqi\","
-      "  \"state_class\": \"measurement\","
-      "  \"unique_id\": \"al_voc\","
-      "  \"device\": {"
-      "    \"identifiers\": [\"al_01\"],"
-      "    \"name\": \"Air Lab\","
-      "    \"manufacturer\": \"Networked Artifacts\","
-      "    \"model\": \"R3-2025\""
-      "  }"
-      "}";
-  const char* nox =
-      "{"
-      "  \"name\": \"NOx\","
-      "  \"state_topic\": \"airlab/nox\","
-      "  \"unit_of_measurement\": \"\","
-      "  \"device_class\": \"aqi\","
-      "  \"state_class\": \"measurement\","
-      "  \"unique_id\": \"al_nox\","
-      "  \"device\": {"
-      "    \"identifiers\": [\"al_01\"],"
-      "    \"name\": \"Air Lab\","
-      "    \"manufacturer\": \"Networked Artifacts\","
-      "    \"model\": \"R3-2025\""
-      "  }"
-      "}";
-  const char* prs =
-      "{"
-      "  \"name\": \"Pressure\","
-      "  \"state_topic\": \"airlab/prs\","
-      "  \"unit_of_measurement\": \"hPa\", "
-      "  \"device_class\": \"atmospheric_pressure\","
-      "  \"state_class\": \"measurement\","
-      "  \"unique_id\": \"al_prs\", "
-      "  \"device\": {"
-      "    \"identifiers\": [\"al_01\"],"
-      "    \"name\": \"Air Lab\","
-      "    \"manufacturer\": \"Networked Artifacts\","
-      "    \"model\": \"R3-2025\""
-      "  }"
-      "}";
+  // get information
+  const char *device_id = naos_get_s("device-id");
+  const char *firmware_version = naos_get_s("device-version");
+  const char *base_topic = naos_get_s("base-topic");
 
-  // publish discovery messages
-  naos_publish_s("homeassistant/sensor/al_co2/config", co2, 0, true, NAOS_GLOBAL);
-  naos_publish_s("homeassistant/sensor/al_tmp/config", tmp, 0, true, NAOS_GLOBAL);
-  naos_publish_s("homeassistant/sensor/al_hum/config", hum, 0, true, NAOS_GLOBAL);
-  naos_publish_s("homeassistant/sensor/al_voc/config", voc, 0, true, NAOS_GLOBAL);
-  naos_publish_s("homeassistant/sensor/al_nox/config", nox, 0, true, NAOS_GLOBAL);
-  naos_publish_s("homeassistant/sensor/al_prs/config", prs, 0, true, NAOS_GLOBAL);
+  // configure device
+  com_ha_config_device(device_id, firmware_version);
+
+  // configure sensors
+  com_ha_config_sensor(device_id, base_topic, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide");
+  com_ha_config_sensor(device_id, base_topic, "al-tmp", "tmp", "Temperature", "°C", "temperature");
+  com_ha_config_sensor(device_id, base_topic, "al-hum", "hum", "Humidity", "%", "humidity");
+  com_ha_config_sensor(device_id, base_topic, "al-voc", "voc", "VOC", "", "aqi");
+  com_ha_config_sensor(device_id, base_topic, "al-nox", "nox", "NOx", "", "aqi");
+  com_ha_config_sensor(device_id, base_topic, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure");
 }
+
+static naos_param_t com_params[] = {
+    {.name = "mqtt-ha", .type = NAOS_BOOL, .sync_b = &com_mqtt_ha},
+};
 
 void com_init() {
   // register params
