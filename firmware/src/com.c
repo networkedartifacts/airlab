@@ -152,7 +152,7 @@ static void com_ha_config_device(const char *did, const char *fwv) {
   }
 
   // publish discovery message
-  naos_publish_s(buf, buf + 128, 0, true, NAOS_GLOBAL);
+  naos_publish_s(buf, buf + 128, 0, false, NAOS_GLOBAL);
 
   // release buffer
   free(buf);
@@ -192,7 +192,7 @@ static void com_ha_config_sensor(const char *did, const char *bt, const char *ui
   }
 
   // publish discovery message
-  naos_publish_s(buf, buf + 128, 0, true, NAOS_GLOBAL);
+  naos_publish_s(buf, buf + 128, 0, false, NAOS_GLOBAL);
 
   // release buffer
   free(buf);
