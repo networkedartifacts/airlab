@@ -172,32 +172,95 @@ void com_online() {
 
   // prepare discovery messages
   const char* co2 =
-      "{ \"name\": \"CO2\", \"state_topic\": \"airlab/co2\", \"unit_of_measurement\": \"ppm\", "
-      "\"device_class\": \"carbon_dioxide\", \"state_class\": \"measurement\", \"unique_id\": \"al_co2\", \"device\": "
-      "{ \"identifiers\": [\"al_01\"], \"name\": \"Air Lab\", \"manufacturer\": \"Networked Artifacts\", \"model\": "
-      "\"R3-2025\" } }";
+      "{"
+      "  \"name\": \"CO2\","
+      "  \"state_topic\": \"airlab/co2\","
+      "  \"unit_of_measurement\": \"ppm\", "
+      "  \"device_class\": \"carbon_dioxide\","
+      "  \"state_class\": \"measurement\","
+      "  \"unique_id\": \"al_co2\","
+      "  \"device\": {"
+      "    \"identifiers\": [\"al_01\"],"
+      "    \"name\": \"Air Lab\","
+      "    \"manufacturer\": \"Networked Artifacts\","
+      "    \"model\": \"R3-2025\""
+      "  }"
+      "}";
   const char* tmp =
-      "{ \"name\": \"Temperature\", \"state_topic\": \"airlab/tmp\", \"unit_of_measurement\": \"°C\", "
-      "\"device_class\": \"temperature\", \"state_class\": \"measurement\", \"unique_id\": \"al_tmp\", \"device\": { "
-      "\"identifiers\": [\"al_01\"], \"name\": \"Air Lab\", \"manufacturer\": \"Networked Artifacts\", \"model\": "
-      "\"R3-2025\" } }";
+      "{"
+      "  \"name\": \"Temperature\","
+      "  \"state_topic\": \"airlab/tmp\","
+      "  \"unit_of_measurement\": \"°C\", "
+      "  \"device_class\": \"temperature\","
+      "  \"state_class\": \"measurement\","
+      "  \"unique_id\": \"al_tmp\","
+      "  \"device\": {"
+      "    \"identifiers\": [\"al_01\"],"
+      "    \"name\": \"Air Lab\","
+      "    \"manufacturer\": \"Networked Artifacts\","
+      "    \"model\": \"R3-2025\""
+      "  }"
+      "}";
   const char* hum =
-      "{ \"name\": \"Humidity\", \"state_topic\": \"airlab/hum\", \"unit_of_measurement\": \"%\", \"device_class\": "
-      "\"humidity\", \"state_class\": \"measurement\", \"unique_id\": \"al_hum\", \"device\": { \"identifiers\": "
-      "[\"al_01\"], \"name\": \"Air Lab\", \"manufacturer\": \"Networked Artifacts\", \"model\": \"R3-2025\" } }";
+      "{"
+      "  \"name\": \"Humidity\","
+      "  \"state_topic\": \"airlab/hum\","
+      "  \"unit_of_measurement\": \"%\","
+      "  \"device_class\": \"humidity\","
+      "  \"state_class\": \"measurement\","
+      "  \"unique_id\": \"al_hum\","
+      "  \"device\": {"
+      "    \"identifiers\": [\"al_01\"],"
+      "    \"name\": \"Air Lab\","
+      "    \"manufacturer\": \"Networked Artifacts\","
+      "    \"model\": \"R3-2025\""
+      "  }"
+      "}";
   const char* voc =
-      "{ \"name\": \"VOC\", \"state_topic\": \"airlab/voc\", \"unit_of_measurement\": \"\", \"device_class\": "
-      "\"aqi\", \"state_class\": \"measurement\", \"unique_id\": \"al_voc\", \"device\": { \"identifiers\": "
-      "[\"al_01\"], \"name\": \"Air Lab\", \"manufacturer\": \"Networked Artifacts\", \"model\": \"R3-2025\" } }";
+      "{"
+      "  \"name\": \"VOC\","
+      "  \"state_topic\": \"airlab/voc\","
+      "  \"unit_of_measurement\": \"\","
+      "  \"device_class\": \"aqi\","
+      "  \"state_class\": \"measurement\","
+      "  \"unique_id\": \"al_voc\","
+      "  \"device\": {"
+      "    \"identifiers\": [\"al_01\"],"
+      "    \"name\": \"Air Lab\","
+      "    \"manufacturer\": \"Networked Artifacts\","
+      "    \"model\": \"R3-2025\""
+      "  }"
+      "}";
   const char* nox =
-      "{ \"name\": \"NOx\", \"state_topic\": \"airlab/nox\", \"unit_of_measurement\": \"\", \"device_class\": "
-      "\"aqi\", \"state_class\": \"measurement\", \"unique_id\": \"al_nox\", \"device\": { \"identifiers\": "
-      "[\"al_01\"], \"name\": \"Air Lab\", \"manufacturer\": \"Networked Artifacts\", \"model\": \"R3-2025\" } }";
+      "{"
+      "  \"name\": \"NOx\","
+      "  \"state_topic\": \"airlab/nox\","
+      "  \"unit_of_measurement\": \"\","
+      "  \"device_class\": \"aqi\","
+      "  \"state_class\": \"measurement\","
+      "  \"unique_id\": \"al_nox\","
+      "  \"device\": {"
+      "    \"identifiers\": [\"al_01\"],"
+      "    \"name\": \"Air Lab\","
+      "    \"manufacturer\": \"Networked Artifacts\","
+      "    \"model\": \"R3-2025\""
+      "  }"
+      "}";
   const char* prs =
-      "{ \"name\": \"Pressure\", \"state_topic\": \"airlab/prs\", \"unit_of_measurement\": \"hPa\", "
-      "\"device_class\": \"atmospheric_pressure\", \"state_class\": \"measurement\", \"unique_id\": \"al_prs\", "
-      "\"device\": { \"identifiers\": [\"al_01\"], \"name\": \"Air Lab\", \"manufacturer\": \"Networked Artifacts\", "
-      "\"model\": \"R3-2025\" } }";
+      "{"
+      "  \"name\": \"Pressure\","
+      "  \"state_topic\": \"airlab/prs\","
+      "  \"unit_of_measurement\": \"hPa\", "
+      "  \"device_class\": \"atmospheric_pressure\","
+      "  \"state_class\": \"measurement\","
+      "  \"unique_id\": \"al_prs\", "
+      "  \"device\": {"
+      "    \"identifiers\": [\"al_01\"],"
+      "    \"name\": \"Air Lab\","
+      "    \"manufacturer\": \"Networked Artifacts\","
+      "    \"model\": \"R3-2025\""
+      "  }"
+      "}";
 
   // publish discovery messages
   naos_publish_s("homeassistant/sensor/al_co2/config", co2, 0, true, NAOS_GLOBAL);
