@@ -17,7 +17,7 @@
 
 #define ENDPOINT 0xA1
 
-// TODO: Only send discover when the MQTT service comes online.
+// TODO: Only send discovery when the HA MQTT service comes online.
 
 typedef enum {
   COM_CMD_SENSOR_READ = 0x01,
@@ -135,11 +135,11 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // prepare unit of measurement key
-  const char uom_key[64] = {0};
+  // prepare unit of measurement field
+  char uom_field[64] = {0};
   if (strlen(uom) > 0) {
-    r = snprintf(uom_key, sizeof(uom_key), "\"unit_of_measurement\": \"%s\",", uom);
-    if (r < 0 || r >= sizeof(uom_key)) {
+    r = snprintf(uom_field, sizeof(uom_field), "\"unit_of_measurement\": \"%s\",", uom);
+    if (r < 0 || r >= sizeof(uom_field)) {
       ESP_ERROR_CHECK(ESP_FAIL);
     }
   }
@@ -152,7 +152,7 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
    "  %s"                                 \
    "  \"device_class\": \"%s\","          \
    "  \"state_class\": \"measurement\","  \
-   "  \"unique_id\": \"%s\","             \
+   "  \"unique_id\": \"%s-%s\","          \
    "  \"device\": {"                      \
    "    \"ids\": \"%s\","                 \
    "    \"name\": \"Air Lab\","           \
@@ -163,7 +163,7 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
    "    \"hw\": \"R4\""                   \
    "  }"                                  \
    "}")
-  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_key, dc, uid, did, fwv, did);
+  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_field, dc, did, uid, did, fwv, did);
   if (r < 0 || r >= 1024) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
