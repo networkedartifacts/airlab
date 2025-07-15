@@ -84,6 +84,9 @@ void al_accel_init(bool reset) {
     al_accel_write(0x29, 0b01000000);
     al_accel_write(0x2A, 50);
 
+    // set ODR to 6.25Hz
+    al_accel_write(0x17, 0b10011001);
+
     // activate device
     al_accel_write(0x15, 0b00000001);
   }
