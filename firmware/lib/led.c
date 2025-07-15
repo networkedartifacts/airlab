@@ -41,7 +41,8 @@ void al_led_set(float r, float g, float b) {
 
   // set LEDs on/off
   uint8_t state = (b > 0) | (g > 0) << 2 | (r > 0) << 4;
-  al_led_write(0x04, 0b01000000 | state, false);
+  uint8_t on = (r != 0 || g != 0 || b != 0) ? 0b01000000 : 0;
+  al_led_write(0x04, on | state, false);
 
   // set color
   al_led_write(0x06, (uint8_t)(AL_LED_LIMIT(b) * 191), false);
@@ -64,7 +65,8 @@ void al_led_flash(float p, float f, float r, float g, float b) {
 
   // set LEDs on/off
   uint8_t state = (b > 0) << 1 | (g > 0) << 3 | (r > 0) << 5;
-  al_led_write(0x04, 0b01000000 | state, false);
+  uint8_t on = (r != 0 || g != 0 || b != 0) ? 0b01000000 : 0;
+  al_led_write(0x04, on | state, false);
 
   // set color
   al_led_write(0x06, (uint8_t)(AL_LED_LIMIT(b) * 191), false);
