@@ -3,7 +3,6 @@
 #define AL_SENSOR_HAL_SCD 0x62
 #define AL_SENSOR_HAL_SGP 0x59
 #define AL_SENSOR_HAL_LPS 0x5C
-#define AL_SENSOR_HAL_DEBUG false
 
 #define AL_CHECK(call) \
   if (!call) {         \
