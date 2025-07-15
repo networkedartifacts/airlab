@@ -119,8 +119,12 @@ bool al_sensor_hal_config(al_sensor_hal_mode_t mode) {
     return false;
   }
 
-  // start LPS periodic measurement (10Hz, LPF on)
-  AL_CHECK(al_sensor_hal_write_lps(0x10, 0x28));
+  // configure LPS sensor
+  if (mode == AL_SENSOR_HAL_SLEEP) {
+    AL_CHECK(al_sensor_hal_write_lps(0x10, 0x0));  // power down
+  } else {
+    AL_CHECK(al_sensor_hal_write_lps(0x10, 0x18));  // 1Hz, LPF on
+  }
 
   return true;
 }
