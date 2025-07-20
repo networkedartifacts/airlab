@@ -132,7 +132,7 @@ al_trigger_t al_sleep(bool deep, uint64_t timeout) {
   if (timeout > 0) {
     ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(timeout * 1000));
   } else {
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
+    ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(10 * 60 * 1000 * 1000));
   }
 
   // prepare deep sleep
@@ -150,7 +150,7 @@ al_trigger_t al_sleep(bool deep, uint64_t timeout) {
     al_ulp_start();
 
     // enable ULP wake up
-    esp_sleep_enable_ulp_wakeup();
+    ESP_ERROR_CHECK(esp_sleep_enable_ulp_wakeup());
   }
 
   // perform sleep
