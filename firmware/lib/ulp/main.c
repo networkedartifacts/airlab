@@ -1,7 +1,5 @@
 #include <ulp_riscv.h>
 #include <ulp_riscv_utils.h>
-#include <ulp_riscv_print.h>
-#include <ulp_riscv_uart_ulp_core.h>
 #include <ulp_riscv_i2c.h>
 
 #include "../sensor_hal.h"
@@ -55,15 +53,6 @@ static int64_t epoch() {
 }
 
 int main(void) {
-  // initialize UART
-#if DEBUG
-  ulp_riscv_uart_cfg_t cfg = {.tx_pin = 3};
-  ulp_riscv_uart_t uart;
-  ulp_riscv_uart_init(&uart, &cfg);
-  ulp_riscv_print_install((putc_fn_t)ulp_riscv_uart_putc, &uart);
-  ulp_riscv_print_str("\nstart\n");
-#endif
-
   // wire sensor
   al_sensor_hal_wire((al_sensor_hal_ops_t){
       .transfer = transfer,
@@ -75,11 +64,6 @@ int main(void) {
   for (;;) {
     // wait
     delay(100);
-
-#if DEBUG
-    // log
-    ulp_riscv_print_str("check\n");
-#endif
 
     // check if ready
     if (al_sensor_hal_ready() != AL_SENSOR_HAL_OK) {
@@ -94,13 +78,6 @@ int main(void) {
     // store reading
     readings[counter] = data;
 
-#if DEBUG
-    // log
-    ulp_riscv_print_str("stored ");
-    ulp_riscv_print_hex(counter);
-    ulp_riscv_print_str("\n");
-#endif
-
     // increment
     counter++;
 
@@ -109,11 +86,6 @@ int main(void) {
       break;
     }
   }
-
-#if DEBUG
-  // log
-  ulp_riscv_print_str("full\n");
-#endif
 
   // wake main CPU
   ulp_riscv_wakeup_main_processor();
