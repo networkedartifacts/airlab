@@ -82,7 +82,7 @@ void al_accel_init(bool reset) {
 
     // enable orientation detection with debounce
     al_accel_write(0x29, 0b01000000);
-    al_accel_write(0x2A, 50);
+    al_accel_write(0x2A, 6);
 
     // set ODR to 6.25Hz
     al_accel_write(0x17, 0b10011001);
