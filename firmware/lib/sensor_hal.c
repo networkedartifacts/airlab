@@ -4,9 +4,12 @@
 #define AL_SENSOR_HAL_SGP41 0x59
 #define AL_SENSOR_HAL_LPS22 0x5C
 
-#define AL_CHECK(call) \
-  if (!call) {         \
-    return false;      \
+#define AL_CHECK(call)              \
+  {                                 \
+    al_sensor_hal_err_t err = call; \
+    if (err != AL_SENSOR_HAL_OK) {  \
+      return err;                   \
+    }                               \
   }
 
 // TODO: Perform SGP41 conditioning after reset (10s)?
@@ -33,9 +36,18 @@ static uint8_t al_sensor_hal_crc(const uint8_t* data, uint16_t count) {
   return crc;
 }
 
-static bool al_sensor_hal_transfer(uint8_t target, uint16_t addr, size_t send, size_t receive, bool may_fail) {
+static al_sensor_hal_err_t al_sensor_hal_transfer(uint8_t target, uint16_t addr, size_t send, size_t receive,
+                                                  bool may_fail) {
   // prepare write length
   size_t write = 0;
+
+  // prepare flag
+  al_sensor_hal_err_t flag = 0;
+  if (target == AL_SENSOR_HAL_SCD41) {
+    flag |= AL_SENSOR_HAL_ERR_SCD41;
+  } else if (target == AL_SENSOR_HAL_SGP41) {
+    flag |= AL_SENSOR_HAL_ERR_SGP41;
+  }
 
   // write address
   if (addr != 0) {
@@ -55,13 +67,12 @@ static bool al_sensor_hal_transfer(uint8_t target, uint16_t addr, size_t send, s
   // run command
   bool ok = al_sensor_hal_ops.transfer(target, al_sensor_hal_bt, write, al_sensor_hal_bt, receive * 3);
   if (!ok && !may_fail) {
-    al_sensor_hal_ops.debug("transfer failed");
-    return false;
+    return AL_SENSOR_HAL_ERR_TRANSFER | flag;
   }
 
   // skip verify if may fail
   if (may_fail) {
-    return true;
+    return AL_SENSOR_HAL_OK;
   }
 
   // read bytes
@@ -69,28 +80,31 @@ static bool al_sensor_hal_transfer(uint8_t target, uint16_t addr, size_t send, s
     al_sensor_hal_br[i] = (al_sensor_hal_bt[i * 3] << 8) | al_sensor_hal_bt[i * 3 + 1];
     uint8_t crc = al_sensor_hal_crc(al_sensor_hal_bt + (i * 3), 2);
     if (al_sensor_hal_bt[i * 3 + 2] != crc) {
-      al_sensor_hal_ops.debug("crc mismatch");
-      return false;
+      return AL_SENSOR_HAL_ERR_CHECKSUM | flag;
     }
   }
 
-  return true;
+  return AL_SENSOR_HAL_OK;
 }
 
-static bool al_sensor_hal_read_lps(uint8_t reg, uint8_t* val) {
+static al_sensor_hal_err_t al_sensor_hal_read_lps(uint8_t reg, uint8_t* val) {
   // read register
-  bool ok = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, &reg, 1, val, 1);
+  if (!al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, &reg, 1, val, 1)) {
+    return AL_SENSOR_HAL_ERR_TRANSFER | AL_SENSOR_HAL_ERR_LPS22;
+  }
 
-  return ok;
+  return AL_SENSOR_HAL_OK;
 }
 
-static bool al_sensor_hal_write_lps(uint8_t reg, uint8_t val) {
+static al_sensor_hal_err_t al_sensor_hal_write_lps(uint8_t reg, uint8_t val) {
   // write register
   al_sensor_hal_bt[0] = reg;
   al_sensor_hal_bt[1] = val;
-  bool ok = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, al_sensor_hal_bt, 2, NULL, 0);
+  if (!al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, al_sensor_hal_bt, 2, NULL, 0)) {
+    return AL_SENSOR_HAL_ERR_TRANSFER | AL_SENSOR_HAL_ERR_LPS22;
+  }
 
-  return ok;
+  return AL_SENSOR_HAL_OK;
 }
 
 void al_sensor_hal_wire(al_sensor_hal_ops_t ops) {
@@ -98,7 +112,7 @@ void al_sensor_hal_wire(al_sensor_hal_ops_t ops) {
   al_sensor_hal_ops = ops;
 }
 
-bool al_sensor_hal_config(al_sensor_hal_mode_t mode) {
+al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode) {
   // wake up SCD
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36f6, 0, 0, true));
   al_sensor_hal_ops.delay(30);
@@ -115,7 +129,7 @@ bool al_sensor_hal_config(al_sensor_hal_mode_t mode) {
   } else if (mode == AL_SENSOR_HAL_SLEEP) {
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36e0, 0, 0, false));
   } else {
-    return false;
+    return AL_SENSOR_HAL_ERR_MODE;
   }
 
   // turn off SGP heater when sleeping
@@ -130,20 +144,20 @@ bool al_sensor_hal_config(al_sensor_hal_mode_t mode) {
     AL_CHECK(al_sensor_hal_write_lps(0x10, 0x18));  // 1Hz, LPF on
   }
 
-  return true;
+  return AL_SENSOR_HAL_OK;
 }
 
-bool al_sensor_hal_ready() {
+al_sensor_hal_err_t al_sensor_hal_ready() {
   // check if SCD measurement is available
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xe4b8, 0, 1, false));
   if ((al_sensor_hal_br[0] & 0xFFF) == 0) {
-    return false;
+    return AL_SENSOR_HAL_ERR_BUSY;
   }
 
-  return true;
+  return AL_SENSOR_HAL_OK;
 }
 
-bool al_sensor_hal_read(al_sensor_hal_data_t* data) {
+al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
   // read SCD sensor
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xec05, 0, 3, false));
   data->co2 = al_sensor_hal_br[0];
@@ -168,5 +182,5 @@ bool al_sensor_hal_read(al_sensor_hal_data_t* data) {
   // set epoch
   data->epoch = al_sensor_hal_ops.epoch();
 
-  return true;
+  return AL_SENSOR_HAL_OK;
 }

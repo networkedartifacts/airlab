@@ -24,11 +24,6 @@ static bool al_sensor_transfer(uint8_t target, uint8_t *wd, size_t wl, uint8_t *
   return al_i2c_transfer(target, wd, wl, rd, rl, 1000) == ESP_OK;
 }
 
-static void al_sensor_debug(const char *msg) {
-  // print message
-  naos_log("al-sns: HAL %s", msg);
-}
-
 static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   // calculate ppm, °C, % rH
   float co2 = (float)data.co2;
@@ -70,8 +65,13 @@ static void al_sensor_check() {
   naos_lock(al_sensor_mutex);
 
   // exit low power mode after 5s
+  al_sensor_hal_err_t err = 0;
   if (al_sensor_low_power_on && naos_millis() > 5000) {
-    al_sensor_hal_config(AL_SENSOR_HAL_NORMAL);
+    err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL);
+    if (err != AL_SENSOR_HAL_OK) {
+      naos_log("al-sns: HAL error=%d", err);
+      ESP_ERROR_CHECK(ESP_FAIL);
+    }
     al_sensor_low_power_on = false;
     if (AL_SENSOR_DEBUG) {
       naos_log("al-sns: low power off");
@@ -79,14 +79,21 @@ static void al_sensor_check() {
   }
 
   // check if SCD measurement is available
-  if (!al_sensor_hal_ready()) {
+  err = al_sensor_hal_ready();
+  if (err != AL_SENSOR_HAL_OK) {
+    if (err != AL_SENSOR_HAL_ERR_BUSY) {
+      naos_log("al-sns: HAL error=%d", err);
+      ESP_ERROR_CHECK(ESP_FAIL);
+    }
     naos_unlock(al_sensor_mutex);
     return;
   }
 
   // read sensor
   al_sensor_hal_data_t data;
-  if (!al_sensor_hal_read(&data)) {
+  err = al_sensor_hal_read(&data);
+  if (err != AL_SENSOR_HAL_OK) {
+    naos_log("al-sns: HAL read error=%d", err);
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
@@ -114,7 +121,6 @@ void al_sensor_init(bool reset) {
   al_sensor_hal_wire((al_sensor_hal_ops_t){
       .transfer = al_sensor_transfer,
       .delay = naos_delay,
-      .debug = al_sensor_debug,
       .epoch = al_clock_get_epoch,
   });
 
@@ -130,7 +136,9 @@ void al_sensor_init(bool reset) {
     }
 
     // reset sensor
-    if (!al_sensor_hal_config(AL_SENSOR_HAL_NORMAL)) {
+    al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL);
+    if (err != AL_SENSOR_HAL_OK) {
+      naos_log("al-sns: HAL error=%d", err);
       ESP_ERROR_CHECK(ESP_FAIL);
     }
 
@@ -200,7 +208,11 @@ void al_sensor_low_power(bool on) {
   }
 
   // set low power mode
-  al_sensor_hal_config(on ? AL_SENSOR_HAL_LOW_POWER : AL_SENSOR_HAL_NORMAL);
+  al_sensor_hal_err_t err = al_sensor_hal_config(on ? AL_SENSOR_HAL_LOW_POWER : AL_SENSOR_HAL_NORMAL);
+  if (err != AL_SENSOR_HAL_OK) {
+    naos_log("al-sns: HAL error=%d", err);
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
 
   // set flag
   al_sensor_low_power_on = on;

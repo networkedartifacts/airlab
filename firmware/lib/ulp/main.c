@@ -14,6 +14,7 @@
 static_assert(MS_CYCLES == ULP_RISCV_CYCLES_PER_MS, "cycles mismatch");
 
 static al_sensor_hal_data_t data = {0};
+
 volatile int64_t start = 0;
 volatile uint8_t counter = 0;
 volatile al_sensor_hal_data_t readings[READINGS] = {0};
@@ -46,14 +47,6 @@ static void delay(uint32_t ms) {
   ulp_riscv_delay_cycles(ms * MS_CYCLES);
 }
 
-static void debug(const char* msg) {
-#if DEBUG
-  // print message
-  ulp_riscv_print_str(msg);
-  ulp_riscv_print_str("\n");
-#endif
-}
-
 static int64_t epoch() {
   // calculate milliseconds from cycles
   int millis = ULP_RISCV_GET_CCOUNT() / MS_CYCLES;
@@ -75,7 +68,6 @@ int main(void) {
   al_sensor_hal_wire((al_sensor_hal_ops_t){
       .transfer = transfer,
       .delay = delay,
-      .debug = debug,
       .epoch = epoch,
   });
 
@@ -90,12 +82,12 @@ int main(void) {
 #endif
 
     // check if ready
-    if (!al_sensor_hal_ready()) {
+    if (al_sensor_hal_ready() != AL_SENSOR_HAL_OK) {
       continue;
     }
 
     // read sensor
-    if (!al_sensor_hal_read(&data)) {
+    if (al_sensor_hal_read(&data) != AL_SENSOR_HAL_OK) {
       continue;
     }
 

@@ -11,10 +11,22 @@ typedef enum {
   AL_SENSOR_HAL_SLEEP
 } al_sensor_hal_mode_t;
 
+typedef enum {
+  AL_SENSOR_HAL_OK = 0,
+  AL_SENSOR_HAL_ERR_TRANSFER = 1 << 0,
+  AL_SENSOR_HAL_ERR_CHECKSUM = 1 << 1,
+  AL_SENSOR_HAL_ERR_TIMEOUT = 1 << 2,
+  AL_SENSOR_HAL_ERR_BUSY = 1 << 3,
+  AL_SENSOR_HAL_ERR_MODE = 1 << 4,
+  // flags
+  AL_SENSOR_HAL_ERR_SCD41 = 1 << 11,
+  AL_SENSOR_HAL_ERR_SGP41 = 1 << 12,
+  AL_SENSOR_HAL_ERR_LPS22 = 1 << 13,
+} al_sensor_hal_err_t;
+
 typedef struct {
   bool (*transfer)(uint8_t target, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl);
   void (*delay)(uint32_t ms);
-  void (*debug)(const char* fmt);
   int64_t (*epoch)();
 } al_sensor_hal_ops_t;
 
@@ -30,10 +42,10 @@ typedef struct {
 
 void al_sensor_hal_wire(al_sensor_hal_ops_t ops);
 
-bool al_sensor_hal_config(al_sensor_hal_mode_t mode);
+al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode);
 
-bool al_sensor_hal_ready();
+al_sensor_hal_err_t al_sensor_hal_ready();
 
-bool al_sensor_hal_read(al_sensor_hal_data_t* data);
+al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data);
 
 #endif  // AL_SENSOR_HAL_H
