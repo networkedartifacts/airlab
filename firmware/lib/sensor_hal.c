@@ -1,8 +1,8 @@
 #include "sensor_hal.h"
 
-#define AL_SENSOR_HAL_SCD 0x62
-#define AL_SENSOR_HAL_SGP 0x59
-#define AL_SENSOR_HAL_LPS 0x5C
+#define AL_SENSOR_HAL_SCD41 0x62
+#define AL_SENSOR_HAL_SGP41 0x59
+#define AL_SENSOR_HAL_LPS22 0x5C
 
 #define AL_CHECK(call) \
   if (!call) {         \
@@ -79,7 +79,7 @@ static bool al_sensor_hal_transfer(uint8_t target, uint16_t addr, size_t send, s
 
 static bool al_sensor_hal_read_lps(uint8_t reg, uint8_t* val) {
   // read register
-  bool ok = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS, &reg, 1, val, 1);
+  bool ok = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, &reg, 1, val, 1);
 
   return ok;
 }
@@ -88,7 +88,7 @@ static bool al_sensor_hal_write_lps(uint8_t reg, uint8_t val) {
   // write register
   al_sensor_hal_bt[0] = reg;
   al_sensor_hal_bt[1] = val;
-  bool ok = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS, al_sensor_hal_bt, 2, NULL, 0);
+  bool ok = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, al_sensor_hal_bt, 2, NULL, 0);
 
   return ok;
 }
@@ -100,27 +100,27 @@ void al_sensor_hal_wire(al_sensor_hal_ops_t ops) {
 
 bool al_sensor_hal_config(al_sensor_hal_mode_t mode) {
   // wake up SCD
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x36f6, 0, 0, true));
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36f6, 0, 0, true));
   al_sensor_hal_ops.delay(30);
 
   // stop SCD periodic measurement
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x3f86, 0, 0, true));
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x3f86, 0, 0, true));
   al_sensor_hal_ops.delay(500);
 
   // start SCD periodic measurement
   if (mode == AL_SENSOR_HAL_NORMAL) {
-    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x21b1, 0, 0, false));
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x21b1, 0, 0, false));
   } else if (mode == AL_SENSOR_HAL_LOW_POWER) {
-    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x21ac, 0, 0, false));
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x21ac, 0, 0, false));
   } else if (mode == AL_SENSOR_HAL_SLEEP) {
-    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0x36e0, 0, 0, false));
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36e0, 0, 0, false));
   } else {
     return false;
   }
 
   // turn off SGP heater when sleeping
   if (mode == AL_SENSOR_HAL_SLEEP) {
-    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP, 0x3615, 0, 0, false));
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x3615, 0, 0, false));
   }
 
   // configure LPS sensor
@@ -135,7 +135,7 @@ bool al_sensor_hal_config(al_sensor_hal_mode_t mode) {
 
 bool al_sensor_hal_ready() {
   // check if SCD measurement is available
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0xe4b8, 0, 1, false));
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xe4b8, 0, 1, false));
   if ((al_sensor_hal_br[0] & 0xFFF) == 0) {
     return false;
   }
@@ -145,7 +145,7 @@ bool al_sensor_hal_ready() {
 
 bool al_sensor_hal_read(al_sensor_hal_data_t* data) {
   // read SCD sensor
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD, 0xec05, 0, 3, false));
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xec05, 0, 3, false));
   data->co2 = al_sensor_hal_br[0];
   data->tmp = al_sensor_hal_br[1];
   data->hum = al_sensor_hal_br[2];
@@ -153,9 +153,9 @@ bool al_sensor_hal_read(al_sensor_hal_data_t* data) {
   // read SGP sensor
   al_sensor_hal_bw[0] = data->hum;
   al_sensor_hal_bw[1] = data->tmp;
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP, 0x2619, 2, 0, false));
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x2619, 2, 0, false));
   al_sensor_hal_ops.delay(50);
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP, 0, 0, 2, false));
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0, 0, 2, false));
   data->voc = al_sensor_hal_br[0];
   data->nox = al_sensor_hal_br[1];
 
