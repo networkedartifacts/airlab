@@ -23,7 +23,14 @@ void al_ulp_init(bool reset) {
   // clear memory on reset to prevent access of uninitialized memory
   if (reset) {
     ulp_start = 0;
-    ulp_counter = 0;
+    ulp_num_readings = 0;
+    ulp_num_errors = 0;
+  }
+
+  // print errors
+  for (int i = 0; i < ulp_num_errors; i++) {
+    int log = ((int *)&ulp_errors)[i];
+    naos_log("al-ulp: error: %#010x", log);
   }
 }
 
@@ -43,8 +50,9 @@ void al_ulp_start() {
   // prevent power down of I2C peripheral during ULP sleep
   ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON));
 
-  // clear counter
-  ulp_counter = 0;
+  // clear counters
+  ulp_num_readings = 0;
+  ulp_num_errors = 0;
 
   // start ULP program
   ESP_ERROR_CHECK(ulp_riscv_run());
@@ -65,18 +73,18 @@ int al_ulp_readings() {
   }
 
   // read counter
-  return (int)ulp_counter;
+  return (int)ulp_num_readings;
 }
 
 al_sensor_hal_data_t al_ulp_get_reading(int index) {
   // return zero if no readings
-  if (ulp_counter == 0) {
+  if (ulp_num_readings == 0) {
     return (al_sensor_hal_data_t){0};
   }
 
   // set last reading on under/overflow
-  if (index < 0 || index >= (int)ulp_counter) {
-    index = (int)ulp_counter - 1;
+  if (index < 0 || index >= (int)ulp_num_readings) {
+    index = (int)ulp_num_readings - 1;
   }
 
   return ((al_sensor_hal_data_t *)&ulp_readings)[index];
