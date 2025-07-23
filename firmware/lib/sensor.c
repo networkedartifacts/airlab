@@ -76,7 +76,7 @@ static void al_sensor_check() {
   // exit low power mode after 5s
   al_sensor_hal_err_t err = 0;
   if (al_sensor_state.mode != AL_SENSOR_HAL_NORMAL && naos_millis() > 5000) {
-    err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL);
+    err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL, 0);
     if (err != AL_SENSOR_HAL_OK) {
       naos_log("al-sns: HAL error=%d", err);
       ESP_ERROR_CHECK(ESP_FAIL);
@@ -151,7 +151,7 @@ void al_sensor_init(bool reset) {
     }
 
     // reset sensor
-    al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL);
+    al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL, 0);
     if (err != AL_SENSOR_HAL_OK) {
       naos_log("al-sns: HAL error=%d", err);
       ESP_ERROR_CHECK(ESP_FAIL);
@@ -229,7 +229,7 @@ void al_sensor_low_power(bool on, bool manual) {
   }
 
   // set low power mode
-  al_sensor_hal_err_t err = al_sensor_hal_config(mode);
+  al_sensor_hal_err_t err = al_sensor_hal_config(mode, 15000);
   if (err != AL_SENSOR_HAL_OK) {
     naos_log("al-sns: HAL error=%d", err);
     ESP_ERROR_CHECK(ESP_FAIL);

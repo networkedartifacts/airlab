@@ -34,7 +34,8 @@ typedef struct {
 
 typedef struct {
   al_sensor_hal_mode_t mode;
-  int64_t deadline;
+  int rate;
+  int64_t next;
 } al_sensor_hal_state_t;
 
 typedef struct {
@@ -48,7 +49,7 @@ typedef struct {
 } al_sensor_hal_data_t;
 
 void al_sensor_hal_init(al_sensor_hal_ops_t ops, al_sensor_hal_state_t* state);
-al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode);
+al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int rate);
 al_sensor_hal_err_t al_sensor_hal_ready();
 al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data);
 al_sensor_hal_state_t al_sensor_hal_dump();
