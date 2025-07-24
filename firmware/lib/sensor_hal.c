@@ -175,6 +175,11 @@ al_sensor_hal_err_t al_sensor_hal_ready() {
       al_sensor_hal_state->next = al_sensor_hal_ops.epoch() + al_sensor_hal_state->rate;
     }
 
+    // limit measurement deadline to current rate
+    if (al_sensor_hal_state->next > al_sensor_hal_ops.epoch() + al_sensor_hal_state->rate) {
+      al_sensor_hal_state->next = al_sensor_hal_ops.epoch() + al_sensor_hal_state->rate;
+    }
+
     // take measurement if deadline is reached
     if (al_sensor_hal_ops.epoch() >= al_sensor_hal_state->next - AL_SENSOR_MSR_TIME) {
       AL_CHECK(al_sensor_hal_measure());
