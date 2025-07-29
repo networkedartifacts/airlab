@@ -6,6 +6,7 @@
 #include <naos/ble.h>
 #include <naos/wifi.h>
 #include <naos/mqtt.h>
+#include <naos/auth.h>
 #include <naos/sys.h>
 #include <esp_err.h>
 
@@ -190,6 +191,9 @@ static void com_task() {
   naos_fs_install((naos_fs_config_t){
       .root = AL_STORAGE_ROOT,
   });
+
+  // install authentication endpoint
+  naos_auth_install();
 
   // TODO: Also require bonding for more security?
 
