@@ -1,5 +1,5 @@
 {
-  "version": "37070e2",
+  "version": "c2e6f2f",
   "target": "esp32s3",
   "overrides": {
     "CONFIG_ESPTOOLPY_FLASHSIZE_8MB": "y",

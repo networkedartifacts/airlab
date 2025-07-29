@@ -59,8 +59,8 @@ static naos_param_t params[] = {
 };
 
 static naos_config_t config = {
-    .device_type = "airlab",
-    .device_version = DEV_VERSION,
+    .app_name = "airlab",
+    .app_version = DEV_VERSION,
     .setup_callback = setup,
     .online_callback = com_online,
     .battery_callback = battery,

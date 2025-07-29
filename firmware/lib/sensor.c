@@ -204,7 +204,7 @@ al_sample_t al_sensor_next() {
   // TODO: Does not work with multiple tasks.
 
   // await signal
-  naos_await(al_sensor_signal, 1, true);
+  naos_await(al_sensor_signal, 1, true, -1);
 
   // get last sample
   al_sample_t sample = al_store_last();

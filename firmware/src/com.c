@@ -236,14 +236,14 @@ void com_online() {
   // get information
   const char *hat = naos_get_s("mqtt-ha-topic");
   const char *did = naos_get_s("device-id");
-  const char *fwv = naos_get_s("device-version");
+  const char *av = naos_get_s("app-version");
   const char *bt = naos_get_s("base-topic");
 
   // configure sensors
-  com_ha_config_sensor(hat, did, fwv, bt, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide");
-  com_ha_config_sensor(hat, did, fwv, bt, "al-tmp", "tmp", "Temperature", "°C", "temperature");
-  com_ha_config_sensor(hat, did, fwv, bt, "al-hum", "hum", "Humidity", "%", "humidity");
-  com_ha_config_sensor(hat, did, fwv, bt, "al-voc", "voc", "VOC", "", "aqi");
-  com_ha_config_sensor(hat, did, fwv, bt, "al-nox", "nox", "NOx", "", "aqi");
-  com_ha_config_sensor(hat, did, fwv, bt, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure");
+  com_ha_config_sensor(hat, did, av, bt, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide");
+  com_ha_config_sensor(hat, did, av, bt, "al-tmp", "tmp", "Temperature", "°C", "temperature");
+  com_ha_config_sensor(hat, did, av, bt, "al-hum", "hum", "Humidity", "%", "humidity");
+  com_ha_config_sensor(hat, did, av, bt, "al-voc", "voc", "VOC", "", "aqi");
+  com_ha_config_sensor(hat, did, av, bt, "al-nox", "nox", "NOx", "", "aqi");
+  com_ha_config_sensor(hat, did, av, bt, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure");
 }
