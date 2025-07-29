@@ -1,12 +1,12 @@
 #include <naos.h>
 #include <naos/sys.h>
+#include <esp_err.h>
 
+#include <al/core.h>
 #include <al/epd.h>
-#include <esp_heap_caps.h>
 
 #include "gfx.h"
 #include "dat.h"
-#include "dev.h"
 #include "fnt.h"
 
 #define GFX_WIDTH AL_EPD_HEIGHT
@@ -113,8 +113,8 @@ void gfx_init(bool reset) {
   gfx_signal = naos_signal();
 
   // allocate buffers
-  gfx_frame_buffer = heap_caps_calloc(GFX_WIDTH * GFX_HEIGHT, sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-  gfx_frame = heap_caps_calloc(AL_EPD_FRAME, sizeof(uint8_t), MALLOC_CAP_SPIRAM);
+  gfx_frame_buffer = al_calloc(GFX_WIDTH * GFX_HEIGHT, sizeof(lv_color_t));
+  gfx_frame = al_calloc(AL_EPD_FRAME, sizeof(uint8_t));
 
   if (gfx_frame_buffer == NULL) {
     ESP_ERROR_CHECK(ESP_ERR_NO_MEM);

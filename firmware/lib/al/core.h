@@ -33,4 +33,15 @@ al_trigger_t al_init();
  */
 al_trigger_t al_sleep(bool deep, uint64_t timeout);
 
+/**
+ * Allocates memory from external RAM for an array of elements of a specified
+ * size and initializes each byte to zero. The function will abort if the
+ * allocation fails.
+ *
+ * @param count Number of elements to allocate.
+ * @param size Size of each element in bytes.
+ * @return Pointer to the allocated memory.
+ */
+void* al_calloc(size_t count, size_t size);
+
 #endif  // AL_CORE_H

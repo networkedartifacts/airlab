@@ -5,11 +5,11 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <al/core.h>
 #include <al/sensor.h>
 #include <al/store.h>
 #include <al/storage.h>
 #include <esp_err.h>
-#include <esp_heap_caps.h>
 
 #include "dat.h"
 #include "sig.h"
@@ -134,7 +134,7 @@ static void dat_eject() {
 
 void dat_init() {
   // allocate files
-  dat_files = heap_caps_calloc(DAT_FILES, sizeof(dat_file_t), MALLOC_CAP_SPIRAM);
+  dat_files = al_calloc(DAT_FILES, sizeof(dat_file_t));
   if (dat_files == NULL) {
     ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
   }

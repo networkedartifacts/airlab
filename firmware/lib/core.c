@@ -168,3 +168,12 @@ al_trigger_t al_sleep(bool deep, uint64_t timeout) {
 
   return al_trigger();
 }
+
+void* al_calloc(size_t count, size_t size) {
+  // allocate memory from external RAM
+  void* ptr = heap_caps_calloc(count, size, MALLOC_CAP_SPIRAM);
+  if (ptr == NULL) {
+    ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
+  }
+  return ptr;
+}
