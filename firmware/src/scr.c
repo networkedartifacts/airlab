@@ -1,6 +1,7 @@
 #include <naos.h>
 #include <naos/sys.h>
 #include <naos/cpu.h>
+#include <naos/ble.h>
 #include <esp_err.h>
 #include <esp_system.h>
 #include <art32/numbers.h>
@@ -112,6 +113,7 @@ typedef struct {
   const char* usb__disconnected;
   const char* usb__active;
   const char* usb__eject;
+  const char* ble__active;
   const char* reset__confirm;
   const char* reset__reset;
   const char* settings__title;
@@ -162,6 +164,7 @@ static const scr_trans_t scr_trans_map[] = {
             .usb__disconnected = "USB nicht angeschlossen!",
             .usb__active = "USB-Modus Aktiv",
             .usb__eject = "USB-Verbindung getrennt",
+            .ble__active = "Bluetooth Pairing Aktive",
             .reset__confirm = "Air Lab\nwirklich zurücksetzen?",
             .reset__reset = "Air Lab\nerfolgreich zurückgesetzt!",
             .settings__title = "Einstellungen",
@@ -210,6 +213,7 @@ static const scr_trans_t scr_trans_map[] = {
             .usb__disconnected = "USB not connected!",
             .usb__active = "USB Mode Active",
             .usb__eject = "USB-Connection disconnected",
+            .ble__active = "Bluetooth Pairing Active",
             .reset__confirm = "Fully Reset Air Lab?",
             .reset__reset = "Air Lab\nsuccessfully reset!",
             .settings__title = "Settings",
@@ -1259,6 +1263,47 @@ static void* scr_usb() {
   return scr_menu;
 }
 
+static void* scr_ble() {
+  // set modal flag
+  hmi_set_flag(HMI_FLAG_MODAL);
+
+  // begin draw
+  gfx_begin(false, false);
+
+  // add title
+  lv_obj_t* title = lv_label_create(lv_scr_act());
+  lv_label_set_text(title, scr_trans()->ble__active);
+  lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+
+  // add signs
+  lvx_sign_t back = {
+      .title = "B",
+      .text = scr_trans()->back,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_create(&back, lv_scr_act());
+
+  // end draw
+  gfx_end(false, false);
+
+  // enable pairing
+  naos_ble_enable_pairing();
+
+  // await escape
+  sig_await(SIG_ESCAPE, 0);
+
+  // disable pairing
+  naos_ble_disable_pairing();
+
+  // cleanup
+  gui_cleanup(false);
+
+  // clear modal flag
+  hmi_clear_flag(HMI_FLAG_MODAL);
+
+  return scr_menu;
+}
+
 static void* scr_settings() {
   // get storage info
   al_storage_info_t info = al_storage_info();
@@ -1506,7 +1551,7 @@ static void* scr_develop() {
 static void* scr_menu() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
-  static int8_t opt = 0;   // create, explore, settings, usb, develop
+  static int8_t opt = 0;   // create, explore, settings, usb, ble, develop
   static bool fan_alt = false;
 
   // begin draw
@@ -1617,6 +1662,8 @@ static void* scr_menu() {
     } else if (opt == 3) {
       lv_img_set_src(icon, &img_usb);
     } else if (opt == 4) {
+      lv_img_set_src(icon, &img_ble);
+    } else if (opt == 5) {
       lv_img_set_src(icon, &img_wrench);
     }
 
@@ -1755,7 +1802,7 @@ static void* scr_menu() {
       continue;
     } else if (event.type == SIG_RIGHT) {
       opt++;
-      if (opt > 4) {
+      if (opt > 5) {
         opt = 0;
       }
       continue;
@@ -1790,7 +1837,9 @@ static void* scr_menu() {
           return scr_settings;
         case 3:  // usb
           return scr_usb;
-        case 4:  // develop
+        case 4:  // ble
+          return scr_ble;
+        case 5:  // develop
           return scr_develop;
         default:
           ESP_ERROR_CHECK(ESP_FAIL);

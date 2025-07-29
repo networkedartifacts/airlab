@@ -179,16 +179,24 @@ static void com_task() {
   // wait some time
   naos_delay(5000);
 
-  // install endpoint
+  // install custom endpoint
   naos_msg_install((naos_msg_endpoint_t){
       .ref = ENDPOINT,
       .name = "com",
       .handle = com_handle,
   });
 
-  // run network
-  naos_fs_install((naos_fs_config_t){.root = AL_STORAGE_ROOT});
-  naos_ble_init((naos_ble_config_t){});
+  // install filesystem endpoint
+  naos_fs_install((naos_fs_config_t){
+      .root = AL_STORAGE_ROOT,
+  });
+
+  // TODO: Also require bonding for more security?
+
+  // run network stack
+  naos_ble_init((naos_ble_config_t){
+      .pairing = true,
+  });
   naos_wifi_init();
   naos_mqtt_init(1);
 

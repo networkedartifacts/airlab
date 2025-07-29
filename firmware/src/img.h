@@ -14,6 +14,7 @@ extern const lv_img_dsc_t img_lab;
 extern const lv_img_dsc_t img_cog;
 extern const lv_img_dsc_t img_wrench;
 extern const lv_img_dsc_t img_usb;
+extern const lv_img_dsc_t img_ble;
 extern const lv_img_dsc_t img_file1;
 extern const lv_img_dsc_t img_file2;
 extern const lv_img_dsc_t img_folder;
