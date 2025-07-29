@@ -180,21 +180,6 @@ static void com_task() {
   // wait some time
   naos_delay(5000);
 
-  // install custom endpoint
-  naos_msg_install((naos_msg_endpoint_t){
-      .ref = ENDPOINT,
-      .name = "com",
-      .handle = com_handle,
-  });
-
-  // install filesystem endpoint
-  naos_fs_install((naos_fs_config_t){
-      .root = AL_STORAGE_ROOT,
-  });
-
-  // install authentication endpoint
-  naos_auth_install();
-
   // TODO: Also require bonding for more security?
 
   // run network stack
@@ -233,6 +218,21 @@ void com_init() {
   for (size_t i = 0; i < sizeof(com_params) / sizeof(naos_param_t); i++) {
     naos_register(&com_params[i]);
   }
+
+  // install custom endpoint
+  naos_msg_install((naos_msg_endpoint_t){
+      .ref = ENDPOINT,
+      .name = "com",
+      .handle = com_handle,
+  });
+
+  // install filesystem endpoint
+  naos_fs_install((naos_fs_config_t){
+      .root = AL_STORAGE_ROOT,
+  });
+
+  // install authentication endpoint
+  naos_auth_install();
 
   // run tasks
   naos_run("com", 4096, 1, com_task);
