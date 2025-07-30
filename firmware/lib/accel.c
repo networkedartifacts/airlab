@@ -29,9 +29,13 @@ static bool al_accel_read(uint8_t reg, uint8_t *val) {
 }
 
 static void al_accel_check() {
+  // lock mutex
+  naos_lock(al_accel_mutex);
+
   // read orientation
   uint8_t orientation = 0;
   if (!al_accel_read(0x28, &orientation)) {
+    naos_unlock(al_accel_mutex);
     return;
   }
 
@@ -49,10 +53,13 @@ static void al_accel_check() {
       .rotation = rot,
   };
 
-  // update state
-  naos_lock(al_accel_mutex);
+  // determine if state changed
   bool changed = state.front != al_accel_state.front || state.rotation != al_accel_state.rotation;
+
+  // update state
   al_accel_state = state;
+
+  // unlock mutex
   naos_unlock(al_accel_mutex);
 
   // dispatch state if changed
