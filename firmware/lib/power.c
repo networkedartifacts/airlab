@@ -56,6 +56,14 @@ static struct {
     };
     uint8_t raw;
   } reg2;
+  union {
+    struct {
+      uint8_t _omitted1 : 4;
+      uint8_t watchdog : 2;
+      uint8_t _omitted2 : 2;
+    };
+    uint8_t raw;
+  } reg5;
   // status
   union {
     struct {
@@ -225,6 +233,11 @@ void al_power_init() {
   ESP_ERROR_CHECK(adc1_config_channel_atten(AL_POWER_USB_CC2, ADC_ATTEN_DB_12));
   ESP_ERROR_CHECK(adc1_config_channel_atten(AL_POWER_BAT_LVL, ADC_ATTEN_DB_12));
   esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, ADC_WIDTH_BIT_12, 1100, &al_power_calib);
+
+  // increase watchdog timeout
+  al_power_read(0x05, &al_power_bq25601.reg5.raw, 1);
+  al_power_bq25601.reg5.watchdog = 0b10;  // 80 seconds
+  al_power_write(0x05, al_power_bq25601.reg5.raw);
 
   // mask interrupts
   al_power_write(0x0A, 0b11);
