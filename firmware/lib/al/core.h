@@ -34,6 +34,15 @@ al_trigger_t al_init();
 al_trigger_t al_sleep(bool deep, uint64_t timeout);
 
 /**
+ * Allocates memory from external RAM with the specified size. The function will
+ * abort if the allocation fails.
+ *
+ * @param size The number of bytes.
+ * @return Pointer to the allocated memory.
+ */
+void* al_alloc(size_t size);
+
+/**
  * Allocates memory from external RAM for an array of elements of a specified
  * size and initializes each byte to zero. The function will abort if the
  * allocation fails.
