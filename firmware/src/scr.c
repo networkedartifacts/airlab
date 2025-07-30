@@ -2087,7 +2087,7 @@ void scr_run(al_trigger_t trigger) {
   // handle return
   if (trigger == AL_BUTTON && scr_return_unlock != NULL) {
     scr_handler = scr_return_unlock;
-  } else if ((trigger == AL_TIMEOUT || trigger == AL_MOTION) && scr_return_timeout != NULL) {
+  } else if ((trigger == AL_TIMEOUT || trigger == AL_INTERRUPT) && scr_return_timeout != NULL) {
     scr_handler = scr_return_timeout;
   }
 

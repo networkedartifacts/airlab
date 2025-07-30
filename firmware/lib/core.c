@@ -32,12 +32,24 @@ static al_trigger_t al_trigger() {
     uint64_t status = esp_sleep_get_ext1_wakeup_status();
     if ((status & AL_BUTTONS) != 0) {
       return AL_BUTTON;
-    } else if ((status & BIT64(AL_ACCEL_INT)) != 0) {
-      return AL_MOTION;
+    } else if ((status & BIT64(AL_INT_IN)) != 0) {
+      return AL_INT_IN;
     }
   }
 
   return AL_RESET;
+}
+
+static void al_int_task() {
+  // check accelerometer
+  al_accel_check();
+}
+
+static void al_int_signal() {
+  // defer check
+  if (gpio_get_level(AL_INT_IN) == 0) {
+    naos_defer_isr(al_int_task);
+  }
 }
 
 al_trigger_t al_init() {
@@ -98,8 +110,19 @@ al_trigger_t al_init() {
   al_storage_init();
 
   // configure wakeup source
-  uint64_t pin_mask = AL_BUTTONS | BIT64(AL_ACCEL_INT);
+  uint64_t pin_mask = AL_BUTTONS | BIT64(AL_INT_IN);
   ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(pin_mask, ESP_EXT1_WAKEUP_ANY_LOW));
+
+  // setup interrupt
+  gpio_config_t cfg = {
+      .pin_bit_mask = BIT64(AL_INT_IN),
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .pull_down_en = GPIO_PULLDOWN_DISABLE,
+      .intr_type = GPIO_INTR_NEGEDGE,
+  };
+  ESP_ERROR_CHECK(gpio_config(&cfg));
+  ESP_ERROR_CHECK(gpio_isr_handler_add(AL_INT_IN, al_int_signal, NULL));
 
   return al_trigger();
 }

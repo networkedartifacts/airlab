@@ -28,7 +28,7 @@ static bool al_accel_read(uint8_t reg, uint8_t *val) {
   return err == ESP_OK;
 }
 
-static void al_accel_check() {
+void al_accel_check() {
   // lock mutex
   naos_lock(al_accel_mutex);
 
@@ -68,13 +68,6 @@ static void al_accel_check() {
   }
 }
 
-static void al_accel_signal() {
-  // defer check
-  if (gpio_get_level(AL_ACCEL_INT) == 0) {
-    naos_defer_isr(al_accel_check);
-  }
-}
-
 void al_accel_init(bool reset) {
   // perform reset
   if (reset) {
@@ -100,17 +93,6 @@ void al_accel_init(bool reset) {
 
   // create mutex
   al_accel_mutex = naos_mutex();
-
-  // setup interrupt
-  gpio_config_t cfg = {
-      .pin_bit_mask = BIT64(AL_ACCEL_INT),
-      .mode = GPIO_MODE_INPUT,
-      .pull_up_en = GPIO_PULLUP_ENABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_NEGEDGE,
-  };
-  ESP_ERROR_CHECK(gpio_config(&cfg));
-  ESP_ERROR_CHECK(gpio_isr_handler_add(AL_ACCEL_INT, al_accel_signal, NULL));
 
   // check immediately to clear interrupt
   al_accel_check();

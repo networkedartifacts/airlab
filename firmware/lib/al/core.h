@@ -8,10 +8,10 @@
  * The available triggers that can wake the device.
  */
 typedef enum {
-  AL_RESET,
-  AL_TIMEOUT,
-  AL_BUTTON,
-  AL_MOTION,
+  AL_RESET,     /**< The device was reset. */
+  AL_TIMEOUT,   /**< The device woke up after a timeout. */
+  AL_BUTTON,    /**< The device woke up due to a button press. */
+  AL_INTERRUPT, /**< The device woke up due to a motion or power interrupt. */
 } al_trigger_t;
 
 /**

@@ -10,7 +10,7 @@
 // data stored in RTC slow memory
 #define AL_KEEP RTC_DATA_ATTR
 
-#define AL_ACCEL_INT GPIO_NUM_16
+#define AL_INT_IN GPIO_NUM_16
 
 #define AL_BUTTONS_A GPIO_NUM_12
 #define AL_BUTTONS_B GPIO_NUM_17
@@ -33,6 +33,8 @@ void al_storage_init();
 void al_store_init();
 void al_touch_init(bool reset);
 void al_ulp_init(bool reset);
+
+void al_accel_check();
 
 void al_clock_update();
 
