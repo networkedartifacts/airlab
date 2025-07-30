@@ -16,11 +16,20 @@
 #define AL_POWER_USB_CC1 ADC1_CHANNEL_5  // IO6
 #define AL_POWER_USB_CC2 ADC1_CHANNEL_6  // IO7
 #define AL_POWER_BAT_LVL ADC1_CHANNEL_7  // IO8
+#define AL_POWER_SAMPLES 3
 #define AL_POWER_DEBUG false
+
+typedef struct {
+  int samples[AL_POWER_SAMPLES];
+  int index;
+} al_power_adc_t;
 
 static naos_mutex_t al_power_mutex;
 static esp_adc_cal_characteristics_t al_power_calib;
 static al_power_state_t al_power_state = {0};
+static al_power_adc_t al_power_adc_cc1 = {0};
+static al_power_adc_t al_power_adc_cc2 = {0};
+static al_power_adc_t al_power_adc_bat = {0};
 
 static struct {
   // config
@@ -95,15 +104,32 @@ static void al_power_write(uint8_t reg, uint8_t val) {
   ESP_ERROR_CHECK(al_i2c_transfer(AL_POWER_ADDR, data, 2, NULL, 0, 1000));
 }
 
+static int al_power_adc(al_power_adc_t *adc, adc_channel_t channel) {
+  // read ADC value
+  int raw = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(channel), &al_power_calib);
+
+  // update samples
+  adc->samples[adc->index] = raw;
+  adc->index = (adc->index + 1) % AL_POWER_SAMPLES;
+
+  // find max
+  int max = 0;
+  for (int i = 0; i < AL_POWER_SAMPLES; i++) {
+    max = adc->samples[i] > max ? adc->samples[i] : max;
+  }
+
+  return max;
+}
+
 void al_power_check() {
   // acquire mutex
   naos_lock(al_power_mutex);
 
   // read inputs
   bool low = gpio_get_level(AL_POWER_LOW) == 0;
-  int cc1 = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(AL_POWER_USB_CC1), &al_power_calib);
-  int cc2 = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(AL_POWER_USB_CC2), &al_power_calib);
-  int bat = (int)esp_adc_cal_raw_to_voltage(adc1_get_raw(AL_POWER_BAT_LVL), &al_power_calib) * 2;
+  int cc1 = al_power_adc(&al_power_adc_cc1, AL_POWER_USB_CC1);
+  int cc2 = al_power_adc(&al_power_adc_cc2, AL_POWER_USB_CC2);
+  int bat = al_power_adc(&al_power_adc_bat, AL_POWER_BAT_LVL) * 2;
   if (AL_POWER_DEBUG) {
     naos_log("al-pwr: inputs low=%d cc1=%dmV cc2=%dmV bat=%dmV", low, cc1, cc2, bat);
   }
