@@ -14,6 +14,18 @@ typedef struct {
 } al_power_state_t;
 
 /**
+ * The power hook.
+ */
+typedef void (*al_power_hook_t)(al_power_state_t);
+
+/**
+ * Configure the power controller.
+ *
+ * @param hook The power hook.
+ */
+void al_power_config(al_power_hook_t hook);
+
+/**
  * Returns the current power state.
  */
 al_power_state_t al_power_get();

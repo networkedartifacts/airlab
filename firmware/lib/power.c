@@ -25,6 +25,7 @@ typedef struct {
 } al_power_adc_t;
 
 static naos_mutex_t al_power_mutex;
+static al_power_hook_t al_power_hook;
 static esp_adc_cal_characteristics_t al_power_calib;
 static al_power_state_t al_power_state = {0};
 static al_power_adc_t al_power_adc_cc1 = {0};
@@ -164,11 +165,13 @@ void al_power_check() {
     }
   }
 
-  // set state
-  al_power_state.battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f);
-  al_power_state.usb = cc1 > 10 || cc2 > 10;
-  al_power_state.fast = cc1 > 700 || cc2 > 700;  // 1.5A
-  al_power_state.charging = charging;
+  // prepare state
+  al_power_state_t state = {
+      .battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
+      .usb = cc1 > 10 || cc2 > 10,
+      .fast = cc1 > 700 || cc2 > 700,  // 1.5A
+      .charging = charging,
+  };
   if (AL_POWER_DEBUG) {
     naos_log("al-pwr: state battery=%f usb=%d fast=%d", al_power_state.battery, al_power_state.usb,
              al_power_state.fast);
@@ -184,8 +187,19 @@ void al_power_check() {
   al_power_bq25601.reg1.wdt_rst = 1;
   al_power_write(0x01, al_power_bq25601.reg1.raw);
 
+  // determine if state changed
+  bool changed = state.usb != al_power_state.usb || state.charging != al_power_state.charging;
+
+  // update state
+  al_power_state = state;
+
   // release mutex
   naos_unlock(al_power_mutex);
+
+  // dispatch state if changed
+  if (changed && al_power_hook != NULL) {
+    al_power_hook(state);
+  }
 }
 
 void al_power_init() {
@@ -222,14 +236,17 @@ void al_power_init() {
   naos_repeat("al-pwr", 1000, al_power_check);
 }
 
-al_power_state_t al_power_get() {
-  // acquire mutex
+void al_power_config(al_power_hook_t hook) {
+  // set hook
   naos_lock(al_power_mutex);
+  al_power_hook = hook;
+  naos_unlock(al_power_mutex);
+}
 
-  // get state
+al_power_state_t al_power_get() {
+  // capture state
+  naos_lock(al_power_mutex);
   al_power_state_t state = al_power_state;
-
-  // release mutex
   naos_unlock(al_power_mutex);
 
   return state;
