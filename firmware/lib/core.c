@@ -43,6 +43,9 @@ static al_trigger_t al_trigger() {
 static void al_int_task() {
   // check accelerometer
   al_accel_check();
+
+  // check power
+  al_power_check();
 }
 
 static void al_int_signal() {

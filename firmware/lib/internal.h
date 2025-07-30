@@ -38,6 +38,8 @@ void al_accel_check();
 
 void al_clock_update();
 
+void al_power_check();
+
 void al_sensor_low_power(bool on, bool manual);
 
 void al_touch_sleep();
