@@ -1426,8 +1426,8 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info", "Sensor Data",  "Light Sleep",   "Deep Sleep",   "Power Reset", "Power Off",
-      "Ship Mode",   "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info",  NULL,
+      "System Info",   "Sensor Data",  "Light Sleep",   "Deep Sleep",   "Power Reset", "Power Off",
+      "Shipping Mode", "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info",  NULL,
   };
 
   for (;;) {
@@ -1493,7 +1493,7 @@ static void* scr_develop() {
     // handle ship mode
     if (selected == 6) {
       // show message
-      gui_write("Ship Mode\n\nConnect USB and\npress A to exit.");
+      gui_write("To exit shipping mode,\nplug in a USB-C cable,\nand press <A> to start.");
       naos_delay(1000);
 
       // enable ship mode
@@ -1804,7 +1804,7 @@ static void* scr_menu() {
     if (event.type == SIG_LEFT) {
       opt--;
       if (opt < 0) {
-        opt = 4;
+        opt = 5;
       }
       continue;
     } else if (event.type == SIG_RIGHT) {
