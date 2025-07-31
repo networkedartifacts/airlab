@@ -125,17 +125,20 @@ static void al_sensor_monitor() {
 
   // TODO: This could be improved.
 
+  // get time
+  int64_t now = al_clock_get_epoch();
+
   // handle initialization
   if (last_epoch == 0) {
-    last_epoch = al_clock_get_epoch();
+    last_epoch = now;
     return;
   }
 
   // get difference
-  int64_t diff = al_clock_get_epoch() - last_epoch;
+  int64_t diff = now - last_epoch;
 
   // update epoch
-  last_epoch = al_clock_get_epoch();
+  last_epoch = now;
 
   // stop if less than 1 minute
   if (diff < 60 * 1000 && diff > -60 * 1000) {

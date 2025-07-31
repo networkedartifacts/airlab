@@ -9,7 +9,7 @@
  * A single sample.
  */
 typedef struct __attribute__((packed)) {
-  int32_t off;  // ms
+  int32_t off;  // ms (~24 days)
   int16_t co2;  // ppm
   int16_t tmp;  // °C (shifted by 100)
   int16_t hum;  // % rH (shifted by 100)
