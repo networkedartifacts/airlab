@@ -16,7 +16,7 @@ RTC_FAST_ATTR static uint16_t al_store_count_short = 0;
 RTC_FAST_ATTR static uint16_t al_store_count_long = 0;
 RTC_FAST_ATTR static al_sample_t al_store_short[AL_STORE_NUM_SHORT] = {0};
 RTC_FAST_ATTR static al_sample_t al_store_long[AL_STORE_NUM_LONG] = {0};
-RTC_FAST_ATTR static int64_t al_store_epoch = 0;
+RTC_FAST_ATTR static int64_t al_store_base = 0;
 
 static size_t al_store_index(al_store_t store, int num) {
   // get store info
@@ -72,27 +72,27 @@ void al_store_set_interval(int interval) {
   naos_unlock(al_store_mutex);
 }
 
-int64_t al_store_get_epoch() {
+int64_t al_store_get_base() {
   // get base
   naos_lock(al_store_mutex);
-  int64_t base = al_store_epoch;
+  int64_t base = al_store_base;
   naos_unlock(al_store_mutex);
 
   return base;
 }
 
-void al_store_set_epoch(int64_t base) {
+void al_store_set_base(int64_t base) {
   // lock mutex
   naos_lock(al_store_mutex);
 
   // determine shift
-  int64_t shift = base - al_store_epoch;
+  int64_t shift = base - al_store_base;
   if (shift < 0) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
   // set base
-  al_store_epoch = base;
+  al_store_base = base;
 
   // update stores
   for (int i = 0; i < al_store_count_short; i++) {
@@ -228,7 +228,7 @@ static size_t al_store_source_count(void *ctx) {
 
 static int64_t al_store_source_start(void *ctx) {
   // return epoch based on oldest sample
-  return al_store_epoch + al_store_first().off;
+  return al_store_base + al_store_first().off;
 }
 
 static int32_t al_store_source_stop(void *ctx) {
