@@ -766,6 +766,10 @@ static void* scr_view() {
     chart_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(288, 96));
   }
 
+  // clear memory
+  memset(samples, 0, LVX_CHART_SIZE * sizeof(al_sample_t));
+  memset(chart_buffer, 0, LV_CANVAS_BUF_SIZE_TRUE_COLOR(288, 96));
+
   // find file, if not live
   dat_file_t* file = NULL;
   if (scr_file != 0) {
