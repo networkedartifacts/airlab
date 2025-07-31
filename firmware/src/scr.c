@@ -703,13 +703,9 @@ static void* scr_saver() {
         // sleep for one second (no return)
         al_trigger_t trigger = al_sleep(true, 60 * 1000);
 
-        // capture enter when unlocked
-        if (trigger == AL_BUTTON) {
-          sig_await(SIG_ENTER, 1000);
-        }
-
         // handle unlock
         if (trigger == AL_BUTTON) {
+          sig_await(SIG_ENTER, 1000);
           break;
         }
 
@@ -735,13 +731,9 @@ static void* scr_saver() {
       // light sleep for some time
       al_trigger_t trigger = al_sleep(false, timeout);
 
-      // capture enter when unlocked
-      if (trigger == AL_BUTTON) {
-        sig_await(SIG_ENTER, 1000);
-      }
-
       // handle unlock
       if (trigger == AL_BUTTON) {
+        sig_await(SIG_ENTER, 1000);
         break;
       }
     }
