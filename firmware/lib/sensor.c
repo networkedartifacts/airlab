@@ -18,7 +18,6 @@ static al_sensor_hook_t al_sensor_hook;
 AL_KEEP static al_sensor_hal_state_t al_sensor_state = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
-AL_KEEP static int64_t al_sensor_store_epoch = 0;
 
 static al_sensor_hal_err_t al_sensor_transfer(uint8_t target, uint8_t *wd, size_t wl, uint8_t *rd, size_t rl) {
   // perform transfer
@@ -49,7 +48,7 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
 
   // create sample
   al_sample_t sample = {
-      .off = (int32_t)(data.epoch - al_sensor_store_epoch),
+      .off = (int32_t)(data.epoch - al_store_get_base()),
       .co2 = (int16_t)co2,
       .tmp = (int16_t)(tmp * 100.f),
       .hum = (int16_t)(hum * 100.f),
@@ -162,25 +161,15 @@ void al_sensor_init(bool reset) {
     GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
   }
 
-  // get time
+  // get time and base
   int64_t now = al_clock_get_epoch();
+  int64_t store_base = al_store_get_base();
 
-  // handle zero store epoch
-  if (al_sensor_store_epoch == 0) {
-    al_sensor_store_epoch = now - 12 * 60 * 60 * 1000;
-    al_store_set_base(al_sensor_store_epoch);
-  }
+  // TODO: What happens if device is always plugged in?
 
-  // handle outdated store epoch
-  if (now - al_sensor_store_epoch > 24 * 60 * 60 * 1000) {
-    // determine shift
-    int64_t shift = (now - al_sensor_store_epoch) / 2;
-
-    // update epoch
-    al_sensor_store_epoch += shift;
-
-    // update store epoch
-    al_store_set_base(al_sensor_store_epoch);
+  // if zero, or older than 6 days, set store base to 5 days ago
+  if (store_base == 0 || now - store_base > 6 * 24 * 60 * 60 * 1000) {
+    al_store_set_base(now - 5 * 24 * 60 * 60 * 1000);
   }
 
   // ingest ULP readings

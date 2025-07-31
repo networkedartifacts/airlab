@@ -228,7 +228,7 @@ static size_t al_store_source_count(void *ctx) {
 
 static int64_t al_store_source_start(void *ctx) {
   // return epoch based on oldest sample
-  return al_store_base + al_store_first().off;
+  return al_store_get_base() + al_store_first().off;
 }
 
 static int32_t al_store_source_stop(void *ctx) {
