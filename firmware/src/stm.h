@@ -30,7 +30,7 @@ typedef struct {
   const char *text_de;
   const char *text_en;
   stm_mood_t mood;
-  bool exclaim;
+  bool urgent;
   stm_action_t action;
   float co2_min;
   float co2_max;
@@ -43,6 +43,6 @@ typedef struct {
 } stm_entry_t;
 
 stm_entry_t *stm_get(size_t i);
-stm_entry_t *stm_query(bool exclaim, stm_action_t action);
+stm_entry_t *stm_query(bool urgent, stm_action_t action);
 
 #endif  // STM_H

@@ -7,33 +7,33 @@
 #define STM_NUM (sizeof(stm_entries) / sizeof(stm_entry_t))
 
 stm_entry_t stm_entries[] = {
-    /* Exclaims */
+    /* Urgent */
     {
         .text_de = "Willkommen im Air Lab! Sieh dich doch einmal um. Berühren ist erlaubt!",
         .text_en = "Welcome to the Air Lab! Please look around. Touching is allowed!",
         .mood = STM_HAPPY,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_FROM_INTRO,
     },
     {
         .text_de = "Schmuuhhh, mir wird ganz schwindelig...",
         .text_en = "Ughhh, I'm getting dizzy...",
         .mood = STM_COLD,
-        .exclaim = true,
+        .urgent = true,
         .co2_min = 4000,
     },
     {
         .text_de = "Mir ist übel!",
         .text_en = "I feel sick!",
         .mood = STM_ANGRY1,
-        .exclaim = true,
+        .urgent = true,
         .co2_min = 3000,
     },
     {
         .text_de = "Ich kann hier kaum atmen!",
         .text_en = "I can hardly breathe here!",
         .mood = STM_ANGRY2,
-        .exclaim = true,
+        .urgent = true,
         .co2_min = 2000,
         .co2_max = 3000,
     },
@@ -41,7 +41,7 @@ stm_entry_t stm_entries[] = {
         .text_de = "Uuuu... ich bin müde.",
         .text_en = "Ugh... I'm tired.",
         .mood = STM_STANDING,
-        .exclaim = true,
+        .urgent = true,
         .co2_min = 1700,
         .co2_max = 2000,
     },
@@ -49,7 +49,7 @@ stm_entry_t stm_entries[] = {
         .text_de = "Jo, ich kann mich voll nicht konzentrieren.",
         .text_en = "Yo, I can't concentrate at all.",
         .mood = STM_ANGRY2,
-        .exclaim = true,
+        .urgent = true,
         .co2_min = 1400,
         .co2_max = 1700,
     },
@@ -57,14 +57,14 @@ stm_entry_t stm_entries[] = {
         .text_de = "Boa ey, ist das kalt hier!",
         .text_en = "Uff, it's cold in here!",
         .mood = STM_COLD,
-        .exclaim = true,
+        .urgent = true,
         .tmp_max = 10,
     },
     {
         .text_de = "Sag mal, sind wir im Regenwald?",
         .text_en = "Hey, are we in the rainforest?",
         .mood = STM_ANGRY1,
-        .exclaim = true,
+        .urgent = true,
         .tmp_min = 25,
         .hum_min = 70,
     },
@@ -72,73 +72,73 @@ stm_entry_t stm_entries[] = {
         .text_de = "Ahem, mega trocken hier!",
         .text_en = "Ahem, super dry here!",
         .mood = STM_COLD,
-        .exclaim = true,
+        .urgent = true,
         .hum_max = 30,
     },
     {
         .text_de = "So, dann lassen wir die Machine arbeiten.",
         .text_en = "So, let's let the machine work.",
         .mood = STM_WORKING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_START_MEASUREMENT,
     },
     {
         .text_de = "Cool, du hast deine Messung abgeschlossen!",
         .text_en = "Cool, you've completed your measurement!",
         .mood = STM_HAPPY,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_COMP_MEASUREMENT,
     },
     {
         .text_de = "Die Analyse ist der Anfang der Erkenntnis.",
         .text_en = "Analysis is the beginning of knowledge.",
         .mood = STM_POINTING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_FROM_ANALYSIS,
     },
     {
         .text_de = "Super, du hast gerade deine erste Messung gestartet!",
         .text_en = "Great, you've just started your first measurement!",
         .mood = STM_POINTING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_START_FIRST_MEASUREMENT,
     },
     {
         .text_de = "Ein sauberes Labor, ist die hälfte der Messung.",
         .text_en = "Maintaining a clean lab is half the measurement.",
         .mood = STM_POINTING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_DEL_MEASUREMENT,
     },
     {
         .text_de = "Ich bin am rechnen...",
         .text_en = "I'm calculating...",
         .mood = STM_WORKING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_FROM_MEASUREMENT,
     },
     {
         .text_de = "Hmmm...",
         .text_en = "Hmmm...",
         .mood = STM_WORKING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_FROM_MEASUREMENT,
     },
     {
         .text_de = "Ich mache gerade eine wichtige Messung...",
         .text_en = "I'm taking an important measurement...",
         .mood = STM_WORKING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_FROM_MEASUREMENT,
     },
     {
         .text_de = "(RH + 454) x 10^3/0.544 = ?",
         .text_en = "(RH + 454) x 10^3/0.544 = ?",
         .mood = STM_WORKING,
-        .exclaim = true,
+        .urgent = true,
         .action = STM_FROM_MEASUREMENT,
     },
-    /* Fun Facts */
+    /* Fun */
     {
         .text_de = "Ahhh... Ich liebe frische Luft!",
         .text_en = "Ahhh... I love fresh air!",
@@ -215,7 +215,7 @@ stm_entry_t* stm_get(size_t i) {
   return i < STM_NUM ? &stm_entries[i] : NULL;
 }
 
-stm_entry_t* stm_query(bool exclaim, stm_action_t action) {
+stm_entry_t* stm_query(bool urgent, stm_action_t action) {
   // get last sample
   al_sample_t sample = al_store_last();
 
@@ -236,8 +236,8 @@ stm_entry_t* stm_query(bool exclaim, stm_action_t action) {
     // set selection
     entry->selected = true;
 
-    // check exclaim
-    if (entry->exclaim != exclaim) {
+    // check urgency
+    if (entry->urgent != urgent) {
       entry->selected = false;
       continue;
     }

@@ -1842,7 +1842,7 @@ static void* scr_menu() {
   int64_t deadline = naos_millis() + SCR_IDLE_TIMEOUT;
 
   // prepare flags
-  bool exclaim = true;
+  bool urgent = true;
   bool fun = false;
 
   // prepare statement
@@ -1865,8 +1865,8 @@ static void* scr_menu() {
     al_sample_pick(&source, (al_sample_field_t)mode, SCR_HIST_POINTS, values, &min, &max);
 
     // query statement
-    if (statement == NULL && (exclaim || fun)) {
-      statement = stm_query(exclaim, scr_action);
+    if (statement == NULL && (urgent || fun)) {
+      statement = stm_query(urgent, scr_action);
     }
 
     // begin draw
@@ -1978,7 +1978,7 @@ static void* scr_menu() {
     gfx_end(false, false);
 
     // clear flags
-    exclaim = false;
+    urgent = false;
     fun = false;
 
     // await event
