@@ -76,6 +76,13 @@ stm_entry_t stm_entries[] = {
         .hum_max = 30,
     },
     {
+        .text_de = "So, dann lassen wir die Machine arbeiten.",
+        .text_en = "So, let's let the machine work.",
+        .mood = STM_WORKING,
+        .exclaim = true,
+        .action = STM_START_MEASUREMENT,
+    },
+    {
         .text_de = "Cool, du hast deine Messung abgeschlossen!",
         .text_en = "Cool, you've completed your measurement!",
         .mood = STM_HAPPY,
@@ -95,6 +102,13 @@ stm_entry_t stm_entries[] = {
         .mood = STM_POINTING,
         .exclaim = true,
         .action = STM_START_FIRST_MEASUREMENT,
+    },
+    {
+        .text_de = "Ein sauberes Labor, ist die hälfte der Messung.",
+        .text_en = "Maintaining a clean lab is half the measurement.",
+        .mood = STM_POINTING,
+        .exclaim = true,
+        .action = STM_DEL_MEASUREMENT,
     },
     {
         .text_de = "Ich bin am rechnen...",

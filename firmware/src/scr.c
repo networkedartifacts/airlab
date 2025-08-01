@@ -1258,6 +1258,9 @@ static void* scr_edit() {
       dat_delete(file->head.num);
       gui_message(lvx_fmt(scr_trans()->delete__deleted, num), 2000);
 
+      // set action
+      scr_action = STM_DEL_MEASUREMENT;
+
       return scr_explore;
     }
 

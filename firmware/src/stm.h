@@ -13,6 +13,7 @@ typedef enum {
   STM_START_MEASUREMENT = 5,
   STM_START_FIRST_MEASUREMENT = 6,
   STM_COMP_MEASUREMENT = 7,
+  STM_DEL_MEASUREMENT = 8,
 } stm_action_t;
 
 typedef enum {
