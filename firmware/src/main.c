@@ -55,6 +55,7 @@ static void setup() {
 }
 
 static naos_param_t params[] = {
+    {.name = "language", .type = NAOS_STRING},
     {.name = "storage", .type = NAOS_DOUBLE},
     {.name = "long-interval", .type = NAOS_LONG, .default_l = 60},
     {.name = "developer", .type = NAOS_BOOL, .default_b = false},

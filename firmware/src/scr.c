@@ -79,8 +79,16 @@ typedef enum {
   SCR_EN,
 } scr_lang_t;
 
-// TODO: Make settings persistent.
-static scr_lang_t scr_lang = SCR_EN;
+scr_lang_t scr_lang() {
+  // get language
+  const char* lang = naos_get_s("language");
+  if (strcmp(lang, "en") == 0) {
+    return SCR_EN;
+  } else if (strcmp(lang, "de") == 0) {
+    return SCR_DE;
+  }
+  return SCR_EN;
+}
 
 typedef struct {
   const char* yes;
@@ -240,7 +248,7 @@ static const scr_trans_t scr_trans_map[] = {
 
 static const scr_trans_t* scr_trans() {
   // return translation
-  return &scr_trans_map[scr_lang];
+  return &scr_trans_map[scr_lang()];
 }
 
 /* Formatters */
@@ -438,7 +446,7 @@ static void* scr_bubbles() {
     gfx_begin(false, false);
 
     // set bubble text
-    switch (scr_lang) {
+    switch (scr_lang()) {
       case SCR_DE:
         bubble.text = stm_get(index)->text_de;
         break;
@@ -1953,7 +1961,7 @@ static void* scr_menu() {
     lv_canvas_draw_rect(drain, 1, 1 + 9 - drain_height, 20, drain_height, &rect_dsc);
 
     // set bubble text
-    switch (scr_lang) {
+    switch (scr_lang()) {
       case SCR_DE:
         bubble.text = statement ? statement->text_de : NULL;
         break;
@@ -2112,13 +2120,14 @@ static void* scr_language() {
 
   // select language
   const char* labels[] = {"Deutsch", "English", NULL};
-  int selected = gui_list_strings(scr_lang, &offset, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
+  int selected = gui_list_strings(scr_lang(), &offset, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
   if (selected < 0) {
     return scr_settings;
   }
 
   // set language
-  scr_lang = selected;
+  const char * langs[] = {"de", "en"};
+  naos_set_s("language", langs[selected]);
 
   return scr_settings;
 }
