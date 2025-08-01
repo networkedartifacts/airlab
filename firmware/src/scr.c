@@ -758,7 +758,7 @@ static void* scr_saver() {
 static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
-  static bool advanced = false; // TODO: Rename to precision?
+  static bool precision = false;
 
   // allocate sample buffer
   static al_sample_t* samples = NULL;
@@ -839,7 +839,7 @@ static void* scr_view() {
     int32_t resolution = source_stop / LVX_CHART_SIZE;
     if (recording) {
       resolution = SCR_MIN_RESOLUTION;
-    } else if (advanced) {
+    } else if (precision) {
       resolution = source_stop / 10 / LVX_CHART_SIZE;
     }
     if (resolution < SCR_MIN_RESOLUTION) {
@@ -856,7 +856,7 @@ static void* scr_view() {
         end += start * -1;
         start = 0;
       }
-    } else if (advanced) {
+    } else if (precision) {
       start = position - LVX_CHART_SIZE / 2 * resolution;
       end = position + LVX_CHART_SIZE / 2 * resolution;
       if (start < 0) {
@@ -905,7 +905,7 @@ static void* scr_view() {
     al_clock_epoch_time(source_start + (int64_t)current.off, &hour, &minute, NULL);
 
     // begin draw
-    gfx_begin(false, advanced);
+    gfx_begin(false, precision);
 
     // update bar
     bar.time = lvx_fmt("%02d:%02d", hour, minute);
@@ -945,7 +945,7 @@ static void* scr_view() {
         .range = range,
         .values = values,
         .marks = marks,
-        .arrows = advanced,
+        .arrows = precision,
         .offset = source_start,
         .start = start,
         .end = end,
@@ -994,9 +994,9 @@ static void* scr_view() {
 
     // handle escape
     if (event.type == SIG_ESCAPE) {
-      // handle advanced
-      if (advanced) {
-        advanced = false;
+      // handle precision mode
+      if (precision) {
+        precision = false;
         continue;
       }
 
@@ -1057,8 +1057,8 @@ static void* scr_view() {
         return scr_view();
       }
 
-      // enter advanced mode
-      advanced = true;
+      // enter precision mode
+      precision = true;
 
       continue;
     }
