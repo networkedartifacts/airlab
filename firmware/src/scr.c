@@ -93,6 +93,7 @@ typedef struct {
   const char* exit__stop;
   const char* exit__back;
   const char* exit__stopped;
+  const char* view__not_enough;
   const char* create__full;
   const char* create__name;
   const char* create__length;
@@ -145,6 +146,7 @@ static const scr_trans_t scr_trans_map[] = {
             .exit__stop = "Messung beenden",
             .exit__back = "Zurück zum Labor",
             .exit__stopped = "%s\n beendet!",
+            .view__not_enough = "Nicht genug Daten\nfür Präzisionsmodus.",
             .create__full = "Speicher voll!",
             .create__name = "Messung %u",
             .create__length = "Länge min. %d Stunden",
@@ -195,6 +197,7 @@ static const scr_trans_t scr_trans_map[] = {
             .exit__stop = "Stop measurement",
             .exit__back = "Go back to Lab",
             .exit__stopped = "%s\n stopped!",
+            .view__not_enough = "Not enough data\nfor precision mode.",
             .create__full = "Storage full!",
             .create__name = "Measurement %u",
             .create__length = "Length min. %d hours",
@@ -755,7 +758,7 @@ static void* scr_saver() {
 static void* scr_view() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
-  static bool advanced = false;
+  static bool advanced = false; // TODO: Rename to precision?
 
   // allocate sample buffer
   static al_sample_t* samples = NULL;
@@ -1039,13 +1042,24 @@ static void* scr_view() {
       return scr_edit;
     }
 
-    // add mark on enter
+    // handle enter key
     if (event.type == SIG_ENTER) {
+      // add mark when recording
       if (recording) {
         rec_mark();
-      } else {
-        advanced = true;
+        continue;
       }
+
+      // cancel advanced mode if too less
+      if (source_count < LVX_CHART_SIZE) {
+        gui_cleanup(false);
+        gui_message(scr_trans()->view__not_enough, 2000);
+        return scr_view();
+      }
+
+      // enter advanced mode
+      advanced = true;
+
       continue;
     }
 
