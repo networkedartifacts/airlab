@@ -96,6 +96,34 @@ stm_entry_t stm_entries[] = {
         .exclaim = true,
         .action = STM_START_FIRST_MEASUREMENT,
     },
+    {
+        .text_de = "Ich bin am rechnen...",
+        .text_en = "I'm calculating...",
+        .mood = STM_WORKING,
+        .exclaim = true,
+        .action = STM_FROM_MEASUREMENT,
+    },
+    {
+        .text_de = "Hmmm...",
+        .text_en = "Hmmm...",
+        .mood = STM_WORKING,
+        .exclaim = true,
+        .action = STM_FROM_MEASUREMENT,
+    },
+    {
+        .text_de = "Ich mache gerade eine wichtige Messung...",
+        .text_en = "I'm taking an important measurement...",
+        .mood = STM_WORKING,
+        .exclaim = true,
+        .action = STM_FROM_MEASUREMENT,
+    },
+    {
+        .text_de = "(RH + 454) x 10^3/0.544 = ?",
+        .text_en = "(RH + 454) x 10^3/0.544 = ?",
+        .mood = STM_WORKING,
+        .exclaim = true,
+        .action = STM_FROM_MEASUREMENT,
+    },
     /* Fun Facts */
     {
         .text_de = "Ahhh... Ich liebe frische Luft!",
@@ -165,30 +193,6 @@ stm_entry_t stm_entries[] = {
         .text_de = "Ein Kubikmeter CO2 wiegt 1.98 kg.",
         .text_en = "One cubic meter of CO2 weighs 1.98 kg.",
         .mood = STM_POINTING,
-    },
-    {
-        .text_de = "Ich bin am rechnen...",
-        .text_en = "I'm calculating...",
-        .mood = STM_WORKING,
-        .action = STM_FROM_MEASUREMENT,
-    },
-    {
-        .text_de = "Hmmm...",
-        .text_en = "Hmmm...",
-        .mood = STM_WORKING,
-        .action = STM_FROM_MEASUREMENT,
-    },
-    {
-        .text_de = "Ich mache gerade eine wichtige Messung...",
-        .text_en = "I'm taking an important measurement...",
-        .mood = STM_WORKING,
-        .action = STM_FROM_MEASUREMENT,
-    },
-    {
-        .text_de = "(RH + 454) x 10^3/0.544 = ?",
-        .text_en = "(RH + 454) x 10^3/0.544 = ?",
-        .mood = STM_WORKING,
-        .action = STM_FROM_MEASUREMENT,
     },
 };
 
