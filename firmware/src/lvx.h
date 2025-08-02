@@ -8,6 +8,7 @@
 /* Formatting */
 
 const char *lvx_fmt(const char *fmt, ...);
+const char *lvx_truncate(const char *str, size_t max_len);
 
 /* Wheel */
 

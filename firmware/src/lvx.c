@@ -46,6 +46,55 @@ const char* lvx_fmt(const char* fmt, ...) {
   return str;
 }
 
+const char* lvx_truncate(const char* str, size_t max_len) {
+  // prepare global storage
+  static char buffers[4][64];
+  static uint8_t num = 0;
+
+  // select string
+  char* buf = buffers[num];
+  if (++num >= 4) {
+    num = 0;
+  }
+
+  // handle null or empty string
+  if (!str || max_len == 0) {
+    buf[0] = '\0';
+    return buf;
+  }
+
+  // get string length
+  size_t len = strlen(str);
+
+  // if string fits, return as-is
+  if (len <= max_len) {
+    strncpy(buf, str, sizeof(buffers[0]) - 1);
+    buf[sizeof(buffers[0]) - 1] = '\0';
+    return buf;
+  }
+
+  // truncate with ellipsis
+  if (max_len >= 3) {
+    // copy up to max_len-3 chars, then add "..."
+    size_t copy_len = max_len - 3;
+    if (copy_len >= sizeof(buffers[0]) - 4) {
+      copy_len = sizeof(buffers[0]) - 4;
+    }
+    strncpy(buf, str, copy_len);
+    strcpy(buf + copy_len, "...");
+  } else {
+    // too short for ellipsis, just truncate
+    size_t copy_len = max_len;
+    if (copy_len >= sizeof(buffers[0])) {
+      copy_len = sizeof(buffers[0]) - 1;
+    }
+    strncpy(buf, str, copy_len);
+    buf[copy_len] = '\0';
+  }
+
+  return buf;
+}
+
 /* Wheel */
 
 static void lvx_wheel_refocus(lvx_wheel_t* wheel, bool focused) {
