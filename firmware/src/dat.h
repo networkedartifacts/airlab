@@ -41,7 +41,7 @@ void dat_delete(uint16_t num);
 
 al_sample_source_t dat_source(uint16_t num);
 
-bool dat_import(uint16_t num, dat_progress_t progress);
+bool dat_import(uint16_t num, int start, dat_progress_t progress);
 bool dat_export(uint16_t num, dat_progress_t progress);
 
 void dat_reset();

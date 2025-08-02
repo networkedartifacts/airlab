@@ -1188,7 +1188,7 @@ static void* scr_create() {
 
       // perform import
       gui_progress_start("Importing...");
-      dat_import(scr_file, gui_progress_update);
+      dat_import(scr_file, 0, gui_progress_update);
       gui_cleanup(false);
 
       // clear flag

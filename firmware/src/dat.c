@@ -458,7 +458,7 @@ al_sample_source_t dat_source(uint16_t num) {
   };
 }
 
-bool dat_import(uint16_t num, dat_progress_t progress) {
+bool dat_import(uint16_t num, int start, dat_progress_t progress) {
   // find file
   dat_file_t *file = dat_find(num, NULL);
   if (file == NULL) {
@@ -481,7 +481,7 @@ bool dat_import(uint16_t num, dat_progress_t progress) {
   }
 
   // append samples
-  for (size_t i = 0; i < count; i += 32) {
+  for (size_t i = start; i < count; i += 32) {
     // read samples
     size_t n = DAT_MIN(count - i, 32);
     al_sample_t samples[32];
