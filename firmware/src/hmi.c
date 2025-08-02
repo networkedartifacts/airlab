@@ -24,6 +24,7 @@
 #define HMI_LED_RED 0.8f, 0.02f, 0.02f
 #define HMI_LED_WHITE .7f, .15f, .2f
 
+static bool hmi_power_light = true;
 static naos_mutex_t hmi_mutex;
 static float hmi_touch_scroll = 0;
 static float hmi_touch_scroll_fast = 0;
@@ -242,9 +243,9 @@ static void hmi_led_check() {
   al_power_state_t state = al_power_get();
 
   // set LED
-  if (state.charging) {
+  if (hmi_power_light && state.charging) {
     al_led_flash(HMI_LED_SLOW, HMI_LED_WHITE);
-  } else if (state.usb) {
+  } else if (hmi_power_light && state.usb) {
     al_led_set(HMI_LED_WHITE);
   } else {
     al_led_set(HMI_LED_OFF);
@@ -254,7 +255,15 @@ static void hmi_led_check() {
   naos_unlock(hmi_mutex);
 }
 
+static naos_param_t hmi_params[] = {
+    {.name = "power-light", .type = NAOS_BOOL, .sync_b = &hmi_power_light, .default_b = true}};
+
 void hmi_init() {
+  // register parameters
+  for (int i = 0; i < sizeof(hmi_params) / sizeof(naos_param_t); i++) {
+    naos_register(&hmi_params[i]);
+  }
+
   // create mutex
   hmi_mutex = naos_mutex();
 
