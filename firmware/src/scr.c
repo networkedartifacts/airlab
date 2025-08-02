@@ -94,6 +94,8 @@ typedef struct {
   const char* no;
   const char* back;
   const char* next;
+  const char* change;
+  const char* save;
   const char* cancel;
   const char* measurement;
   const char* recording;
@@ -131,8 +133,15 @@ typedef struct {
   const char* settings__date_time;
   const char* settings__about;
   const char* settings__language;
+  const char* settings__config;
   const char* settings__off;
   const char* settings__reset;
+  const char* config__long_interval;
+  const char* config__developer;
+  const char* config__power_light;
+  const char* config__mqtt_ha;
+  const char* config__mqtt_topic;
+  const char* config__studio;
   const char* menu__no_data;
   const char* intro__hello1;
   const char* intro__hello2;
@@ -149,6 +158,8 @@ static const scr_trans_t scr_trans_map[] = {
             .no = "Nein",
             .back = "Zurück",
             .next = "Weiter",
+            .change = "Ändern",
+            .save = "Speichern",
             .cancel = "Abbrechen",
             .measurement = "Messung %u",
             .recording = "Messung läuft!",
@@ -186,8 +197,15 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__date_time = "Datum & Zeit",
             .settings__about = "Über",
             .settings__language = "Sprache",
+            .settings__config = "Konfiguration",
             .settings__off = "Ausschalten",
             .settings__reset = "Zurücksetzen",
+            .config__long_interval = "Speicher-Intervall",
+            .config__developer = "Entwicklermodus",
+            .config__power_light = "Power-LED",
+            .config__mqtt_ha = "MQTT Home Assistant",
+            .config__mqtt_topic = "MQTT HA Topic",
+            .config__studio = "Verwende Air Lab Studio\num diesen Wert zu ändern.",
             .menu__no_data = "Keine Daten",
             .intro__hello1 = "Hi! Ich bin Professor Robin,\nWissenschaftsleiter am Air Lab.",
             .intro__hello2 = "Da bin ich eben kurz eingenickt.\nSag mal wie spät ist es?",
@@ -202,6 +220,8 @@ static const scr_trans_t scr_trans_map[] = {
             .no = "No",
             .back = "Back",
             .next = "Next",
+            .change = "Change",
+            .save = "Save",
             .cancel = "Cancel",
             .measurement = "Measurement %u",
             .recording = "Measurement running!",
@@ -239,8 +259,15 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__about = "About",
             .settings__date_time = "Date & Time",
             .settings__language = "Language",
+            .settings__config = "Configuration",
             .settings__off = "Power Off",
             .settings__reset = "Reset",
+            .config__long_interval = "Long Interval",
+            .config__developer = "Developer Mode",
+            .config__power_light = "Power Light",
+            .config__mqtt_ha = "MQTT Home Assistant",
+            .config__mqtt_topic = "MQTT HA Topic",
+            .config__studio = "Use Air Lab Studio\nto change this value.",
             .menu__no_data = "No Data",
             .intro__hello1 = "Hi! I'm Professor Robin,\nhead of sciences at Air Lab.",
             .intro__hello2 = "I dozed off for a bit...\nCan you tell me the time?",
@@ -285,7 +312,6 @@ static void* scr_explore();
 static void* scr_menu();
 static void* scr_settings();
 static void* scr_develop();
-static void* scr_language();
 
 static bool scr_time() {
   // begin draw
@@ -1024,7 +1050,7 @@ static void* scr_view() {
       if (source_count < LVX_CHART_SIZE) {
         gui_cleanup(false);
         gui_message(scr_trans()->view__not_enough, 2000);
-        return scr_view();
+        return scr_view;
       }
 
       // enter precision mode
@@ -1491,6 +1517,112 @@ static void* scr_about() {
   }
 }
 
+static gui_list_item_t scr_config_cb(int num, void* ctx) {
+  // get translation
+  const scr_trans_t* t = scr_trans();
+
+  // handle config items
+  switch (num) {
+    case 0: {
+      return (gui_list_item_t){
+          .title = t->config__long_interval,
+          .info = lvx_fmt("%lds", naos_get_l("long-interval")),
+      };
+    }
+    case 1: {
+      return (gui_list_item_t){
+          .title = t->config__developer,
+          .info = naos_get_b("developer") ? t->yes : t->no,
+      };
+    }
+    case 2: {
+      return (gui_list_item_t){
+          .title = t->config__power_light,
+          .info = naos_get_b("power-light") ? t->yes : t->no,
+      };
+    }
+    case 3: {
+      return (gui_list_item_t){
+          .title = t->config__mqtt_ha,
+          .info = naos_get_b("mqtt-ha") ? t->yes : t->no,
+      };
+    }
+    case 4: {
+      return (gui_list_item_t){
+          .title = t->config__mqtt_topic,
+          .info = naos_get_s("mqtt-ha-topic"),
+      };
+    }
+    default:
+      ESP_ERROR_CHECK(ESP_FAIL);
+      return (gui_list_item_t){0};
+  }
+}
+
+static void* scr_config() {
+  // prepare state
+  static int offset = 0;
+  static int selected = 0;
+
+  // get translation
+  const scr_trans_t* t = scr_trans();
+
+  for (;;) {
+    // select parameter
+    int choice = gui_list(5, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    if (choice < 0) {
+      return scr_settings;
+    }
+
+    // store choice
+    selected = choice;
+
+    // handle choice
+    switch (choice) {
+      case 0: {
+        // use wheel to change long interval
+        int32_t value = naos_get_l("long-interval");
+        if (gui_wheel(t->config__long_interval, &value, 30, 10, 900, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
+          naos_set_l("long-interval", value);
+        }
+
+        break;
+      }
+
+      case 1: {
+        // toggle developer mode
+        naos_set_b("developer", !naos_get_b("developer"));
+
+        break;
+      }
+
+      case 2: {
+        // toggle power light
+        naos_set_b("power-light", !naos_get_b("power-light"));
+
+        break;
+      }
+
+      case 3: {
+        // toggle MQTT Home Assistant integration
+        naos_set_b("mqtt-ha", !naos_get_b("mqtt-ha"));
+
+        break;
+      }
+
+      case 4: {
+        // defer to Air Lab Studio
+        gui_message(t->config__studio, SCR_ACTION_TIMEOUT);
+
+        break;
+      }
+
+      default:
+        ESP_ERROR_CHECK(ESP_FAIL);
+    }
+  }
+}
+
 static void* scr_settings() {
   // get storage info
   al_storage_info_t info = al_storage_info();
@@ -1526,9 +1658,9 @@ static void* scr_settings() {
       .text = scr_trans()->back,
       .align = LV_ALIGN_BOTTOM_LEFT,
   };
-  lvx_sign_t lang = {
+  lvx_sign_t config = {
       .title = "↓",
-      .text = scr_trans()->settings__language,
+      .text = scr_trans()->settings__config,
       .align = LV_ALIGN_BOTTOM_RIGHT,
       .offset = -50,
   };
@@ -1548,7 +1680,7 @@ static void* scr_settings() {
   lvx_sign_create(&reset, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
   lvx_sign_create(&off, lv_scr_act());
-  lvx_sign_create(&lang, lv_scr_act());
+  lvx_sign_create(&config, lv_scr_act());
 
   // end draw
   gfx_end(false, false);
@@ -1620,7 +1752,7 @@ static void* scr_settings() {
   // handle event
   switch (event.type) {
     case SIG_DOWN:
-      return scr_language;
+      return scr_config;
     case SIG_ENTER:
       return scr_about;
     case SIG_ESCAPE:
@@ -2068,24 +2200,6 @@ static void* scr_menu() {
       }
     }
   }
-}
-
-static void* scr_language() {
-  // prepare state
-  static int offset = 0;
-
-  // select language
-  const char* labels[] = {"Deutsch", "English", NULL};
-  int selected = gui_list_strings(scr_lang(), &offset, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
-  if (selected < 0) {
-    return scr_settings;
-  }
-
-  // set language
-  const char* langs[] = {"de", "en"};
-  naos_set_s("language", langs[selected]);
-
-  return scr_settings;
 }
 
 static void* scr_intro() {
