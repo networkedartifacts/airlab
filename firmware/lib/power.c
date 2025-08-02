@@ -107,10 +107,15 @@ static bool al_power_read(uint8_t reg, uint8_t *buf, size_t len) {
   return err == ESP_OK;
 }
 
-static void al_power_write(uint8_t reg, uint8_t val) {
+static void al_power_write(uint8_t reg, uint8_t val, bool may_fail) {
   // write data
   uint8_t data[2] = {reg, val};
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_POWER_ADDR, data, 2, NULL, 0, 1000));
+  esp_err_t err = al_i2c_transfer(AL_POWER_ADDR, data, 2, NULL, 0, 1000);
+  if (may_fail) {
+    ESP_ERROR_CHECK_WITHOUT_ABORT(err);
+  } else {
+    ESP_ERROR_CHECK(err);
+  }
 }
 
 static int al_power_adc(al_power_adc_t *adc, adc_channel_t channel) {
@@ -188,12 +193,12 @@ void al_power_check() {
   // update max current setting to 900mA
   if (al_power_state.charging && al_power_state.fast != fast_charge) {
     al_power_bq25601.reg0.iindpm = al_power_state.fast ? 0x8 : 0x4;
-    al_power_write(0x00, al_power_bq25601.reg0.raw);
+    al_power_write(0x00, al_power_bq25601.reg0.raw, true);
   }
 
   // reset watchdog
   al_power_bq25601.reg1.wdt_rst = 1;
-  al_power_write(0x01, al_power_bq25601.reg1.raw);
+  al_power_write(0x01, al_power_bq25601.reg1.raw, true);
 
   // determine if state changed
   bool changed = state.usb != al_power_state.usb || state.charging != al_power_state.charging;
@@ -237,10 +242,10 @@ void al_power_init() {
   // increase watchdog timeout
   al_power_read(0x05, &al_power_bq25601.reg5.raw, 1);
   al_power_bq25601.reg5.watchdog = 0b10;  // 80 seconds
-  al_power_write(0x05, al_power_bq25601.reg5.raw);
+  al_power_write(0x05, al_power_bq25601.reg5.raw, false);
 
   // mask interrupts
-  al_power_write(0x0A, 0b11);
+  al_power_write(0x0A, 0b11, false);
 
   // check power
   al_power_check();
@@ -295,7 +300,7 @@ void al_power_ship() {
   settings &= ~0x8;
 
   // write settings
-  al_power_write(0x07, settings);
+  al_power_write(0x07, settings, false);
 
   // delay
   naos_delay(2000);
@@ -306,5 +311,5 @@ void al_power_ship() {
   settings &= ~0x20;
 
   // write settings
-  al_power_write(0x07, settings);
+  al_power_write(0x07, settings, false);
 }
