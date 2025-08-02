@@ -17,7 +17,6 @@
 #define DAT_DATA_DIR "data"
 #define DAT_EXPORT_DIR "export"
 #define DAT_DUMP_DIR "dump"
-#define DAT_COUNTER "counter.bin"
 #define DAT_NAME_FMT "file-%04u.bin"
 #define DAT_EXPORT_FMT "file-%04u.csv"
 #define DAT_FILES 128
@@ -26,11 +25,9 @@
 
 #define DAT_MIN(x, y) (((x) < (y)) ? (x) : (y))
 
-static uint16_t dat_counter;
+static int32_t dat_counter = 0;
 static dat_file_t *dat_files;
 static size_t dat_files_length = 0;
-
-// TODO: Handle file overflow.
 
 static void dat_read_file(const char *dir, const char *name, void *buf, size_t offset, size_t length) {
   // prepare path
@@ -133,7 +130,16 @@ static void dat_eject() {
   });
 }
 
+static naos_param_t dat_params[] = {
+    {.name = "file-counter", .type = NAOS_LONG, .sync_l = &dat_counter, .default_l = 0},
+};
+
 void dat_init() {
+  // register params
+  for (size_t i = 0; i < sizeof(dat_params) / sizeof(naos_param_t); i++) {
+    naos_register(&dat_params[i]);
+  }
+
   // allocate files
   dat_files = al_calloc(DAT_FILES, sizeof(dat_file_t));
 
@@ -164,14 +170,6 @@ void dat_init() {
 
     // handle specials
     if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-      continue;
-    }
-
-    // handle counter
-    if (strcmp(entry->d_name, DAT_COUNTER) == 0) {
-      uint16_t counter = 0;
-      dat_read_file(DAT_DATA_DIR, entry->d_name, (uint8_t *)&counter, 0, sizeof(counter));
-      dat_counter = counter;
       continue;
     }
 
@@ -275,9 +273,13 @@ uint16_t dat_next() {
 }
 
 uint16_t dat_create(int64_t start) {
+  // increment counter
+  int32_t counter = dat_counter + 1;
+  naos_set_l("file-counter", counter);
+
   // prepare head
   dat_head_t head = {
-      .num = dat_counter + 1,
+      .num = counter,
       .start = start,
   };
 
@@ -293,18 +295,12 @@ uint16_t dat_create(int64_t start) {
   // write file
   dat_write_file(DAT_DATA_DIR, name, &head, 0, sizeof(head), true);
 
-  // write counter
-  dat_write_file(DAT_DATA_DIR, DAT_COUNTER, &head.num, 0, sizeof(head.num), true);
-
   // prepare file
   dat_file_t file = {.head = head};
 
   // add file
   dat_files[dat_files_length] = file;
   dat_files_length++;
-
-  // set counter
-  dat_counter = head.num;
 
   return head.num;
 }
@@ -600,8 +596,7 @@ void dat_reset() {
   // reset storage
   al_storage_reset();
 
-  // reset counter and length
-  dat_counter = 0;
+  // reset length
   dat_files_length = 0;
 }
 
