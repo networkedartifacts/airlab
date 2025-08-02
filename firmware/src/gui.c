@@ -335,3 +335,67 @@ int gui_list_strings(int start, int* offset, const char** strings, const char* s
 
   return ret;
 }
+
+bool gui_wheel(const char* title, int32_t* value, int32_t min, int32_t step, int32_t max, const char* ok,
+               const char* cancel, const char* format, int64_t timeout) {
+  // begin draw
+  gfx_begin(false, false);
+
+  // add text
+  lv_obj_t* text = lv_label_create(lv_scr_act());
+  lv_label_set_text(text, title);
+  lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 20);
+  lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_obj_set_style_text_line_space(text, 6, LV_PART_MAIN);
+
+  // add wheel
+  lvx_wheel_t wheel = {
+      .value = *value,
+      .min = min,
+      .step = step,
+      .max = max,
+      .format = format,
+      .fixed = false,
+  };
+  lvx_wheel_create(&wheel, lv_scr_act());
+  lv_obj_align(wheel._col, LV_ALIGN_TOP_MID, 0, 50);
+
+  // add signs
+  lvx_sign_t sign_a = {
+      .title = "A",
+      .text = ok,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t sign_b = {
+      .title = "B",
+      .text = cancel,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_create(&sign_a, lv_scr_act());
+  lvx_sign_create(&sign_b, lv_scr_act());
+
+  // end draw
+  gfx_end(false, false);
+
+  for (;;) {
+    // await event
+    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, timeout);
+
+    // forward arrows
+    if ((event.type & (SIG_ARROWS | SIG_SCROLL)) != 0) {
+      lvx_handle(event, true);
+      continue;
+    }
+
+    // cleanup
+    gui_cleanup(false);
+
+    // handle result
+    if (event.type == SIG_ENTER) {
+      *value = wheel.value;
+      return true;
+    }
+
+    return false;
+  }
+}

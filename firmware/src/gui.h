@@ -26,4 +26,7 @@ int gui_list(int total, int selected, int* offset, const char* select, const cha
 int gui_list_strings(int start, int* offset, const char** strings, const char* select, const char* cancel,
                      int64_t timeout);
 
+bool gui_wheel(const char* title, int32_t* value, int32_t min, int32_t step, int32_t max, const char* ok,
+               const char* cancel, const char* format, int64_t timeout);
+
 #endif  // GUI_H
