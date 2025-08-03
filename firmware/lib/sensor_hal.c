@@ -141,7 +141,7 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   if (mode == AL_SENSOR_HAL_LOW_POWER || mode == AL_SENSOR_HAL_MANUAL) {
     al_sensor_hal_bw[0] = (uint16_t)(1.5 * (65535.f / 175.f));
   } else {
-    al_sensor_hal_bw[0] = (uint16_t)(4 * (65535.f / 175.f));
+    al_sensor_hal_bw[0] = (uint16_t)(3 * (65535.f / 175.f));
   }
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x241d, 1, 0, false));
 
