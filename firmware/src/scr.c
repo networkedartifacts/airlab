@@ -34,6 +34,8 @@
 #define SCR_MIN_RESOLUTION 5000
 #define SCR_HIST_POINTS 8
 
+#define SCR_MIN(x, y) ((x) < (y) ? (x) : (y))
+
 static stm_action_t scr_action = 0;
 DEV_KEEP static uint16_t scr_file = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
@@ -869,14 +871,14 @@ static void* scr_view() {
         start = 0;
       }
       if (end > source_stop) {
-        int32_t shift = fminf(start, end - source_stop);
+        int32_t shift = SCR_MIN(start, end - source_stop);
         end -= shift;
         start -= shift;
       }
     }
 
     // calculate index
-    size_t index = roundf(a32_safe_map_f(position, start, end, 0, LVX_CHART_SIZE - 1));
+    size_t index = (size_t)roundf(a32_safe_map_f((float)position, (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
 
     // TODO: Only query needed dimension.
 
@@ -888,7 +890,7 @@ static void* scr_view() {
         index = num - 1;
       }
     }
-    
+
     // ensure index is within valid sample range
     if (index >= num) {
       index = num > 0 ? num - 1 : 0;
@@ -899,7 +901,8 @@ static void* scr_view() {
     if (file != NULL) {
       for (uint8_t i = 0; i < DAT_MARKS; i++) {
         if (file->head.marks[i] > 0) {
-          int32_t mark = roundf(a32_map_f(file->head.marks[i], start, end, 0, LVX_CHART_SIZE - 1));
+          int32_t mark =
+              (int32_t)roundf(a32_map_f((float)file->head.marks[i], (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
           if (mark >= 0 && mark <= LVX_CHART_SIZE - 1) {
             marks[(size_t)mark] = i + 1;
           }
@@ -962,7 +965,7 @@ static void* scr_view() {
         .end = end,
         .stop = source_stop,
         .cursor = !recording,
-        .index = index,
+        .index = (int)index,
     });
 
     // end draw
@@ -1220,6 +1223,7 @@ static void* scr_edit() {
   dat_file_t* file = dat_find(scr_file, NULL);
   if (file == NULL) {
     ESP_ERROR_CHECK(ESP_FAIL);
+    return NULL;
   }
 
   // add title
@@ -2028,7 +2032,7 @@ static void* scr_menu() {
     lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
     lv_point_t points[SCR_HIST_POINTS] = {0};
     for (size_t i = 0; i < SCR_HIST_POINTS; i++) {
-      points[i].x = (lv_coord_t)a32_safe_map_i(i, 0, SCR_HIST_POINTS - 1, 0, 24);
+      points[i].x = (lv_coord_t)a32_safe_map_i((int32_t)i, 0, SCR_HIST_POINTS - 1, 0, 24);
       points[i].y = (lv_coord_t)a32_safe_map_f(values[i], min, max, 14, 2);
     }
     lv_draw_line_dsc_t line_dsc;
@@ -2042,7 +2046,7 @@ static void* scr_menu() {
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = lv_color_black();
-    lv_canvas_draw_rect(drain, 1, 1 + 9 - drain_height, 20, drain_height, &rect_dsc);
+    lv_canvas_draw_rect(drain, 1, (lv_coord_t)(1 + 9 - drain_height), 20, drain_height, &rect_dsc);
 
     // set bubble text
     switch (scr_lang()) {

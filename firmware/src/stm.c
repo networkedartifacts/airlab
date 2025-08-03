@@ -419,7 +419,8 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
     if (entry->co2_min != 0 && (!ok || co2 < entry->co2_min)) {
       entry->selected = false;
       continue;
-    } else if (entry->co2_max != 0 && (!ok || co2 > entry->co2_max)) {
+    }
+    if (entry->co2_max != 0 && (!ok || co2 > entry->co2_max)) {
       entry->selected = false;
       continue;
     }
@@ -428,7 +429,8 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
     if (entry->tmp_min != 0 && (!ok || tmp < entry->tmp_min)) {
       entry->selected = false;
       continue;
-    } else if (entry->tmp_max != 0 && (!ok || tmp > entry->tmp_max)) {
+    }
+    if (entry->tmp_max != 0 && (!ok || tmp > entry->tmp_max)) {
       entry->selected = false;
       continue;
     }
@@ -437,7 +439,8 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
     if (entry->hum_min != 0 && (!ok || hum < entry->hum_min)) {
       entry->selected = false;
       continue;
-    } else if (entry->hum_max != 0 && (!ok || hum > entry->hum_max)) {
+    }
+    if (entry->hum_max != 0 && (!ok || hum > entry->hum_max)) {
       entry->selected = false;
       continue;
     }
@@ -446,7 +449,8 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
     if (entry->voc_min != 0 && (!ok || voc < entry->voc_min)) {
       entry->selected = false;
       continue;
-    } else if (entry->voc_max != 0 && (!ok || voc > entry->voc_max)) {
+    }
+    if (entry->voc_max != 0 && (!ok || voc > entry->voc_max)) {
       entry->selected = false;
       continue;
     }
@@ -455,7 +459,8 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
     if (entry->nox_min != 0 && (!ok || nox < entry->nox_min)) {
       entry->selected = false;
       continue;
-    } else if (entry->nox_max != 0 && (!ok || nox > entry->nox_max)) {
+    }
+    if (entry->nox_max != 0 && (!ok || nox > entry->nox_max)) {
       entry->selected = false;
       continue;
     }
