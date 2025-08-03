@@ -1825,8 +1825,8 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info",   "Sensor Data",  "Light Sleep",   "Deep Sleep",   "Power Reset", "Power Off",
-      "Shipping Mode", "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info",  NULL,
+      "System Info",  "Sensor Data",   "Light Sleep",  "Deep Sleep", "Power Reset",  "Power Off", "Shipping Mode",
+      "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info", "Compensation", NULL,
   };
 
   for (;;) {
@@ -1945,6 +1945,39 @@ static void* scr_develop() {
         } else if (event.type & SIG_SCROLL) {
           scroll = event.scroll;
           scroll_fast = event.scroll_fast;
+        }
+      }
+    }
+
+    // handle compensation
+    if (selected == 11) {
+      // prepare variables
+      al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
+
+      for (;;) {
+        // get last sample
+        al_sample_t sample = al_store_last();
+        float tmp = al_sample_read(sample, AL_SAMPLE_TMP);
+        float hum = al_sample_read(sample, AL_SAMPLE_HUM);
+
+        // update screen
+        gui_write(lvx_fmt("Rate: %d\nTemp: %.1f\nHum: %.1f", rate, tmp, hum));
+
+        // await event
+        sig_event_t event = sig_await(SIG_SENSOR | SIG_ESCAPE | SIG_ENTER, 0);
+
+        // cleanup
+        gui_cleanup(false);
+
+        // handle events
+        if (event.type & SIG_ESCAPE) {
+          break;
+        } else if (event.type & SIG_ENTER) {
+          rate++;
+          if (rate > AL_SENSOR_RATE_60S) {
+            rate = AL_SENSOR_RATE_5S;
+          }
+          al_sensor_set_rate(rate);
         }
       }
     }
