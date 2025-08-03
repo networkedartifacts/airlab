@@ -58,6 +58,24 @@ static const char* scr_ms2str(int32_t ms) {
   }
 }
 
+static float scr_temp_convert(float celsius) {
+  // convert to fahrenheit if setting is enabled
+  if (naos_get_b("fahrenheit")) {
+    return celsius * 9.0f / 5.0f + 32.0f;
+  }
+
+  return celsius;
+}
+
+static const char* scr_temp_format() {
+  // return appropriate format string
+  if (naos_get_b("fahrenheit")) {
+    return "%.1f °F";
+  }
+
+  return "%.1f °C";
+}
+
 static void scr_power_off() {
   // set off flag
   hmi_set_flag(HMI_FLAG_OFF);
@@ -143,6 +161,7 @@ typedef struct {
   const char* config__sleep_rate;
   const char* config__record_rate;
   const char* config__long_interval;
+  const char* config__temp_unit;
   const char* config__developer;
   const char* config__power_light;
   const char* config__device_name;
@@ -211,6 +230,7 @@ static const scr_trans_t scr_trans_map[] = {
             .config__sleep_rate = "Schlaf Messrate",
             .config__record_rate = "Aufnahme Messrate",
             .config__long_interval = "Langzeit Intervall",
+            .config__temp_unit = "Temperatureinheit",
             .config__developer = "Entwicklermodus",
             .config__power_light = "Betriebsanzeige",
             .config__device_name = "Gerätename",
@@ -277,6 +297,7 @@ static const scr_trans_t scr_trans_map[] = {
             .config__sleep_rate = "Sleep Sample Rate",
             .config__record_rate = "Record Sample Rate",
             .config__long_interval = "Long-term Interval",
+            .config__temp_unit = "Temperature Unit",
             .config__developer = "Developer Mode",
             .config__power_light = "Power Light",
             .config__device_name = "Device Name",
@@ -693,14 +714,14 @@ static void* scr_saver() {
     lv_label_set_text(time, lvx_fmt("%02d:%02d", hour, minute));
     if (vertical) {
       lv_label_set_text(co2, "ppm CO2");
-      lv_label_set_text(tmp, "° Celsius");
+      lv_label_set_text(tmp, naos_get_b("fahrenheit") ? "° Fahrenheit" : "° Celsius");
       lv_label_set_text(hum, "% RH");
       lv_label_set_text(co2_big, lvx_fmt("%.0f", al_sample_read(sample, AL_SAMPLE_CO2)));
-      lv_label_set_text(tmp_big, lvx_fmt("%.1f", al_sample_read(sample, AL_SAMPLE_TMP)));
+      lv_label_set_text(tmp_big, lvx_fmt("%.1f", scr_temp_convert(al_sample_read(sample, AL_SAMPLE_TMP))));
       lv_label_set_text(hum_big, lvx_fmt("%.1f", al_sample_read(sample, AL_SAMPLE_HUM)));
     } else {
       lv_label_set_text(co2, lvx_fmt("%.0f ppm", al_sample_read(sample, AL_SAMPLE_CO2)));
-      lv_label_set_text(tmp, lvx_fmt("%.1f °C", al_sample_read(sample, AL_SAMPLE_TMP)));
+      lv_label_set_text(tmp, lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(sample, AL_SAMPLE_TMP))));
       lv_label_set_text(hum, lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SAMPLE_HUM)));
     }
     lv_label_set_text(voc, lvx_fmt("%.0f VOC", al_sample_read(sample, AL_SAMPLE_VOC)));
@@ -943,7 +964,11 @@ static void* scr_view() {
         bar.mark = marks[index] > 0 ? lvx_fmt("(M%d)", marks[index]) : "";
       }
     }
-    bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(current, mode));
+    if (mode == AL_SAMPLE_TMP) {
+      bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(current, mode)));
+    } else {
+      bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(current, mode));
+    }
     lvx_bar_update(&bar);
 
     // prepare range
@@ -1532,35 +1557,41 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 4: {
       return (gui_list_item_t){
+          .title = t->config__temp_unit,
+          .info = naos_get_b("fahrenheit") ? "°F" : "°C",
+      };
+    }
+    case 5: {
+      return (gui_list_item_t){
           .title = t->config__developer,
           .info = naos_get_b("developer") ? t->on : t->off,
       };
     }
-    case 5: {
+    case 6: {
       return (gui_list_item_t){
           .title = t->config__power_light,
           .info = naos_get_b("power-light") ? t->on : t->off,
       };
     }
-    case 6: {
+    case 7: {
       return (gui_list_item_t){
           .title = t->config__device_name,
           .info = lvx_truncate(naos_get_s("device-name"), 20),
       };
     }
-    case 7: {
+    case 8: {
       return (gui_list_item_t){
           .title = t->config__wifi_network,
           .info = lvx_truncate(naos_get_s("wifi-ssid"), 20),
       };
     }
-    case 8: {
+    case 9: {
       return (gui_list_item_t){
           .title = "MQTT Broker",
           .info = lvx_truncate(naos_get_s("mqtt-host"), 20),
       };
     }
-    case 9: {
+    case 10: {
       return (gui_list_item_t){
           .title = "Home Assistant",
           .info = naos_get_b("mqtt-ha") ? t->on : t->off,
@@ -1582,7 +1613,7 @@ static void* scr_config() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(10, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(11, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_settings;
     }
@@ -1642,13 +1673,20 @@ static void* scr_config() {
       }
 
       case 4: {
+        // toggle fahrenheit temperature setting
+        naos_set_b("fahrenheit", !naos_get_b("fahrenheit"));
+
+        break;
+      }
+
+      case 5: {
         // toggle developer mode
         naos_set_b("developer", !naos_get_b("developer"));
 
         break;
       }
 
-      case 5: {
+      case 6: {
         // toggle power light
         naos_set_b("power-light", !naos_get_b("power-light"));
 
@@ -2087,7 +2125,11 @@ static void* scr_menu() {
     if (!al_sample_valid(sample)) {
       bar.value = scr_trans()->menu__no_data;
     } else {
-      bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(sample, mode));
+      if (mode == AL_SAMPLE_TMP) {
+        bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(sample, mode)));
+      } else {
+        bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(sample, mode));
+      }
     }
     lvx_bar_update(&bar);
 
