@@ -140,6 +140,8 @@ typedef struct {
   const char* settings__config;
   const char* settings__off;
   const char* settings__reset;
+  const char* config__sleep_rate;
+  const char* config__record_rate;
   const char* config__long_interval;
   const char* config__developer;
   const char* config__power_light;
@@ -206,7 +208,9 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__config = "Konfiguration",
             .settings__off = "Ausschalten",
             .settings__reset = "Zurücksetzen",
-            .config__long_interval = "Langer Intervall",
+            .config__sleep_rate = "Schlaf Messrate",
+            .config__record_rate = "Aufnahme Messrate",
+            .config__long_interval = "Langzeit Intervall",
             .config__developer = "Entwicklermodus",
             .config__power_light = "Betriebsanzeige",
             .config__device_name = "Gerätename",
@@ -270,7 +274,9 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__config = "Configuration",
             .settings__off = "Power Off",
             .settings__reset = "Full Reset",
-            .config__long_interval = "Long Interval",
+            .config__sleep_rate = "Sleep Sample Rate",
+            .config__record_rate = "Record Sample Rate",
+            .config__long_interval = "Long-term Interval",
             .config__developer = "Developer Mode",
             .config__power_light = "Power Light",
             .config__device_name = "Device Name",
@@ -748,8 +754,17 @@ static void* scr_saver() {
         break;
       }
     } else {
+      // determine rate
+      al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
+      int32_t raw_rate = naos_get_l(rec_running() ? "record-rate" : "sleep-rate");
+      if (raw_rate == 30) {
+        rate = AL_SENSOR_RATE_30S;
+      } else if (raw_rate == 60) {
+        rate = AL_SENSOR_RATE_60S;
+      }
+
       // set rate
-      al_sensor_set_rate(rec_running() ? AL_SENSOR_RATE_5S : AL_SENSOR_RATE_30S);
+      al_sensor_set_rate(rate);
 
       // sleep for one minute (no return)
       al_sleep(true, 60 * 1000);
@@ -1116,8 +1131,8 @@ static void* scr_create() {
     return scr_explore;
   }
 
-  // calculate min and max time
-  uint32_t min_hours = samples / 12 / 60;  // 12 samples per minute
+  // calculate hours at 12 samples per minute
+  uint32_t hours = samples / 12 / 60;
 
   // begin draw
   gfx_begin(false, false);
@@ -1134,7 +1149,7 @@ static void* scr_create() {
 
   // add length
   lv_obj_t* length = lv_label_create(lv_scr_act());
-  lv_label_set_text(length, lvx_fmt(scr_trans()->create__length, min_hours));
+  lv_label_set_text(length, lvx_fmt(scr_trans()->create__length, hours));
   lv_obj_align(length, LV_ALIGN_TOP_LEFT, 5, 47);
 
   // add signs
@@ -1499,41 +1514,53 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 1: {
       return (gui_list_item_t){
+          .title = t->config__sleep_rate,
+          .info = lvx_fmt("%lds", naos_get_l("sleep-rate")),
+      };
+    }
+    case 2: {
+      return (gui_list_item_t){
+          .title = t->config__record_rate,
+          .info = lvx_fmt("%lds", naos_get_l("record-rate")),
+      };
+    }
+    case 3: {
+      return (gui_list_item_t){
           .title = t->config__long_interval,
           .info = lvx_fmt("%lds", naos_get_l("long-interval")),
       };
     }
-    case 2: {
+    case 4: {
       return (gui_list_item_t){
           .title = t->config__developer,
           .info = naos_get_b("developer") ? t->on : t->off,
       };
     }
-    case 3: {
+    case 5: {
       return (gui_list_item_t){
           .title = t->config__power_light,
           .info = naos_get_b("power-light") ? t->on : t->off,
       };
     }
-    case 4: {
+    case 6: {
       return (gui_list_item_t){
           .title = t->config__device_name,
           .info = lvx_truncate(naos_get_s("device-name"), 20),
       };
     }
-    case 5: {
+    case 7: {
       return (gui_list_item_t){
           .title = t->config__wifi_network,
           .info = lvx_truncate(naos_get_s("wifi-ssid"), 20),
       };
     }
-    case 6: {
+    case 8: {
       return (gui_list_item_t){
           .title = "MQTT Broker",
           .info = lvx_truncate(naos_get_s("mqtt-host"), 20),
       };
     }
-    case 7: {
+    case 9: {
       return (gui_list_item_t){
           .title = "Home Assistant",
           .info = naos_get_b("mqtt-ha") ? t->on : t->off,
@@ -1555,7 +1582,7 @@ static void* scr_config() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(8, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(10, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_settings;
     }
@@ -1577,6 +1604,34 @@ static void* scr_config() {
       }
 
       case 1: {
+        // cycle through sensor rates
+        int32_t value = naos_get_l("sleep-rate");
+        if (value == 5) {
+          naos_set_l("sleep-rate", 30);
+        } else if (value == 30) {
+          naos_set_l("sleep-rate", 60);
+        } else {
+          naos_set_l("sleep-rate", 5);
+        }
+
+        break;
+      }
+
+      case 2: {
+        // cycle through sensor rates
+        int32_t value = naos_get_l("record-rate");
+        if (value == 5) {
+          naos_set_l("record-rate", 30);
+        } else if (value == 30) {
+          naos_set_l("record-rate", 60);
+        } else {
+          naos_set_l("record-rate", 5);
+        }
+
+        break;
+      }
+
+      case 3: {
         // use wheel to change long interval
         int32_t value = naos_get_l("long-interval");
         if (gui_wheel(t->config__long_interval, &value, 30, 10, 900, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
@@ -1586,14 +1641,14 @@ static void* scr_config() {
         break;
       }
 
-      case 2: {
+      case 4: {
         // toggle developer mode
         naos_set_b("developer", !naos_get_b("developer"));
 
         break;
       }
 
-      case 3: {
+      case 5: {
         // toggle power light
         naos_set_b("power-light", !naos_get_b("power-light"));
 
