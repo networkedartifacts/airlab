@@ -267,7 +267,7 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__language = "Language",
             .settings__config = "Configuration",
             .settings__off = "Power Off",
-            .settings__reset = "Reset",
+            .settings__reset = "Full Reset",
             .config__long_interval = "Long Interval",
             .config__developer = "Developer Mode",
             .config__power_light = "Power Light",
@@ -1483,52 +1483,6 @@ static void* scr_ble() {
   return scr_menu;
 }
 
-static void* scr_about() {
-  // begin draw
-  gfx_begin(false, false);
-
-  // add label
-  lv_obj_t* label = lv_label_create(lv_scr_act());
-  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-  lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  lv_obj_set_style_text_line_space(label, 6, LV_PART_MAIN);
-
-  // end draw
-  gfx_end(true, false);
-
-  for (;;) {
-    // get authentication data
-    naos_auth_data_t auth = {0};
-    naos_auth_describe(&auth);
-
-    // get settings
-    bool developer = naos_get_b("developer");
-
-    // prepare text
-    const char* text = lvx_fmt("NA-AL1-R%d/%d\n%s%s", auth.revision, auth.batch, naos_config()->app_version,
-                               developer ? "\n(Developer)" : "");
-
-    // update label
-    gfx_begin(false, false);
-    lv_label_set_text(label, text);
-    gfx_end(false, false);
-
-    // await event
-    sig_event_t event = sig_await(SIG_KEYS, 0);
-
-    // toggle developer on right
-    if (event.type == SIG_RIGHT) {
-      naos_set_b("developer", !developer);
-      continue;
-    }
-
-    // cleanup
-    gui_cleanup(false);
-
-    return scr_settings;
-  }
-}
-
 static gui_list_item_t scr_config_cb(int num, void* ctx) {
   // get translation
   const scr_trans_t* t = scr_trans();
@@ -1777,12 +1731,23 @@ static void* scr_settings() {
     return scr_settings;
   }
 
+  // handle about
+  if (event.type == SIG_ENTER) {
+    // get authentication data
+    naos_auth_data_t auth = {0};
+    naos_auth_describe(&auth);
+
+    // show model and version
+    const char* text = lvx_fmt("NA-AL1-R%d/%d\n%s", auth.revision, auth.batch, naos_config()->app_version);
+    gui_message(text, SCR_ACTION_TIMEOUT);
+
+    return scr_settings;
+  }
+
   // handle event
   switch (event.type) {
     case SIG_DOWN:
       return scr_config;
-    case SIG_ENTER:
-      return scr_about;
     case SIG_ESCAPE:
     case SIG_TIMEOUT:
       // set action
