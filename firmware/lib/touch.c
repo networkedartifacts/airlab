@@ -147,9 +147,44 @@ static float al_touch_middle(uint8_t num) {
     return -1;
   }
 
-  // TODO: The rounding here generates a slight bias towards the left.
+  return (float)(start + end) / 2.0f;
+}
 
-  return roundf((float)(start + end) / 2.0f);
+static float al_touch_hysteresis(float position) {
+  // prepare state
+  static float discrete = NAN;
+
+  // if no touch, return NaN and reset state
+  if (isnan(position)) {
+    discrete = NAN;
+    return NAN;
+  }
+
+  // if no previous discrete position, use current rounded position
+  if (isnan(discrete)) {
+    discrete = roundf(position);
+    return discrete;
+  }
+
+  // apply hysteresis: require crossing threshold to change position
+  float threshold = 0.7f;
+  float diff = position - discrete;
+
+  // move up or down one step if crossing threshold
+  if (diff >= threshold) {
+    discrete = discrete + 1.0f;
+  } else if (diff <= -threshold) {
+    discrete = discrete - 1.0f;
+  }
+
+  // clamp to valid range [-3, 3]
+  if (discrete > 3.0f) {
+    discrete = 3.0f;
+  } else if (discrete < -3.0f) {
+    discrete = -3.0f;
+  }
+
+  return discrete;
 }
 
 static void al_touch_check() {
@@ -217,13 +252,16 @@ static void al_touch_check() {
   // update last touches
   al_touch_last = touches;
 
-  // calculate middle and position, if touched
-  float position = NAN;
+  // calculate middle, if touched
+  float middle = NAN;
   if (touches != 0) {
-    position = al_touch_middle(touches) - 3;
-    if (AL_TOUCH_DEBUG) {
-      naos_log("al-tch: position=%.2f", position);
-    }
+    middle = al_touch_middle(touches) - 3;
+  }
+
+  // apply hysteresis to get discrete position
+  float position = al_touch_hysteresis(middle);
+  if (AL_TOUCH_DEBUG) {
+    naos_log("al-tch: middle=%.2f discrete=%.0f", middle, position);
   }
 
   // unlock mutex
