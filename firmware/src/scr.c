@@ -880,8 +880,6 @@ static void* scr_view() {
     // calculate index
     size_t index = (size_t)roundf(a32_safe_map_f((float)position, (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
 
-    // TODO: Only query needed dimension.
-
     // query samples
     size_t num = 0;
     if (source_count > 0) {

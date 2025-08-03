@@ -14,8 +14,6 @@ typedef struct __attribute__((packed)) {
   int32_t marks[DAT_MARKS];  // ms since start
 } dat_head_t;
 
-// TODO: Add battery level/voltage?
-
 typedef struct {
   dat_head_t head;
   size_t size;   // samples

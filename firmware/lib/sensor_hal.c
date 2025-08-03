@@ -16,8 +16,6 @@
     }                               \
   }
 
-// TODO: Perform SGP41 conditioning after reset (10s)?
-
 static al_sensor_hal_ops_t al_sensor_hal_ops;
 static al_sensor_hal_state_t* al_sensor_hal_state;
 static uint16_t al_sensor_hal_bw[4];

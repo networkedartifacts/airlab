@@ -218,8 +218,6 @@ void al_sensor_config(al_sensor_hook_t hook) {
 }
 
 al_sample_t al_sensor_next() {
-  // TODO: Does not work with multiple tasks.
-
   // await signal
   naos_await(al_sensor_signal, 1, true, -1);
 
