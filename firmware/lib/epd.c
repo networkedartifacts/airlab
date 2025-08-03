@@ -7,8 +7,6 @@
 
 // Chip: SSD1680
 
-#define AL_EPD_4W false
-#define AL_EPD_DC GPIO_NUM_46
 #define AL_EPD_RST GPIO_NUM_41
 #define AL_EPD_BSY GPIO_NUM_40
 #define AL_EPD_SEL GPIO_NUM_42
@@ -128,41 +126,20 @@ static void al_epd_write_buffer(uint8_t cmd, size_t len, const uint8_t *buf) {
   }
 
   // check length
-  if ((1 + len) * (AL_EPD_4W ? 8 : 9) > AL_EPD_BUFFER * 8) {
+  if ((1 + len) * 9 > AL_EPD_BUFFER * 8) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
   // prepare command
-  if (AL_EPD_4W) {
-    al_epd_buffer[0] = cmd;
-    for (size_t i = 0; i < len; i++) {
-      al_epd_buffer[i + 1] = buf[i];
-    }
-  } else {
-    al_epd_bmp_set(al_epd_buffer, 0, 0);
-    al_epd_bmp_write(al_epd_buffer, 1, cmd);
-    for (size_t i = 0; i < len; i++) {
-      al_epd_bmp_set(al_epd_buffer, (i + 1) * 9, 1);
-      al_epd_bmp_write(al_epd_buffer, (i + 1) * 9 + 1, buf[i]);
-    }
+  al_epd_bmp_set(al_epd_buffer, 0, 0);
+  al_epd_bmp_write(al_epd_buffer, 1, cmd);
+  for (size_t i = 0; i < len; i++) {
+    al_epd_bmp_set(al_epd_buffer, (i + 1) * 9, 1);
+    al_epd_bmp_write(al_epd_buffer, (i + 1) * 9 + 1, buf[i]);
   }
 
   // run transactions
-  if (AL_EPD_4W) {
-    ESP_ERROR_CHECK(gpio_set_level(AL_EPD_DC, 0));
-    for (size_t i = 0; i < (1 + len); i++) {
-      spi_transaction_t tx = {
-          .length = 8,
-          .tx_buffer = al_epd_buffer + i,
-      };
-      ESP_ERROR_CHECK(spi_device_transmit(al_epd_device, &tx));
-      if (i == 0) {
-        ESP_ERROR_CHECK(gpio_set_level(AL_EPD_DC, 1));
-      }
-    }
-  } else {
-    al_epd_transfer(al_epd_device, al_epd_buffer, (1 + len) * 9);
-  }
+  al_epd_transfer(al_epd_device, al_epd_buffer, (1 + len) * 9);
 }
 
 static void al_epd_write_word(uint8_t cmd, uint8_t n, uint8_t w1, uint8_t w2, uint8_t w3, uint8_t w4) {
@@ -329,12 +306,11 @@ void al_epd_init() {
   // initialize pins
   gpio_config_t pin = {
       .mode = GPIO_MODE_OUTPUT,
-      .pin_bit_mask = BIT64(AL_EPD_SEL) | BIT64(AL_EPD_RST) | BIT64(AL_EPD_DC),
+      .pin_bit_mask = BIT64(AL_EPD_SEL) | BIT64(AL_EPD_RST),
   };
   ESP_ERROR_CHECK(gpio_config(&pin));
   ESP_ERROR_CHECK(gpio_set_level(AL_EPD_SEL, 1));
   ESP_ERROR_CHECK(gpio_set_level(AL_EPD_RST, 1));
-  ESP_ERROR_CHECK(gpio_set_level(AL_EPD_DC, AL_EPD_4W ? 1 : 0));
   pin.mode = GPIO_MODE_INPUT;
   pin.pin_bit_mask = BIT64(AL_EPD_BSY);
   ESP_ERROR_CHECK(gpio_config(&pin));
