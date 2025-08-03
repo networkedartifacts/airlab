@@ -137,12 +137,15 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x3f86, 0, 0, true));
   al_sensor_hal_ops.delay(500);
 
-  // start SCD periodic measurement
+  // apply SCD sensor mode
   if (mode == AL_SENSOR_HAL_NORMAL) {
+    // start periodic measurement
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x21b1, 0, 0, false));
   } else if (mode == AL_SENSOR_HAL_LOW_POWER) {
+    // start low power periodic measurement
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x21ac, 0, 0, false));
   } else if (mode == AL_SENSOR_HAL_SLEEP) {
+    // power down
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36e0, 0, 0, false));
   } else if (mode != AL_SENSOR_HAL_MANUAL) {
     return AL_SENSOR_HAL_ERR_MODE;
