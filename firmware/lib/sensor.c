@@ -19,7 +19,18 @@ static al_sensor_hook_t al_sensor_hook;
 AL_KEEP static al_sensor_hal_state_t al_sensor_state = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_voc_params = {0};
 AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
-AL_KEEP static int64_t al_sensor_switch_time = 0;
+AL_KEEP static int64_t al_sensor_switch_comp = 0;
+AL_KEEP static float al_sensor_long_comp_curr = 0;
+AL_KEEP static int64_t al_sensor_long_comp_last = 0;
+
+static struct {
+  float target;
+  float rate;
+} al_sensor_long_comp[] = {
+    [AL_SENSOR_RATE_5S] = {.target = 0.f, .rate = 0.03f},     // max 50s
+    [AL_SENSOR_RATE_30S] = {.target = 1.0f, .rate = 0.003f},  // max 5min
+    [AL_SENSOR_RATE_60S] = {.target = 1.5f, .rate = 0.002f},  // max 12.5min
+};
 
 static al_sensor_hal_err_t al_sensor_transfer(uint8_t target, uint8_t *wd, size_t wl, uint8_t *rd, size_t rl) {
   // perform transfer
@@ -51,14 +62,45 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   if (al_sensor_state.mode != AL_SENSOR_HAL_MANUAL) {
     // we use the formula "tmp − max(3 * exp(−0.015 * seconds), 0)" to compensate
     // the temperature for the first couple of minutes after a mode switch
-    float seconds = (float)(al_clock_get_epoch() - al_sensor_switch_time) / 1000.f;
+    float seconds = (float)(data.epoch - al_sensor_switch_comp) / 1000.f;
     float tmp_comp = tmp - fmaxf(3.f * expf(-0.015f * seconds), 0.f);
     float hum_comp = al_sensor_comp_rh(hum, tmp, tmp_comp);
     if (AL_SENSOR_DEBUG) {
-      naos_log("al-sns: comp tmp=%.2f -> %.2f, hum=%.2f -> %.2f (seconds=%.1f)", tmp, tmp_comp, hum, hum_comp, seconds);
+      naos_log("al-sns: switch comp tmp=%.2f -> %.2f, hum=%.2f -> %.2f (seconds=%.1f)", tmp, tmp_comp, hum, hum_comp,
+               seconds);
     }
     tmp = tmp_comp;
     hum = hum_comp;
+  }
+
+  // advance long compensation if needed
+  if (al_sensor_long_comp_curr != al_sensor_long_comp[al_sensor_state.mode].target) {
+    float diff = (float)(data.epoch - al_sensor_long_comp_last) / 1000.f;
+    if (al_sensor_long_comp_curr < al_sensor_long_comp[al_sensor_state.mode].target) {
+      al_sensor_long_comp_curr += diff * al_sensor_long_comp[al_sensor_state.mode].rate;
+      if (al_sensor_long_comp_curr > al_sensor_long_comp[al_sensor_state.mode].target) {
+        al_sensor_long_comp_curr = al_sensor_long_comp[al_sensor_state.mode].target;
+      }
+    } else {
+      al_sensor_long_comp_curr -= diff * al_sensor_long_comp[al_sensor_state.mode].rate;
+      if (al_sensor_long_comp_curr < al_sensor_long_comp[al_sensor_state.mode].target) {
+        al_sensor_long_comp_curr = al_sensor_long_comp[al_sensor_state.mode].target;
+      }
+    }
+    if (AL_SENSOR_DEBUG) {
+      naos_log("al-sns: long comp updated: diff=%.3fs, curr=%.3f°C, target=%.3f°C", diff, al_sensor_long_comp_curr,
+               al_sensor_long_comp[al_sensor_state.mode].target);
+    }
+  }
+  al_sensor_long_comp_last = data.epoch;
+
+  // apply long compensation
+  if (al_sensor_long_comp_curr != 0.f) {
+    hum = al_sensor_comp_rh(hum, tmp, tmp + al_sensor_long_comp_curr);
+    tmp += al_sensor_long_comp_curr;
+    if (AL_SENSOR_DEBUG) {
+      naos_log("al-sns: long comp applied: %.3f°C", al_sensor_long_comp_curr);
+    }
   }
 
   // perform gas index calculation
@@ -174,8 +216,9 @@ static void al_sensor_monitor() {
   al_store_set_base(al_store_get_base() + diff, false);
   naos_unlock(al_sensor_mutex);
 
-  // adjust switch time
-  al_sensor_switch_time += diff;
+  // adjust compensation times
+  al_sensor_switch_comp += diff;
+  al_sensor_long_comp_last += diff;
 }
 
 void al_sensor_init(bool reset) {
@@ -215,8 +258,9 @@ void al_sensor_init(bool reset) {
       ESP_ERROR_CHECK(ESP_FAIL);
     }
 
-    // set switch time
-    al_sensor_switch_time = al_clock_get_epoch();
+    // prepare compensation times
+    al_sensor_switch_comp = al_clock_get_epoch();
+    al_sensor_long_comp_last = al_clock_get_epoch();
 
     // initialize gas index parameters
     GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
@@ -286,8 +330,8 @@ void al_sensor_set_rate(al_sensor_rate_t rate) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 
-  // set switch time
-  al_sensor_switch_time = al_clock_get_epoch();
+  // reset switch compensation time
+  al_sensor_switch_comp = al_clock_get_epoch();
 
   // log state
   naos_log("al-sns: config mode=%d interval=%d", mode, interval);
