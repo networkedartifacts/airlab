@@ -1939,6 +1939,9 @@ static void* scr_develop() {
 
     // handle ship mode
     if (selected == 6) {
+      // disable developer mode
+      naos_set_b("developer", false);
+
       // show message
       gui_write("To exit shipping mode,\nplug in a USB-C cable,\nand press <A> to start.");
       naos_delay(1000);
