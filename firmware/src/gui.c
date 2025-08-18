@@ -20,7 +20,7 @@ void gui_cleanup(bool refresh) {
   gfx_end(false, refresh);
 }
 
-void gui_write(const char* text) {
+void gui_write(const char* text, bool wait) {
   // show message
   gfx_begin(false, false);
   lv_obj_t* lbl = lv_label_create(lv_scr_act());
@@ -28,7 +28,7 @@ void gui_write(const char* text) {
   lv_label_set_text(lbl, text);
   lv_obj_set_style_text_line_space(lbl, 6, LV_PART_MAIN);
   lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
-  gfx_end(false, false);
+  gfx_end(false, wait);
 }
 
 static lv_obj_t* gui_progress_bar = NULL;
@@ -79,7 +79,7 @@ void gui_progress_update(size_t current, size_t total) {
 
 void gui_message(const char* text, uint32_t timeout) {
   // show message
-  gui_write(text);
+  gui_write(text, false);
 
   // wait some time
   sig_await(SIG_KEYS | SIG_TIMEOUT, timeout);

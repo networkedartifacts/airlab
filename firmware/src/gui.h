@@ -5,7 +5,7 @@
 
 void gui_cleanup(bool refresh);
 
-void gui_write(const char* text);
+void gui_write(const char* text, bool wait);
 void gui_message(const char* text, uint32_t timeout);
 
 void gui_progress_start(const char* text);

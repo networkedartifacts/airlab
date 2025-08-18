@@ -76,12 +76,15 @@ static const char* scr_temp_format() {
   return "%.1f °C";
 }
 
-static void scr_power_off() {
+static void scr_power_off(bool low_power) {
   // set off flag
   hmi_set_flag(HMI_FLAG_OFF);
 
   // cleanup screen
   gui_cleanup(true);
+
+  // write message
+  gui_write(low_power ? "Low Battery\n\nCharge via USB-C and press <A>." : "Powered Off\n\nPress <A> to start.", true);
 
   // clear returns
   scr_return_timeout = NULL;
@@ -762,7 +765,7 @@ static void* scr_saver() {
 
     // power off if battery is low and not charging
     if (power.battery < 0.10 && !power.usb && !power.charging) {
-      scr_power_off();
+      scr_power_off(true);
     }
 
     // check if powered
@@ -1831,7 +1834,7 @@ static void* scr_settings() {
     }
 
     // turn off
-    scr_power_off();
+    scr_power_off(false);
 
     return scr_settings;
   }
@@ -1907,9 +1910,9 @@ static void* scr_develop() {
 
       // write message
       if (deep) {
-        gui_write("Deep Sleeping...\nPress A to wake up.");
+        gui_write("Deep Sleeping...\nPress <A> to wake up.", false);
       } else {
-        gui_write("Light Sleeping...\nPress A to wake up.");
+        gui_write("Light Sleeping...\nPress <A> to wake up.", false);
       }
 
       // perform sleep
@@ -1934,7 +1937,7 @@ static void* scr_develop() {
 
     // handle power off
     if (selected == 5) {
-      scr_power_off();
+      scr_power_off(false);
     }
 
     // handle ship mode
@@ -1943,7 +1946,7 @@ static void* scr_develop() {
       naos_set_b("developer", false);
 
       // show message
-      gui_write("To exit shipping mode,\nplug in a USB-C cable,\nand press <A> to start.");
+      gui_write("To exit shipping mode,\nplug in a USB-C cable,\nand press <A> to start.", false);
       naos_delay(1000);
 
       // enable ship mode
@@ -1980,7 +1983,7 @@ static void* scr_develop() {
 
       for (;;) {
         // update screen
-        gui_write(lvx_fmt("Position: %.1f\nScroll: %.1f, %.1f", position, scroll, scroll_fast));
+        gui_write(lvx_fmt("Position: %.1f\nScroll: %.1f, %.1f", position, scroll, scroll_fast), false);
 
         // await event
         sig_event_t event = sig_await(SIG_ESCAPE | SIG_TOUCH | SIG_SCROLL, 0);
@@ -2012,7 +2015,7 @@ static void* scr_develop() {
         float hum = al_sample_read(sample, AL_SAMPLE_HUM);
 
         // update screen
-        gui_write(lvx_fmt("Rate: %d\nTemp: %.1f\nHum: %.1f", rate, tmp, hum));
+        gui_write(lvx_fmt("Rate: %d\nTemp: %.1f\nHum: %.1f", rate, tmp, hum), false);
 
         // await event
         sig_event_t event = sig_await(SIG_SENSOR | SIG_ESCAPE | SIG_ENTER, 0);
