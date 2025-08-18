@@ -1,4 +1,4 @@
 naos/
 cmake-build-debug/
 test/fs
-bundle.zip
+*.zip
