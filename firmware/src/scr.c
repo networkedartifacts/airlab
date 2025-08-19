@@ -768,8 +768,8 @@ static void* scr_saver() {
       scr_power_off(true);
     }
 
-    // check if powered
-    if (power.usb) {
+    // check if powered or connected via BLE
+    if (power.usb || naos_ble_connections() > 0) {
       // wait some time
       sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT, 60 * 1000);
 
