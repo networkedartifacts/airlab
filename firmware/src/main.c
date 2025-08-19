@@ -86,4 +86,12 @@ void app_main() {
   naos_cpu_init();
   naos_serial_init_stdio();
   naos_start();
+
+  // derive device name from ID if not set
+  if (strlen(naos_get_s("device-name")) == 0) {
+    char name[9] = {'A', 'L', 0};
+    const char* id = naos_get_s("device-id");
+    memcpy(name + 2, id + (strlen(id) - 6), 6);
+    naos_set_s("device-name", name);
+  }
 }
