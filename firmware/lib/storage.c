@@ -3,13 +3,15 @@
 #include <esp_vfs_fat.h>
 #include <esp_partition.h>
 #include <tinyusb.h>
-#include <tusb_msc_storage.h>
+#include <tinyusb_msc.h>
+#include <tinyusb_default_config.h>
 
 #include <al/storage.h>
 
 #define AL_STORAGE_DEBUG false
 
 static wl_handle_t al_storage_wl_handle;
+static tinyusb_msc_storage_handle_t al_storage_handle = NULL;
 static al_storage_eject_t al_storage_eject = NULL;
 
 static tusb_desc_device_t al_storage_usb_dev_desc = {
@@ -20,7 +22,7 @@ static tusb_desc_device_t al_storage_usb_dev_desc = {
     .bDeviceSubClass = MISC_SUBCLASS_COMMON,
     .bDeviceProtocol = MISC_PROTOCOL_IAD,
     .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-    .idVendor = USB_ESPRESSIF_VID,
+    .idVendor = TINYUSB_ESPRESSIF_VID,
     .idProduct = 0x4002,
     .bcdDevice = 0x100,
     .iManufacturer = 0x01,
@@ -44,17 +46,30 @@ static char const *al_storage_usb_str_desc[] = {
     "Example MSC",               // MSC
 };
 
-static void al_storage_usb_msc_cb(tinyusb_msc_event_t *event) {
+static void al_storage_usb_msc_cb(tinyusb_msc_storage_handle_t handle, tinyusb_msc_event_t *event, void *arg) {
   // log event
   if (AL_STORAGE_DEBUG) {
-    naos_log("al-sto: MSC event=%d mounted=%d", event->type, event->mount_changed_data.is_mounted);
+    naos_log("al-sto: MSC event=%d mounted=%d", event->id, event->mount_changed_data.is_mounted);
   }
 
   // dispatch eject event on device-side re-mount
-  if (event->type == TINYUSB_MSC_EVENT_MOUNT_CHANGED && event->mount_changed_data.is_mounted) {
+  if (event->id == TINYUSB_MSC_EVENT_MOUNT_COMPLETE && !event->mount_changed_data.is_mounted) {
     if (al_storage_eject != NULL) {
       al_storage_eject();
     }
+  }
+}
+
+void al_storage_usb_event_handler(tinyusb_event_t *event, void *arg) {
+  switch (event->id) {
+    case TINYUSB_EVENT_ATTACHED:
+      naos_log("al-sto: USB attached");
+      break;
+    case TINYUSB_EVENT_DETACHED:
+      naos_log("al-sto: USB detached");
+      break;
+    default:
+      break;
   }
 }
 
@@ -144,29 +159,33 @@ void al_storage_enable_usb(al_storage_eject_t eject) {
   // initialize wear levelling
   ESP_ERROR_CHECK(wl_mount(data_partition, &al_storage_wl_handle));
 
+  // install USB mass storage driver
+  tinyusb_msc_driver_config_t drv_cfg = {
+      .callback = al_storage_usb_msc_cb,
+  };
+  ESP_ERROR_CHECK(tinyusb_msc_install_driver(&drv_cfg));
+
   // initialize USB mass storage
-  const tinyusb_msc_spiflash_config_t config_spi = {
-      .wl_handle = al_storage_wl_handle,
-      .callback_mount_changed = al_storage_usb_msc_cb,
-      .callback_premount_changed = al_storage_usb_msc_cb,
-      .mount_config =
+  tinyusb_msc_storage_config_t config = {
+      .medium.wl_handle = al_storage_wl_handle,
+      .fat_fs =
           {
-              .max_files = 2,
-              .format_if_mount_failed = true,
-              .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
+              .base_path = NULL,  // TODO: Set?
+              .config.max_files = 2,
+              .config.format_if_mount_failed = true,
+              .config.allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
           },
   };
-  ESP_ERROR_CHECK(tinyusb_msc_storage_init_spiflash(&config_spi));
+  ESP_ERROR_CHECK(tinyusb_msc_new_storage_spiflash(&config, &al_storage_handle));
 
   // initialize USB driver
-  const tinyusb_config_t usb_cfg = {
-      .device_descriptor = &al_storage_usb_dev_desc,
-      .string_descriptor = al_storage_usb_str_desc,
-      .string_descriptor_count = sizeof(al_storage_usb_str_desc) / sizeof(al_storage_usb_str_desc[0]),
-      .configuration_descriptor = al_storage_usb_cfg_desc,
-      .self_powered = true,
-      .vbus_monitor_io = GPIO_NUM_18,
-  };
+  tinyusb_config_t usb_cfg = TINYUSB_DEFAULT_CONFIG(al_storage_usb_event_handler);
+  usb_cfg.descriptor.device = &al_storage_usb_dev_desc;
+  usb_cfg.descriptor.string = al_storage_usb_str_desc;
+  usb_cfg.descriptor.string_count = sizeof(al_storage_usb_str_desc) / sizeof(al_storage_usb_str_desc[0]);
+  usb_cfg.descriptor.full_speed_config = al_storage_usb_cfg_desc;
+  usb_cfg.phy.self_powered = true;
+  usb_cfg.phy.vbus_monitor_io = GPIO_NUM_18;
   ESP_ERROR_CHECK(tinyusb_driver_install(&usb_cfg));
 }
 
@@ -174,8 +193,11 @@ void al_storage_disable_usb() {
   // uninstall driver
   ESP_ERROR_CHECK(tinyusb_driver_uninstall());
 
+  // delete storage
+  ESP_ERROR_CHECK(tinyusb_msc_delete_storage(al_storage_handle));
+
   // de-initialize USB mass storage
-  tinyusb_msc_storage_deinit();
+  ESP_ERROR_CHECK(tinyusb_msc_uninstall_driver());
 
   // unmount wear levelling
   ESP_ERROR_CHECK(wl_unmount(al_storage_wl_handle));
