@@ -36,8 +36,8 @@ void al_accel_init(bool reset) {
     // reset device
     al_accel_write(0x15, 0b10000000);
 
-    // configure interrupt polarity and wake from sleep
-    al_accel_write(0x18, 0b00010000);
+    // configure interrupt driver, polarity and wake from sleep
+    al_accel_write(0x18, 0b00010010);
 
     // enable orientation interrupt
     al_accel_write(0x20, 0b00001000);

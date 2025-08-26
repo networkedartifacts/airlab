@@ -125,6 +125,9 @@ al_trigger_t al_init() {
   ESP_ERROR_CHECK(gpio_config(&cfg));
   ESP_ERROR_CHECK(gpio_isr_handler_add(AL_INT_IN, al_int_signal, NULL));
 
+  // hold GPIO during sleep
+  ESP_ERROR_CHECK(gpio_hold_en(AL_INT_IN));
+
   // get trigger
   al_trigger_t trigger = al_trigger();
 
