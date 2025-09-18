@@ -624,13 +624,23 @@ static void* scr_sensor() {
   gfx_end(true, false);
 
   for (;;) {
-    // get power
-    size_t num_short = al_store_count(AL_STORE_SHORT);
-    size_t num_long = al_store_count(AL_STORE_LONG);
+    // get last sample and counts
+    al_sample_t last = al_store_last();
+    int num_short = (int)al_store_count(AL_STORE_SHORT);
+    int num_long = (int)al_store_count(AL_STORE_LONG);
+
+    // sample values
+    float co2 = al_sample_read(last, AL_SAMPLE_CO2);
+    float tmp = al_sample_read(last, AL_SAMPLE_TMP);
+    float hum = al_sample_read(last, AL_SAMPLE_HUM);
+    float voc = al_sample_read(last, AL_SAMPLE_VOC);
+    float nox = al_sample_read(last, AL_SAMPLE_NOX);
+    float prs = al_sample_read(last, AL_SAMPLE_PRS);
 
     // prepare text
     const char* text =
-        lvx_fmt("short: %d / %d\nlong: %d / %d", num_short, AL_STORE_NUM_SHORT, num_long, AL_STORE_NUM_LONG);
+        lvx_fmt("%.0f ppm, %.2f °C, %.0f %%RH\n%.0f VOC, %.0f NOX, %.0f hPa\n\nShort: %d/%d, Long: %d/%d", co2, tmp,
+                hum, voc, nox, prs, num_short, AL_STORE_NUM_SHORT, num_long, AL_STORE_NUM_LONG);
 
     // update label
     gfx_begin(false, false);

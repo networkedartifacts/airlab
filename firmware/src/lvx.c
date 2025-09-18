@@ -31,7 +31,7 @@ static lv_coord_t lvx_text_width(lv_obj_t* obj, const char* text) {
 
 const char* lvx_fmt(const char* fmt, ...) {
   // prepare global storage
-  static char buffers[8][64];
+  static char buffers[8][96];
   static uint8_t num = 0;
 
   // select string
@@ -43,7 +43,7 @@ const char* lvx_fmt(const char* fmt, ...) {
   // format string
   va_list args;
   va_start(args, fmt);
-  vsnprintf(str, 64, fmt, args);
+  vsnprintf(str, 96, fmt, args);
   va_end(args);
 
   return str;
