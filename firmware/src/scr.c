@@ -17,6 +17,7 @@
 #include <al/storage.h>
 #include <al/store.h>
 #include <al/buzzer.h>
+#include <al/led.h>
 
 #include "gui.h"
 #include "gfx.h"
@@ -1727,6 +1728,84 @@ static void* scr_config() {
   }
 }
 
+static void* scr_check() {
+  // buttons
+  gui_write("Press all buttons once...", 0);
+  sig_type_t pressed = 0;
+  while ((pressed & SIG_KEYS) != SIG_KEYS) {
+    pressed |= sig_await(SIG_KEYS, 0).type;
+  }
+
+  // accel
+  gui_cleanup(false);
+  gui_write("Rotate the device...", 0);
+  for (;;) {
+    sig_await(SIG_MOTION, 0);
+    al_accel_state_t state = al_accel_get();
+    if (state.front && state.rotation != 0) {
+      break;
+    }
+  }
+
+  // touch
+  gui_cleanup(false);
+  gui_write("Scroll the touch strip...", 0);
+  for (;;) {
+    sig_event_t event = sig_await(SIG_SCROLL, 0);
+    if (event.scroll >= 2 || event.scroll <= -2) {
+      break;
+    }
+  }
+
+  // power
+  gui_cleanup(false);
+  gui_write("Plugin USB power...", 0);
+  for (;;) {
+    sig_await(SIG_POWER, 0);
+    if (al_power_get().usb) {
+      break;
+    }
+  }
+
+  // sensors
+  gui_cleanup(false);
+  gui_write("Blow on the sensors...", 0);
+  for (;;) {
+    sig_await(SIG_SENSOR, 0);
+    al_sample_t state = al_store_last();
+    if (state.co2 > 3000 && state.tmp > 26 && state.hum > 60 && state.voc > 70 && state.voc > 50) {
+      break;
+    }
+  }
+
+  // buzzer
+  gui_cleanup(false);
+  gui_write("Listen for the buzzer...", 0);
+  al_buzzer_beep(4400, 200);
+  naos_delay(1000);
+  al_buzzer_beep(440, 200);
+  naos_delay(1000);
+
+  // LED
+  gui_cleanup(false);
+  gui_write("Check the LED colors...", 0);
+  hmi_set_flag(HMI_FLAG_IGNORE);
+  naos_delay(250);
+  al_led_set(255, 0, 0);
+  naos_delay(1000);
+  al_led_set(0, 255, 0);
+  naos_delay(1000);
+  al_led_set(0, 0, 255);
+  naos_delay(1000);
+  al_led_set(0, 0, 0);
+  hmi_clear_flag(HMI_FLAG_IGNORE);
+
+  // TODO: Display?
+  // TODO: Clock?
+
+  return scr_develop;
+}
+
 static void* scr_settings() {
   // get storage info
   al_storage_info_t info = al_storage_info();
@@ -1890,7 +1969,7 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info", "Sensor Data",   "Light Sleep",  "Deep Sleep",    "Power Reset",
+      "System Info", "Sensor Data",   "Device Check", "Sleep Mode",    "Power Reset",
       "Power Off",   "Shipping Mode", "Screen Saver", "Clear Display", "Test Bubbles",
       "Touch Info",  "Compensation",  "Buzzer",       "Gamepad",       NULL,
   };
@@ -1912,10 +1991,15 @@ static void* scr_develop() {
       return scr_sensor;
     }
 
-    // handle light/deep sleep
-    if (selected == 2 || selected == 3) {
+    // handle device check
+    if (selected == 2) {
+      return scr_check;
+    }
+
+    // handle sleep
+    if (selected == 3) {
       // determine deep
-      bool deep = selected == 3;
+      bool deep = gui_confirm("Which sleep mode?", "Deep", "Light", false, 0);
 
       // log sleep
       naos_log("sleeping... (deep=%d)", deep);
