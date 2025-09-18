@@ -2,6 +2,7 @@
 #define HMI_H
 
 typedef enum {
+  HMI_FLAG_IGNORE,
   HMI_FLAG_OFF,
   HMI_FLAG_MODAL,
   HMI_FLAG_PROCESS,
@@ -10,7 +11,7 @@ typedef enum {
 
 void hmi_init();
 
-void hmi_set_flag(hmi_flag_t state);
-void hmi_clear_flag(hmi_flag_t state);
+void hmi_set_flag(hmi_flag_t flag);
+void hmi_clear_flag(hmi_flag_t flag);
 
 #endif  // HMI_H

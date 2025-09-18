@@ -195,6 +195,12 @@ static void hmi_led_check() {
   // lock mutex
   naos_lock(hmi_mutex);
 
+  // handle ignore
+  if (hmi_flags[HMI_FLAG_IGNORE] > 0) {
+    naos_unlock(hmi_mutex);
+    return;
+  }
+
   // handle off
   if (hmi_flags[HMI_FLAG_OFF] > 0) {
     al_led_set(HMI_LED_OFF);
@@ -285,18 +291,18 @@ void hmi_init() {
   naos_repeat("hmi-led", 300, hmi_led_check);
 }
 
-void hmi_set_flag(hmi_flag_t state) {
+void hmi_set_flag(hmi_flag_t flag) {
   // increase count
   naos_lock(hmi_mutex);
-  hmi_flags[state]++;
+  hmi_flags[flag]++;
   naos_unlock(hmi_mutex);
 }
 
-void hmi_clear_flag(hmi_flag_t state) {
+void hmi_clear_flag(hmi_flag_t flag) {
   // decrease count
   naos_lock(hmi_mutex);
-  if (hmi_flags[state] > 0) {
-    hmi_flags[state]--;
+  if (hmi_flags[flag] > 0) {
+    hmi_flags[flag]--;
   }
   naos_unlock(hmi_mutex);
 }
