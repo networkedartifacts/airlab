@@ -4,7 +4,7 @@
   "target": "esp32s3",
   "tag_prefix": "firmware/",
   "overrides": {
-    "CONFIG_ESPTOOLPY_FLASHSIZE_8MB": "y",
+    "CONFIG_ESPTOOLPY_FLASHSIZE_16MB": "y",
     "CONFIG_BOOT_ROM_LOG_ALWAYS_OFF": "y",
     "CONFIG_BOOTLOADER_LOG_LEVEL_ERROR": "y",
     "CONFIG_BOOTLOADER_SKIP_VALIDATE_IN_DEEP_SLEEP": "y",
@@ -36,12 +36,6 @@
     "CONFIG_ULP_COPROC_TYPE_RISCV": "y",
     "CONFIG_ULP_COPROC_RESERVE_MEM": "5124"
   },
-  "partitions": {
-    "total": 8,
-    "alpha": 25,
-    "beta": 25,
-    "storage": 50
-  },
   "components": {
     "lib": {
       "path": "./lib"
@@ -53,6 +47,10 @@
     "art32": {
       "repository": "https://github.com/256dpi/art32.git",
       "version": "origin/master"
+    },
+    "littlefs": {
+      "registry": "joltwallet/littlefs",
+      "version": "1.20.1"
     }
   }
 }

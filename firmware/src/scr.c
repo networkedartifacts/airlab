@@ -1810,7 +1810,7 @@ static void* scr_check() {
 
 static void* scr_settings() {
   // get storage info
-  al_storage_info_t info = al_storage_info();
+  al_storage_info_t info = al_storage_info(AL_STORAGE_INT);
 
   // begin draw
   gfx_begin(false, false);

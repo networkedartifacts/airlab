@@ -137,7 +137,7 @@ void rec_init(bool reset) {
 
 uint32_t rec_free(bool new) {
   // get info
-  al_storage_info_t info = al_storage_info();
+  al_storage_info_t info = al_storage_info(AL_STORAGE_INT);
 
   // check free space
   if (info.free < (new ? REC_MIN_FREE_NEW : REC_MIN_FREE_CONT)) {

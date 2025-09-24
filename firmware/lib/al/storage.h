@@ -7,6 +7,16 @@
  * The storage root directory.
  */
 #define AL_STORAGE_ROOT "/fs"
+#define AL_STORAGE_INTERNAL "/fs/int"
+#define AL_STORAGE_EXTERNAL "/fs/ext"
+
+/**
+ * The available storage types.
+ */
+typedef enum {
+  AL_STORAGE_INT,
+  AL_STORAGE_EXT,
+} al_storage_type_t;
 
 /**
  * The storage information.
@@ -27,17 +37,17 @@ typedef void (*al_storage_eject_t)();
  *
  * @return The storage information.
  */
-al_storage_info_t al_storage_info();
+al_storage_info_t al_storage_info(al_storage_type_t type);
 
 /**
- * Enables USB storage mode.
+ * Enable USB storage access on the external storage.
  *
  * @param eject The eject callback.
  */
 void al_storage_enable_usb(al_storage_eject_t eject);
 
 /**
- * Disables USB storage mode.
+ * Disables USB storage mode access on the external storage.
  */
 void al_storage_disable_usb();
 

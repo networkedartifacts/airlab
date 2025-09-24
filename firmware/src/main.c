@@ -24,7 +24,7 @@ static float battery() {
 
 static void sync() {
   // update storage metric
-  naos_set_d("storage", al_storage_info().usage);
+  naos_set_d("storage", al_storage_info(AL_STORAGE_INT).usage);
 
   // configure interval
   if (naos_get_l("long-interval") != al_store_get_interval()) {

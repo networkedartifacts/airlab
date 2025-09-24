@@ -1,0 +1,9 @@
+# Name,   Type, SubType,  Offset,  Size
+# Config & Bootloader     0x0,     36K
+nvs,      data, nvs,      0x9000,  24K
+phy_init, data, phy,      0xf000,  4K
+factory,  app,  factory,  0x10000, 4032K
+internal, data, littlefs, ,        8192K
+external, data, fat,      ,        3840K
+coredump, data, coredump, ,        256K
+#                         Total:   16384K

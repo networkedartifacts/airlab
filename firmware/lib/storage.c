@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <naos.h>
+#include <esp_littlefs.h>
 #include <esp_vfs_fat.h>
 #include <esp_partition.h>
 #include <tinyusb.h>
@@ -8,6 +9,8 @@
 
 #include <al/storage.h>
 
+#define AL_STORAGE_INT_LABEL "internal"
+#define AL_STORAGE_EXT_LABEL "external"
 #define AL_STORAGE_DEBUG false
 
 static wl_handle_t al_storage_wl_handle;
@@ -73,9 +76,9 @@ void al_storage_usb_event_handler(tinyusb_event_t *event, void *arg) {
   }
 }
 
-static bool al_storage_access() {
+static bool al_storage_access(const char *path) {
   // open file
-  FILE *file = fopen(AL_STORAGE_ROOT "/TEST", "w");
+  FILE *file = fopen(path, "w");
   if (file == NULL) {
     naos_log("al-sto: failed to create test file, error=%d", errno);
     return false;
@@ -85,7 +88,7 @@ static bool al_storage_access() {
   fclose(file);
 
   // remove file
-  int ret = remove(AL_STORAGE_ROOT "/TEST");
+  int ret = remove(path);
   if (ret != 0) {
     naos_log("al-sto: failed to remove test file, error=%d", ret);
     return false;
@@ -95,33 +98,61 @@ static bool al_storage_access() {
 }
 
 void al_storage_init() {
+  // mount LittleFS file system
+  esp_vfs_littlefs_conf_t lfs_conf = {
+      .base_path = AL_STORAGE_INTERNAL,
+      .partition_label = AL_STORAGE_INT_LABEL,
+      .format_if_mount_failed = true,
+      .grow_on_mount = true,
+  };
+  ESP_ERROR_CHECK(esp_vfs_littlefs_register(&lfs_conf));
+
+  // check access
+  if (!al_storage_access(AL_STORAGE_INTERNAL "/TEST")) {
+    naos_log("al-sto: no INTERNAL access, formatting...");
+    ESP_ERROR_CHECK(esp_littlefs_format(AL_STORAGE_INT_LABEL));
+  }
+
   // mount FAT file system
   const esp_vfs_fat_mount_config_t mount_config = {
       .max_files = 2,
       .format_if_mount_failed = true,
       .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
   };
-  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(AL_STORAGE_ROOT, "storage", &mount_config, &al_storage_wl_handle));
+  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(AL_STORAGE_EXTERNAL, AL_STORAGE_EXT_LABEL, &mount_config,
+                                                   &al_storage_wl_handle));
 
   // check access
-  if (!al_storage_access()) {
-    naos_log("al-sto: no access, formatting storage...");
-    ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(AL_STORAGE_ROOT, "storage"));
-    naos_log("al-sto: storage formatted!");
+  if (!al_storage_access(AL_STORAGE_EXTERNAL "/TEST")) {
+    naos_log("al-sto: no EXTERNAL access, formatting...");
+    ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(AL_STORAGE_EXTERNAL, AL_STORAGE_EXT_LABEL));
   }
 
   // set label
-  FRESULT res = f_setlabel("AIR LAB");
+  FRESULT res = f_setlabel("AIRLAB");
   if (res != FR_OK) {
     naos_log("al-sto: failed to set label, error=%d", res);
   }
 }
 
-al_storage_info_t al_storage_info() {
-  // get free FATFS clusters
+al_storage_info_t al_storage_info(al_storage_type_t type) {
+  // handle internal storage
+  if (type == AL_STORAGE_INT) {
+    size_t total = 0, used = 0;
+    ESP_ERROR_CHECK(esp_littlefs_info(AL_STORAGE_INT_LABEL, &total, &used));
+    return (al_storage_info_t){
+        .total = total,
+        .free = total - used,
+        .usage = (float)used / (float)total,
+    };
+  }
+
+  /* handle external storage */
+
+  // get free external FATFS clusters
   FATFS *fs;
   uint32_t free_clusters;
-  FRESULT res = f_getfree(AL_STORAGE_ROOT, &free_clusters, &fs);
+  FRESULT res = f_getfree(AL_STORAGE_EXTERNAL, &free_clusters, &fs);
   if (res != FR_OK) {
     naos_log("al-sto: failed to get free clusters, error=%d", res);
     return (al_storage_info_t){0};
@@ -147,11 +178,11 @@ void al_storage_enable_usb(al_storage_eject_t eject) {
   al_storage_eject = eject;
 
   // unmount storage
-  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_unmount_rw_wl(AL_STORAGE_ROOT, al_storage_wl_handle));
+  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_unmount_rw_wl(AL_STORAGE_EXTERNAL, al_storage_wl_handle));
 
   // find partition
   const esp_partition_t *data_partition =
-      esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, "storage");
+      esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_FAT, AL_STORAGE_EXT_LABEL);
   if (data_partition == NULL) {
     ESP_ERROR_CHECK(ESP_ERR_NOT_FOUND);
   }
@@ -208,10 +239,12 @@ void al_storage_disable_usb() {
       .format_if_mount_failed = true,
       .allocation_unit_size = CONFIG_WL_SECTOR_SIZE,
   };
-  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(AL_STORAGE_ROOT, "storage", &mount_config, &al_storage_wl_handle));
+  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_mount_rw_wl(AL_STORAGE_EXTERNAL, AL_STORAGE_EXT_LABEL, &mount_config,
+                                                   &al_storage_wl_handle));
 }
 
 void al_storage_reset() {
   // format storage
-  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(AL_STORAGE_ROOT, "storage"));
+  ESP_ERROR_CHECK(esp_littlefs_format(AL_STORAGE_INT_LABEL));
+  ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(AL_STORAGE_EXTERNAL, AL_STORAGE_EXT_LABEL));
 }
