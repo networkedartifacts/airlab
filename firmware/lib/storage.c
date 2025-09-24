@@ -248,3 +248,99 @@ void al_storage_reset() {
   ESP_ERROR_CHECK(esp_littlefs_format(AL_STORAGE_INT_LABEL));
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(AL_STORAGE_EXTERNAL, AL_STORAGE_EXT_LABEL));
 }
+
+bool al_storage_read(const char *dir, const char *name, void *buf, size_t offset, size_t length) {
+  // prepare path
+  char path[32] = {0};
+  strcat(path, dir);
+  strcat(path, "/");
+  strcat(path, name);
+
+  // log
+  if (AL_STORAGE_DEBUG) {
+    naos_log("al-sto: read path=%s offset=%d length=%d", path, offset, length);
+  }
+
+  // open file
+  FILE *file = fopen(path, "r");
+  if (file == NULL) {
+    if (errno == ENOENT) {
+      return false;
+    }
+    ESP_ERROR_CHECK(errno);
+  }
+
+  // seek file
+  if (offset > 0) {
+    int ret = fseek(file, (long)offset, SEEK_SET);
+    if (ret != 0) {
+      ESP_ERROR_CHECK(errno);
+    }
+  }
+
+  // read data
+  size_t ret = fread(buf, 1, length, file);
+  if (ret != length) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+  }
+
+  // close file
+  fclose(file);
+
+  return true;
+}
+
+void al_storage_write(const char *dir, const char *name, void *buf, size_t offset, size_t length, bool truncate) {
+  // prepare path
+  char path[32] = {0};
+  strcat(path, dir);
+  strcat(path, "/");
+  strcat(path, name);
+
+  // log
+  if (AL_STORAGE_DEBUG) {
+    naos_log("al-sto: write path=%s offset=%d length=%d truncate=%d", path, offset, length, truncate);
+  }
+
+  // open file
+  FILE *file = fopen(path, offset == 0 && truncate ? "w" : "r+");
+  if (file == NULL) {
+    ESP_ERROR_CHECK(errno);
+  }
+
+  // seek file
+  if (offset > 0) {
+    int ret = fseek(file, (long)offset, SEEK_SET);
+    if (ret != 0) {
+      ESP_ERROR_CHECK(errno);
+    }
+  }
+
+  // write data
+  size_t ret = fwrite(buf, 1, length, file);
+  if (ret != length) {
+    ESP_ERROR_CHECK(errno);
+  }
+
+  // close file
+  fclose(file);
+}
+
+void al_storage_delete(const char *dir, const char *name) {
+  // prepare path
+  char path[32] = {0};
+  strcat(path, dir);
+  strcat(path, "/");
+  strcat(path, name);
+
+  // log
+  if (AL_STORAGE_DEBUG) {
+    naos_log("al-sto: delete path=%s", path);
+  }
+
+  // remove file
+  int ret = remove(path);
+  if (ret != 0 && ret != ENOENT) {
+    ESP_ERROR_CHECK(errno);
+  }
+}

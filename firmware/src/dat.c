@@ -29,102 +29,6 @@ static int32_t dat_counter = 0;
 static dat_file_t *dat_files;
 static size_t dat_files_length = 0;
 
-static bool dat_read_file(const char *dir, const char *name, void *buf, size_t offset, size_t length) {
-  // prepare path
-  char path[32] = {0};
-  strcat(path, dir);
-  strcat(path, "/");
-  strcat(path, name);
-
-  // log
-  if (DAT_DEBUG) {
-    naos_log("dat: read path=%s offset=%d length=%d", path, offset, length);
-  }
-
-  // open file
-  FILE *file = fopen(path, "r");
-  if (file == NULL) {
-    if (errno == ENOENT) {
-      return false;
-    }
-    ESP_ERROR_CHECK(errno);
-  }
-
-  // seek file
-  if (offset > 0) {
-    int ret = fseek(file, (long)offset, SEEK_SET);
-    if (ret != 0) {
-      ESP_ERROR_CHECK(errno);
-    }
-  }
-
-  // read data
-  size_t ret = fread(buf, 1, length, file);
-  if (ret != length) {
-    ESP_ERROR_CHECK(ESP_FAIL);
-  }
-
-  // close file
-  fclose(file);
-
-  return true;
-}
-
-static void dat_write_file(const char *dir, const char *name, void *buf, size_t offset, size_t length, bool truncate) {
-  // prepare path
-  char path[32] = {0};
-  strcat(path, dir);
-  strcat(path, "/");
-  strcat(path, name);
-
-  // log
-  if (DAT_DEBUG) {
-    naos_log("dat: write path=%s offset=%d length=%d truncate=%d", path, offset, length, truncate);
-  }
-
-  // open file
-  FILE *file = fopen(path, offset == 0 && truncate ? "w" : "r+");
-  if (file == NULL) {
-    ESP_ERROR_CHECK(errno);
-  }
-
-  // seek file
-  if (offset > 0) {
-    int ret = fseek(file, (long)offset, SEEK_SET);
-    if (ret != 0) {
-      ESP_ERROR_CHECK(errno);
-    }
-  }
-
-  // write data
-  size_t ret = fwrite(buf, 1, length, file);
-  if (ret != length) {
-    ESP_ERROR_CHECK(errno);
-  }
-
-  // close file
-  fclose(file);
-}
-
-static void dat_delete_file(const char *dir, const char *name) {
-  // prepare path
-  char path[32] = {0};
-  strcat(path, dir);
-  strcat(path, "/");
-  strcat(path, name);
-
-  // log
-  if (DAT_DEBUG) {
-    naos_log("dat: delete path=%s", path);
-  }
-
-  // remove file
-  int ret = remove(path);
-  if (ret != 0 && ret != ENOENT) {
-    ESP_ERROR_CHECK(errno);
-  }
-}
-
 static void dat_eject() {
   // dispatch eject signal
   sig_dispatch((sig_event_t){
@@ -204,7 +108,7 @@ void dat_init() {
 
     // read head
     dat_head_t head = {0};
-    if (!dat_read_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, entry->d_name, &head, 0, sizeof(head))) {
+    if (!al_storage_read(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, entry->d_name, &head, 0, sizeof(head))) {
       continue;
     }
 
@@ -215,8 +119,8 @@ void dat_init() {
     // read last sample and set stop if available
     if (file.size > 0) {
       al_sample_t sample;
-      if (!dat_read_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, entry->d_name, &sample,
-                         sizeof(dat_head_t) + (file.size - 1) * sizeof(al_sample_t), sizeof(al_sample_t))) {
+      if (!al_storage_read(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, entry->d_name, &sample,
+                           sizeof(dat_head_t) + (file.size - 1) * sizeof(al_sample_t), sizeof(al_sample_t))) {
         ESP_ERROR_CHECK(ESP_FAIL);
       }
       file.stop = sample.off;
@@ -303,7 +207,7 @@ uint16_t dat_create(int64_t start) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, head.num);
 
   // write file
-  dat_write_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, &head, 0, sizeof(head), true);
+  al_storage_write(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, &head, 0, sizeof(head), true);
 
   // prepare file
   dat_file_t file = {.head = head};
@@ -342,7 +246,7 @@ void dat_mark(uint16_t num, int32_t offset) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // update head
-  dat_write_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, &file->head, 0, sizeof(dat_head_t), false);
+  al_storage_write(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, &file->head, 0, sizeof(dat_head_t), false);
 }
 
 void dat_append(uint16_t num, al_sample_t *samples, size_t count) {
@@ -369,13 +273,13 @@ void dat_append(uint16_t num, al_sample_t *samples, size_t count) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // append samples
-  dat_write_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, samples, offset, length, false);
+  al_storage_write(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, samples, offset, length, false);
 
   // update head
   file->size += count;
 
   // update head
-  dat_write_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, &file->head, 0, sizeof(dat_head_t), false);
+  al_storage_write(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, &file->head, 0, sizeof(dat_head_t), false);
 
   // update file
   file->stop = samples[count - 1].off;
@@ -404,7 +308,7 @@ void dat_load(uint16_t num, al_sample_t *samples, size_t count, size_t start) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // read samples
-  if (!dat_read_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, samples, offset, length)) {
+  if (!al_storage_read(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name, samples, offset, length)) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 }
@@ -421,7 +325,7 @@ void dat_delete(uint16_t num) {
   snprintf(name, sizeof(name), DAT_NAME_FMT, num);
 
   // delete file
-  dat_delete_file(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name);
+  al_storage_delete(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR, name);
 
   // remove file from list
   dat_files_length--;
@@ -544,7 +448,7 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
 
   // write header
   const char *header = "time,co2,tmp,hum,voc,nox,prs\n";
-  dat_write_file(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR, name, (void *)header, 0, strlen(header), true);
+  al_storage_write(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR, name, (void *)header, 0, strlen(header), true);
 
   // prepare pos
   size_t file_pos = strlen(header);
@@ -581,7 +485,7 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
 
       // flush buffer if full
       if (buf_pos > DAT_EXPORT_BUF - 128) {
-        dat_write_file(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR, name, buffer, file_pos, buf_pos, false);
+        al_storage_write(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR, name, buffer, file_pos, buf_pos, false);
         file_pos += buf_pos;
         buf_pos = 0;
       }
@@ -595,7 +499,7 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
 
   // flush buffer
   if (buf_pos > 0) {
-    dat_write_file(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR, name, buffer, file_pos, buf_pos, false);
+    al_storage_write(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR, name, buffer, file_pos, buf_pos, false);
   }
 
   // free buffer
@@ -627,5 +531,5 @@ void dat_dump(const char *name, const void *data, size_t size) {
   mkdir(AL_STORAGE_EXTERNAL "/" DAT_DUMP_DIR, 0777);
 
   // truncate and write file
-  dat_write_file(AL_STORAGE_EXTERNAL "/" DAT_DUMP_DIR, name, (void *)data, 0, size, true);
+  al_storage_write(AL_STORAGE_EXTERNAL "/" DAT_DUMP_DIR, name, (void *)data, 0, size, true);
 }
