@@ -88,7 +88,8 @@ static void scr_power_off(bool low_power, bool msg) {
 
   // write message
   if (msg) {
-    gui_write(low_power ? "Low Battery\n\nCharge via USB-C and press <A>." : "Powered Off\n\nPress <A> to start.", true);
+    gui_write(low_power ? "Low Battery\n\nCharge via USB-C and press <A>." : "Powered Off\n\nPress <A> to start.",
+              true);
   }
 
   // clear returns

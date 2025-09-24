@@ -14,7 +14,7 @@
 
 #define REC_MIN_FREE_NEW (3 * 4096)
 #define REC_MIN_FREE_CONT (2 * 4096)
-#define REC_DEBUG true
+#define REC_DEBUG false
 
 DEV_KEEP static uint16_t rec_current = 0;
 
