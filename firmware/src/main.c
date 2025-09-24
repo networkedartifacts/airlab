@@ -25,6 +25,7 @@ static float battery() {
 static void sync() {
   // update storage metric
   naos_set_d("storage", al_storage_info(AL_STORAGE_INT).usage);
+  naos_set_d("ext-storage", al_storage_info(AL_STORAGE_EXT).usage);
 
   // configure interval
   if (naos_get_l("long-interval") != al_store_get_interval()) {
@@ -64,6 +65,7 @@ static void setup() {
 
 static naos_param_t params[] = {
     {.name = "storage", .type = NAOS_DOUBLE, .mode = NAOS_VOLATILE | NAOS_LOCKED},
+    {.name = "ext-storage", .type = NAOS_DOUBLE, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
     {.name = "long-interval", .type = NAOS_LONG, .default_l = 60},
