@@ -244,6 +244,7 @@ void com_init() {
 }
 
 bool com_started() {
+  // return state
   return com_did_start;
 }
 
