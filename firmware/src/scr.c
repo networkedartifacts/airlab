@@ -161,20 +161,23 @@ typedef struct {
   const char* reset__confirm;
   const char* reset__reset;
   const char* settings__title;
-  const char* settings__storage;
   const char* settings__date_time;
   const char* settings__about;
   const char* settings__language;
   const char* settings__config;
   const char* settings__off;
   const char* settings__reset;
+  const char* about__device_name;
+  const char* about__serial_number;
+  const char* about__firmware_version;
+  const char* about__internal_storage;
+  const char* about__external_storage;
   const char* config__sleep_rate;
   const char* config__record_rate;
   const char* config__long_interval;
   const char* config__temp_unit;
   const char* config__developer;
   const char* config__power_light;
-  const char* config__device_name;
   const char* config__wifi_network;
   const char* config__studio;
   const char* menu__no_data;
@@ -230,20 +233,23 @@ static const scr_trans_t scr_trans_map[] = {
             .reset__confirm = "Air Lab zurücksetzen?",
             .reset__reset = "Air Lab\nerfolgreich zurückgesetzt!",
             .settings__title = "Einstellungen",
-            .settings__storage = "Speicher: %.1f%% belegt",
             .settings__date_time = "Datum & Zeit",
             .settings__about = "Über",
             .settings__language = "Sprache",
             .settings__config = "Konfiguration",
             .settings__off = "Ausschalten",
             .settings__reset = "Zurücksetzen",
+            .about__device_name = "Gerätename",
+            .about__serial_number = "Seriennummer",
+            .about__firmware_version = "FW Version",
+            .about__internal_storage = "Int. Speicher",
+            .about__external_storage = "Ext. Speicher",
             .config__sleep_rate = "Schlaf Messrate",
             .config__record_rate = "Aufnahme Messrate",
             .config__long_interval = "Langzeit Intervall",
             .config__temp_unit = "Temperatureinheit",
             .config__developer = "Entwicklermodus",
             .config__power_light = "Betriebsanzeige",
-            .config__device_name = "Gerätename",
             .config__wifi_network = "WiFi Netzwerk",
             .config__studio = "Verwende Air Lab Studio\num diesen Wert zu ändern.",
             .menu__no_data = "Keine Daten",
@@ -297,20 +303,23 @@ static const scr_trans_t scr_trans_map[] = {
             .reset__confirm = "Fully reset Air Lab?",
             .reset__reset = "Air Lab\nsuccessfully reset!",
             .settings__title = "Settings",
-            .settings__storage = "Storage: %.1f%% used",
             .settings__about = "About",
             .settings__date_time = "Date & Time",
             .settings__language = "Language",
             .settings__config = "Configuration",
             .settings__off = "Power Off",
             .settings__reset = "Full Reset",
+            .about__device_name = "Device Name",
+            .about__serial_number = "Serial Number",
+            .about__firmware_version = "FW Version",
+            .about__internal_storage = "Int. Storage",
+            .about__external_storage = "Ext. Storage",
             .config__sleep_rate = "Sleep Sample Rate",
             .config__record_rate = "Record Sample Rate",
             .config__long_interval = "Long-term Interval",
             .config__temp_unit = "Temperature Unit",
             .config__developer = "Developer Mode",
             .config__power_light = "Power Light",
-            .config__device_name = "Device Name",
             .config__wifi_network = "WiFi Network",
             .config__studio = "Use Air Lab Studio\nto change this value.",
             .menu__no_data = "No Data",
@@ -1610,23 +1619,17 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 7: {
       return (gui_list_item_t){
-          .title = t->config__device_name,
-          .info = lvx_truncate(naos_get_s("device-name"), 20),
-      };
-    }
-    case 8: {
-      return (gui_list_item_t){
           .title = t->config__wifi_network,
           .info = lvx_truncate(naos_get_s("wifi-ssid"), 20),
       };
     }
-    case 9: {
+    case 8: {
       return (gui_list_item_t){
           .title = "MQTT Broker",
           .info = lvx_truncate(naos_get_s("mqtt-host"), 20),
       };
     }
-    case 10: {
+    case 9: {
       return (gui_list_item_t){
           .title = "Home Assistant",
           .info = naos_get_b("mqtt-ha") ? t->on : t->off,
@@ -1648,7 +1651,7 @@ static void* scr_config() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(11, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(10, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_settings;
     }
@@ -1813,10 +1816,82 @@ static void* scr_check() {
   return scr_develop;
 }
 
-static void* scr_settings() {
-  // get storage info
-  al_storage_info_t info = al_storage_info(AL_STORAGE_INT);
+static gui_list_item_t scr_about_cb(int num, void* ctx) {
+  // get translation
+  const scr_trans_t* t = scr_trans();
 
+  // handle config items
+  switch (num) {
+    case 0: {
+      return (gui_list_item_t){
+          .title = t->about__device_name,
+          .info = naos_get_s("device-name"),
+      };
+    }
+    case 1: {
+      // get authentication data
+      naos_auth_data_t auth = {0};
+      naos_auth_describe(&auth);
+
+      return (gui_list_item_t){
+          .title = t->about__serial_number,
+          .info = lvx_fmt("NA-AL1-R%d/%d", auth.revision, auth.batch),
+      };
+    }
+    case 2: {
+      // find "g" in version
+      int n = (int)(strchr(naos_config()->app_version, 'g') - naos_config()->app_version) - 1;
+
+      return (gui_list_item_t){
+          .title = t->about__firmware_version,
+          .info = lvx_fmt("%.*s", n, naos_config()->app_version),
+      };
+    }
+    case 3: {
+      // get info
+      al_storage_info_t info = al_storage_info(AL_STORAGE_INT);
+
+      return (gui_list_item_t){
+          .title = t->about__internal_storage,
+          .info = lvx_fmt("%.2f %% of %.1f MB", info.usage * 100.f, (float)info.total / 1024.f / 1024.f),
+      };
+    }
+    case 4: {
+      // get info
+      al_storage_info_t info = al_storage_info(AL_STORAGE_EXT);
+
+      return (gui_list_item_t){
+          .title = t->about__external_storage,
+          .info = lvx_fmt("%.2f %% of %.1f MB", info.usage * 100.f, (float)info.total / 1024.f / 1024.f),
+      };
+    }
+    default:
+      ESP_ERROR_CHECK(ESP_FAIL);
+      return (gui_list_item_t){0};
+  }
+}
+
+static void* scr_about() {
+  // prepare state
+  static int offset = 0;
+  static int selected = 0;
+
+  // get translation
+  const scr_trans_t* t = scr_trans();
+
+  for (;;) {
+    // select parameter
+    int choice = gui_list(5, selected, &offset, t->change, t->back, scr_about_cb, NULL, SCR_ACTION_TIMEOUT);
+    if (choice < 0) {
+      return scr_settings;
+    }
+
+    // store choice
+    selected = choice;
+  }
+}
+
+static void* scr_settings() {
   // begin draw
   gfx_begin(false, false);
 
@@ -1824,11 +1899,6 @@ static void* scr_settings() {
   lv_obj_t* title = lv_label_create(lv_scr_act());
   lv_label_set_text(title, scr_trans()->settings__title);
   lv_obj_align(title, LV_ALIGN_TOP_LEFT, 5, 5);
-
-  // add storage
-  lv_obj_t* storage = lv_label_create(lv_scr_act());
-  lv_label_set_text(storage, lvx_fmt(scr_trans()->settings__storage, info.usage * 100.f));
-  lv_obj_align(storage, LV_ALIGN_TOP_LEFT, 5, 26);
 
   // add signs
   lvx_sign_t datetime = {
@@ -1941,15 +2011,7 @@ static void* scr_settings() {
 
   // handle about
   if (event.type == SIG_ENTER) {
-    // get authentication data
-    naos_auth_data_t auth = {0};
-    naos_auth_describe(&auth);
-
-    // show model and version
-    const char* text = lvx_fmt("NA-AL1-R%d/%d\n%s", auth.revision, auth.batch, naos_config()->app_version);
-    gui_message(text, SCR_ACTION_TIMEOUT);
-
-    return scr_settings;
+    return scr_about;
   }
 
   // handle event
