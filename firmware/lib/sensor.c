@@ -178,10 +178,10 @@ static void al_sensor_monitor() {
 
   /* check if store needs to be shifted */
 
-  // if zero, or older than 84 hours, set store base to 96 hours ago
+  // set store base if zero, or older than 5 minutes
   int64_t store_base = al_store_get_base();
-  if (store_base == 0 || now - store_base > 90 * 60 * 60 * 1000) {
-    al_store_set_base(now - 84 * 60 * 60 * 1000, true);
+  if (store_base == 0 || now - store_base >= 5 * 60 * 1000) {
+    al_store_set_base(now, true);
   }
 
   /* check if clock has been changed */
