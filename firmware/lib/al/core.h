@@ -8,6 +8,8 @@
  * The USB VBUS monitoring pin.
  */
 #define AL_USB_MON 18
+#define AL_GPIO_A 3
+#define AL_GPIO_B 10
 
 /**
  * The available triggers that can wake the device.
