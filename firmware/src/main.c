@@ -2,6 +2,7 @@
 #include <naos/cpu.h>
 #include <naos/serial.h>
 #include <naos/sys.h>
+#include <esp_heap_caps.h>
 
 #include <al/core.h>
 #include <al/power.h>
@@ -52,6 +53,9 @@ static void setup() {
   dat_init();
   rec_init(reset);
   com_init();
+
+  // allow allocations in external memory
+  heap_caps_malloc_extmem_enable(4096);
 
   // run sync
   naos_repeat("sync", 1000, sync);
