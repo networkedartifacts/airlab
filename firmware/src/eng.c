@@ -19,7 +19,7 @@
 static bool eng_get_bit(const uint8_t *buf, size_t pos) {
   // get bit
   size_t byte = pos / 8;
-  size_t bit = 7 - pos % 8;  // from left
+  size_t bit = pos % 8;
 
   return buf[byte] & (1 << bit) ? 1 : 0;
 }
@@ -152,13 +152,17 @@ static void eng_draw(wasm_exec_env_t _, int x, int y, int w, int h, uint8 *i, ui
 
   // do boundary check
   if (w <= 0 || h <= 0) {
-    printf("eng_draw: invalid parameters\n");
     return;
   }
 
   // set pixels
   for (int yy = 0; yy < h; yy++) {
     for (int xx = 0; xx < w; xx++) {
+      int xxx = x + xx;
+      int yyy = y + yy;
+      if (xxx < 0 || xxx >= 296 || yyy < 0 || yyy >= 128) {
+        continue;
+      }
       int idx = yy * w + xx;
       if (m == NULL || eng_get_bit(m, idx) != 0) {
         lv_canvas_set_px(eng_canvas, x + xx, y + yy, eng_color(eng_get_bit(i, idx) ? 1 : 0));
@@ -301,8 +305,16 @@ void *eng_run_task(void *) {
     goto fail;
   }
 
+  // lock graphics
+  gfx_begin(false, false);
+
   // call _start function
   bool ok = wasm_runtime_call_wasm(exec_env, func, 0, NULL);
+
+  // unlock graphics
+  gfx_end(false, false);
+
+  // check result
   if (!ok) {
     printf("eng: calling _start function failed: %s\n", wasm_runtime_get_exception(module_inst));
     goto fail;
@@ -353,9 +365,6 @@ void eng_run(void *app, size_t app_len) {
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   pthread_attr_setstacksize(&attr, 5120);
 
-  // lock graphics
-  gfx_begin(false, false);
-
   // create thread
   pthread_t t;
   int res = pthread_create(&t, &attr, eng_run_task, NULL);
@@ -370,9 +379,6 @@ void eng_run(void *app, size_t app_len) {
     printf("eng: pthread_join failed: %d\n", res);
     return;
   }
-
-  // unlock graphics
-  gfx_end(false, false);
 
   // clear screen
   gui_cleanup(false);
