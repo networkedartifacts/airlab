@@ -16,6 +16,14 @@
 #include "internal.h"
 #include "sig.h"
 
+static bool eng_get_bit(const uint8_t *buf, size_t pos) {
+  // get bit
+  size_t byte = pos / 8;
+  size_t bit = 7 - pos % 8;  // from left
+
+  return buf[byte] & (1 << bit) ? 1 : 0;
+}
+
 static void *eng_app;
 static size_t eng_app_len;
 static lv_obj_t *eng_canvas;
@@ -39,9 +47,13 @@ static void eng_free(void *ptr) {
 
 /* utility helpers */
 
-static lv_color_t eng_color(int c) { return c == 1 ? lv_color_black() : lv_color_white(); }
+static lv_color_t eng_color(int c) {
+  // determine color
+  return c == 1 ? lv_color_black() : lv_color_white();
+}
 
 static const lv_font_t *eng_font(int f) {
+  // determine font
   switch (f) {
     case 16:
       return &fnt_16;
@@ -67,43 +79,41 @@ static int eng_yield(wasm_exec_env_t _, int timeout, int flags) {
   // unlock graphics
   gfx_end(flags & ENG_WF_SKIP_FRAME, flags & ENG_WF_WAIT_FRAME);
 
-  // prepare state
-  int state = 0;
+  // await event or deadline
+  sig_event_t event = sig_await(SIG_KEYS, timeout);
 
-  // capture events until deadline
-  for (;;) {
-    // await event or deadline
-    sig_event_t event = sig_await(SIG_KEYS, timeout);
-
-    // handle events
-    switch (event.type) {
-      case SIG_ENTER:
-        state |= 1;
-        break;
-      case SIG_ESCAPE:
-        state |= 2;
-        break;
-      case SIG_UP:
-        state |= 4;
-        break;
-      case SIG_DOWN:
-        state |= 8;
-        break;
-      case SIG_LEFT:
-        state |= 16;
-        break;
-      case SIG_RIGHT:
-        state |= 32;
-        break;
-      default:
-        break;
-    }
+  // handle events
+  int ret = 0;
+  switch (event.type) {
+    case SIG_TIMEOUT:
+      ret = 0;
+      break;
+    case SIG_ENTER:
+      ret = 1;
+      break;
+    case SIG_ESCAPE:
+      ret = 2;
+      break;
+    case SIG_UP:
+      ret = 3;
+      break;
+    case SIG_DOWN:
+      ret = 4;
+      break;
+    case SIG_LEFT:
+      ret = 5;
+      break;
+    case SIG_RIGHT:
+      ret = 6;
+      break;
+    default:
+      break;
   }
 
   // lock graphics
   gfx_begin(flags & ENG_WF_REFRESH, flags & ENG_WF_INVERT);
 
-  return state;
+  return ret;
 }
 
 static void eng_clear(wasm_exec_env_t _, int c) {
@@ -127,7 +137,6 @@ static void eng_rect(wasm_exec_env_t _, int x, int y, int w, int h, int c, int b
 }
 
 static void eng_write(wasm_exec_env_t _, int x, int y, int f, int c, uint8 *buf, int buf_len) {
-  // do boundary check
   printf("eng_write: x=%d, y=%d, f=%d, c=%d, s='%s'\n", x, y, f, c, (char *)buf);
 
   // write text
@@ -136,6 +145,26 @@ static void eng_write(wasm_exec_env_t _, int x, int y, int f, int c, uint8 *buf,
   label_dsc.color = eng_color(c);
   label_dsc.font = eng_font(f);
   lv_canvas_draw_text(eng_canvas, x, y, 296 - x, &label_dsc, (char *)buf);
+}
+
+static void eng_draw(wasm_exec_env_t _, int x, int y, int w, int h, uint8 *i, uint8 *m) {
+  printf("eng_draw: x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
+
+  // do boundary check
+  if (w <= 0 || h <= 0) {
+    printf("eng_draw: invalid parameters\n");
+    return;
+  }
+
+  // set pixels
+  for (int yy = 0; yy < h; yy++) {
+    for (int xx = 0; xx < w; xx++) {
+      int idx = yy * w + xx;
+      if (m == NULL || eng_get_bit(m, idx) != 0) {
+        lv_canvas_set_px(eng_canvas, x + xx, y + yy, eng_color(eng_get_bit(i, idx) ? 1 : 0));
+      }
+    }
+  }
 }
 
 typedef enum {
@@ -209,7 +238,8 @@ static int eng_i2c(wasm_exec_env_t _, int addr, uint8 *tx, int tx_len, uint8 *rx
 static NativeSymbol native_symbols[] = {
     {"al_yield", eng_yield, "(ii)i", NULL},  {"al_clear", eng_clear, "(i)", NULL},
     {"al_rect", eng_rect, "(iiiiii)", NULL}, {"al_write", eng_write, "(iiii*~)", NULL},
-    {"al_gpio", eng_gpio, "(ii)i", NULL},    {"al_i2c", eng_i2c, "(i*i*i*i)i", NULL},
+    {"al_draw", eng_draw, "(iiii**)", NULL}, {"al_gpio", eng_gpio, "(ii)i", NULL},
+    {"al_i2c", eng_i2c, "(i*i*i*i)i", NULL},
 };
 
 void *eng_run_task(void *) {
