@@ -4,9 +4,9 @@
 
 #include <al/core.h>
 #include <al/epd.h>
+#include <al/storage.h>
 
 #include "gfx.h"
-#include "dat.h"
 #include "fnt.h"
 
 #define GFX_WIDTH AL_EPD_HEIGHT
@@ -87,7 +87,7 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
     if (gfx_record) {
       char name[32];
       snprintf(name, sizeof(name), "screen-%llu.bin", naos_millis());
-      dat_dump(name, gfx_frame, AL_EPD_FRAME);
+      al_storage_write(AL_STORAGE_EXT, "dump", name, gfx_frame, 0, AL_EPD_FRAME, true);
     }
   }
 

@@ -16,7 +16,6 @@
 
 #define DAT_DATA_DIR "data"
 #define DAT_EXPORT_DIR "export"
-#define DAT_DUMP_DIR "dump"
 #define DAT_NAME_FMT "file-%04u.bin"
 #define DAT_EXPORT_FMT "file-%04u.csv"
 #define DAT_FILES 128
@@ -523,9 +522,4 @@ void dat_enable_usb() {
 void dat_disable_usb() {
   // disable USB
   al_storage_disable_usb();
-}
-
-void dat_dump(const char *name, const void *data, size_t size) {
-  // truncate and write file
-  al_storage_write(AL_STORAGE_EXT, DAT_DUMP_DIR, name, (void *)data, 0, size, true);
 }

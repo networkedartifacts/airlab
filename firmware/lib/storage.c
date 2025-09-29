@@ -8,6 +8,7 @@
 #include <tinyusb_msc.h>
 #include <tinyusb_default_config.h>
 
+#include <al/core.h>
 #include <al/storage.h>
 
 #define AL_STORAGE_INT_LABEL "internal"
@@ -64,7 +65,7 @@ static void al_storage_usb_msc_cb(tinyusb_msc_storage_handle_t handle, tinyusb_m
   }
 }
 
-void al_storage_usb_event_handler(tinyusb_event_t *event, void *arg) {
+static void al_storage_usb_event_handler(tinyusb_event_t *event, void *arg) {
   switch (event->id) {
     case TINYUSB_EVENT_ATTACHED:
       naos_log("al-sto: USB attached");
@@ -250,6 +251,33 @@ void al_storage_reset() {
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_format_rw_wl(AL_STORAGE_EXTERNAL, AL_STORAGE_EXT_LABEL));
 }
 
+int al_storage_stat(al_storage_type_t type, const char *dir, const char *name) {
+  // prepare path
+  char path[32] = {0};
+  strcat(path, type == AL_STORAGE_INT ? AL_STORAGE_INTERNAL : AL_STORAGE_EXTERNAL);
+  strcat(path, "/");
+  strcat(path, dir);
+  strcat(path, "/");
+  strcat(path, name);
+
+  // log
+  if (AL_STORAGE_DEBUG) {
+    naos_log("al-sto: stat path=%s", path);
+  }
+
+  // stat file
+  struct stat st;
+  int res = stat(path, &st);
+  if (res != 0) {
+    if (errno == ENOENT) {
+      return -1;
+    }
+    ESP_ERROR_CHECK(errno);
+  }
+
+  return (int)st.st_size;
+}
+
 bool al_storage_read(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,
                      size_t length) {
   // prepare path
@@ -292,6 +320,28 @@ bool al_storage_read(al_storage_type_t type, const char *dir, const char *name, 
   fclose(file);
 
   return true;
+}
+
+void *al_storage_load(al_storage_type_t type, const char *dir, const char *name, size_t *size) {
+  // get size
+  int sz = al_storage_stat(type, dir, name);
+  if (sz < 0) {
+    return NULL;
+  }
+
+  // set size
+  *size = (size_t)sz;
+
+  // allocate buffer
+  void *buf = al_alloc(*size);
+
+  // read file
+  if (!al_storage_read(type, dir, name, buf, 0, *size)) {
+    free(buf);
+    return NULL;
+  }
+
+  return buf;
 }
 
 void al_storage_write(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,

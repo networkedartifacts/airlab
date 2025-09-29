@@ -57,6 +57,16 @@ void al_storage_disable_usb();
 void al_storage_reset();
 
 /**
+ * Get the size of a file in storage.
+ *
+ * @param type The storage type.
+ * @param dir The directory.
+ * @param name The file name.
+ * @return The size of the file, or -1 if the file does not exist.
+ */
+int al_storage_stat(al_storage_type_t type, const char *dir, const char *name);
+
+/**
  * Read from a file in storage.
  *
  * @param type The storage type.
@@ -69,6 +79,17 @@ void al_storage_reset();
  */
 bool al_storage_read(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,
                      size_t length);
+
+/**
+ * Load an entire file from storage into memory.
+ *
+ * @param type The storage type.
+ * @param dir The directory.
+ * @param name The file name.
+ * @param size A pointer to store the size of the loaded file.
+ * @return A pointer to the loaded file, or NULL if the file does not exist.
+ */
+void *al_storage_load(al_storage_type_t type, const char *dir, const char *name, size_t *size);
 
 /**
  * Write to a file in storage.
