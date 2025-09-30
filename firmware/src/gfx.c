@@ -8,6 +8,7 @@
 
 #include "gfx.h"
 #include "fnt.h"
+#include "lvx.h"
 
 #define GFX_WIDTH AL_EPD_HEIGHT
 #define GFX_HEIGHT AL_EPD_WIDTH
@@ -124,6 +125,7 @@ void gfx_init(bool reset) {
 
   // initialize
   lv_init();
+  lvx_init();
 
   // initialize buffer
   lv_disp_draw_buf_init(&gfx_draw_buffer, gfx_frame_buffer, NULL, AL_EPD_WIDTH * AL_EPD_HEIGHT);

@@ -14,6 +14,7 @@
 #include "gfx.h"
 #include "gui.h"
 #include "internal.h"
+#include "lvx.h"
 #include "sig.h"
 
 typedef enum {
@@ -143,26 +144,24 @@ static void eng_op_draw(wasm_exec_env_t _, int x, int y, int w, int h, int s, ui
     return;
   }
 
-  for (int yy = 0; yy < h; yy++) {
-    for (int xx = 0; xx < w; xx++) {
-      int idx = yy * w + xx;
-      if (m == NULL || eng_get_bit(m, idx) != 0) {
-        lv_color_t c = eng_color(eng_get_bit(i, idx) ? 1 : 0);
+  // prepare sprite
+  lvx_sprite_t sprite = {
+      .w = w,
+      .h = h,
+      .s = s,
+      .img = i,
+      .mask = m,
+  };
 
-        // expand pixel into s×s block
-        for (int sy = 0; sy < s; sy++) {
-          for (int sx = 0; sx < s; sx++) {
-            int xxx = x + xx * s + sx;
-            int yyy = y + yy * s + sy;
-            if (xxx < 0 || xxx >= 296 || yyy < 0 || yyy >= 128) {
-              continue;
-            }
-            lv_canvas_set_px(eng_canvas, xxx, yyy, c);
-          }
-        }
-      }
-    }
-  }
+  // prepare image
+  lv_img_dsc_t img = lvx_sprite_img(&sprite);
+
+  // prepare descriptor
+  lv_draw_img_dsc_t img_draw;
+  lv_draw_img_dsc_init(&img_draw);
+
+  // draw image
+  lv_canvas_draw_img(eng_canvas, x, y, &img, &img_draw);
 }
 
 typedef enum {
@@ -258,7 +257,7 @@ static int eng_op_sprite_height(wasm_exec_env_t _, int sprite) {
   return data[2] | (data[3] << 8);
 }
 
-static void eng_op_sprite_draw(wasm_exec_env_t _, int sprite, int x, int y, int s) {
+static void eng_op_sprite_draw(wasm_exec_env_t e, int sprite, int x, int y, int s) {
   printf("eng_op_sprite_draw: sprite=%d, x=%d, y=%d, s=%d\n", sprite, x, y, s);
 
   // check sprite
@@ -274,7 +273,7 @@ static void eng_op_sprite_draw(wasm_exec_env_t _, int sprite, int x, int y, int 
   uint8 *msk = img + ((w * h + 7) / 8);
 
   // draw sprite
-  eng_op_draw(_, x, y, w, h, s, img, msk);
+  eng_op_draw(e, x, y, w, h, s, img, msk);
 }
 
 static int eng_op_sprite_read(wasm_exec_env_t _, int sprite, int x, int y) {

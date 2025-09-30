@@ -114,4 +114,18 @@ void lvx_log_event(lv_event_t *event);
 
 void lvx_style_set_pad(lv_style_t *style, lv_coord_t top, lv_coord_t bottom, lv_coord_t left, lv_coord_t right);
 
+/* Bitmap Decoder */
+
+typedef struct {
+  uint16_t w, h, s;
+  const uint8_t *img;
+  const uint8_t *mask;
+} lvx_sprite_t;
+
+lv_img_dsc_t lvx_sprite_img(lvx_sprite_t *sprite);
+
+/* General */
+
+void lvx_init();
+
 #endif  // LVX_H

@@ -1,4 +1,5 @@
 #include <naos.h>
+#include <naos/ble.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -8,9 +9,6 @@
 #include <al/clock.h>
 
 #include "lvx.h"
-
-#include <naos/ble.h>
-
 #include "gfx.h"
 #include "fnt.h"
 #include "img.h"
@@ -594,4 +592,103 @@ void lvx_style_set_pad(lv_style_t* style, lv_coord_t top, lv_coord_t bottom, lv_
   lv_style_set_pad_bottom(style, bottom);
   lv_style_set_pad_left(style, left);
   lv_style_set_pad_right(style, right);
+}
+
+/* Bitmap Decoder */
+
+static lv_res_t lvx_sprite_decoder_info(lv_img_decoder_t* d, const void* src, lv_img_header_t* header) {
+  // check source
+  if (lv_img_src_get_type(src) != LV_IMG_SRC_VARIABLE) {
+    return LV_RES_INV;
+  }
+
+  // get image
+  lv_img_dsc_t* img = (lv_img_dsc_t*)src;
+
+  // check encoding
+  if (img->header.cf != LV_IMG_CF_USER_ENCODED_0) {
+    return LV_RES_INV;
+  }
+
+  // update descriptor
+  const lv_img_dsc_t* img_dsc = src;
+  header->always_zero = 0;
+  header->cf = img_dsc->header.cf;
+  header->w = img_dsc->header.w;
+  header->h = img_dsc->header.h;
+
+  return LV_RES_OK;
+}
+
+static lv_res_t lvx_sprite_decoder_open(lv_img_decoder_t* d, lv_img_decoder_dsc_t* dsc) {
+  // get image descriptor
+  const lv_img_dsc_t* img_dsc = dsc->src;
+
+  // get sprite
+  const lvx_sprite_t* sprite = (lvx_sprite_t*)img_dsc->data;
+
+  // fill descriptor
+  dsc->img_data = NULL;
+  dsc->header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
+  dsc->header.w = sprite->w * sprite->s;
+  dsc->header.h = sprite->h * sprite->s;
+  dsc->user_data = (void*)sprite;
+
+  return LV_RES_OK;
+}
+
+static bool lvx_sprite_decoder_bit(const uint8_t* buf, size_t pos) {
+  // get bit
+  size_t byte = pos / 8;
+  size_t bit = pos % 8;
+
+  return buf[byte] & (1 << bit) ? 1 : 0;
+}
+
+static lv_res_t lvx_sprite_decoder_read(lv_img_decoder_t* d, lv_img_decoder_dsc_t* dsc, lv_coord_t x, lv_coord_t y,
+                                        lv_coord_t len, uint8_t* dst) {
+  // get sprite
+  const lvx_sprite_t* sprite = dsc->user_data;
+
+  // write pixels
+  for (int xx = x; xx < x + len; xx++) {
+    // get source position
+    int sx = xx / sprite->s;
+    int sy = y / sprite->s;
+    if (sx >= sprite->w) sx = sprite->w - 1;
+    if (sy >= sprite->h) sy = sprite->h - 1;
+
+    // get index
+    int idx = sy * sprite->w + sx;
+
+    // set pixel
+    *dst++ = lvx_sprite_decoder_bit(sprite->img, idx) ? 0x00 : 0xFF;
+    *dst++ = lvx_sprite_decoder_bit(sprite->mask, idx) ? 0xFF : 0x00;
+  }
+
+  return LV_RES_OK;
+}
+
+lv_img_dsc_t lvx_sprite_img(lvx_sprite_t* sprite) {
+  // prepare image
+  return (lv_img_dsc_t){
+      .header =
+          (lv_img_header_t){
+              .w = sprite->w * sprite->s,
+              .h = sprite->h * sprite->s,
+              .cf = LV_IMG_CF_USER_ENCODED_0,
+          },
+      .data = (uint8_t*)sprite,
+      .data_size = sizeof(lvx_sprite_t),
+  };
+}
+
+/* General */
+
+void lvx_init() {
+  // create sprite decoder
+  lv_img_decoder_t* dec = lv_img_decoder_create();
+  lv_img_decoder_set_info_cb(dec, lvx_sprite_decoder_info);
+  lv_img_decoder_set_open_cb(dec, lvx_sprite_decoder_open);
+  lv_img_decoder_set_read_line_cb(dec, lvx_sprite_decoder_read);
 }
