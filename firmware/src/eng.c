@@ -16,19 +16,39 @@
 #include "internal.h"
 #include "sig.h"
 
-static bool eng_get_bit(const uint8_t *buf, size_t pos) {
-  // get bit
-  size_t byte = pos / 8;
-  size_t bit = pos % 8;
+typedef enum {
+  ENG_BUNDLE_TYPE_ATTR = 0x00,
+  ENG_BUNDLE_TYPE_BINARY = 0x01,
+  ENG_BUNDLE_TYPE_SPRITE = 0x02,
+} eng_bundle_type_t;
 
-  return buf[byte] & (1 << bit) ? 1 : 0;
-}
+typedef struct {
+  eng_bundle_type_t type;
+  const char *name;
+  size_t len;
+  uint8 *data;
+} eng_bundle_section_t;
 
-static void *eng_app;
-static size_t eng_app_len;
+static void *eng_bundle_buf;
+static size_t eng_bundle_len;
+static uint16 eng_bundle_sections_num;
+static eng_bundle_section_t *eng_bundle_sections;
 static lv_obj_t *eng_canvas;
 
-/* memory helper */
+/* bundle helpers */
+
+static eng_bundle_section_t *eng_bundle_locate(eng_bundle_type_t type, const char *name) {
+  // find matching section
+  for (int i = 0; i < eng_bundle_sections_num; i++) {
+    if (eng_bundle_sections[i].type == type && strcmp(eng_bundle_sections[i].name, name) == 0) {
+      return &eng_bundle_sections[i];
+    }
+  }
+
+  return NULL;
+}
+
+/* memory helpers */
 
 static void *eng_malloc(unsigned size) {
   // perform alloc
@@ -62,6 +82,14 @@ static const lv_font_t *eng_font(int f) {
     default:
       return &fnt_8;
   }
+}
+
+static bool eng_get_bit(const uint8_t *buf, size_t pos) {
+  // get bit
+  size_t byte = pos / 8;
+  size_t bit = pos % 8;
+
+  return buf[byte] & (1 << bit) ? 1 : 0;
 }
 
 /* native functions */
@@ -273,8 +301,11 @@ void *eng_run_task(void *) {
   // set log level
   wasm_runtime_set_log_level(WASM_LOG_LEVEL_VERBOSE);
 
+  // locate main binary
+  eng_bundle_section_t *main = eng_bundle_locate(ENG_BUNDLE_TYPE_BINARY, "main");
+
   // load application
-  wasm_module_t module = wasm_runtime_load(eng_app, eng_app_len, error_buf, sizeof(error_buf));
+  wasm_module_t module = wasm_runtime_load(main->data, main->len, error_buf, sizeof(error_buf));
   if (!module) {
     printf("eng: loading WASM module failed: %s\n", error_buf);
     goto fail;
@@ -342,10 +373,73 @@ fail:
   return NULL;
 }
 
-void eng_run(void *app, size_t app_len) {
-  // set app
-  eng_app = app;
-  eng_app_len = app_len;
+void eng_run(void *bundle_buf, size_t bundle_len) {
+  // set bundle
+  eng_bundle_buf = bundle_buf;
+  eng_bundle_len = bundle_len;
+
+  // check bundle header
+  uint8_t version = ((uint8 *)bundle_buf)[4];
+  if (bundle_len < 7 || memcmp(bundle_buf, "ALP", 4) != 0 || version != 1) {
+    printf("eng: invalid bundle header\n");
+    return;
+  }
+
+  // parse bundle sections
+  size_t offset = 7;
+  eng_bundle_sections_num = ((uint8 *)bundle_buf)[5] << 8 | ((uint8 *)bundle_buf)[6];
+  eng_bundle_sections = al_calloc(eng_bundle_sections_num, sizeof(eng_bundle_section_t));
+  for (int i = 0; i < eng_bundle_sections_num; i++) {
+    eng_bundle_section_t *section = &eng_bundle_sections[i];
+    if (offset + 5 > bundle_len) {
+      printf("eng: truncated bundle\n");
+      free(eng_bundle_sections);
+      eng_bundle_sections = NULL;
+      eng_bundle_sections_num = 0;
+      return;
+    }
+    section->type = ((uint8 *)bundle_buf)[offset];
+    offset += 1;
+    section->len = ((uint8 *)bundle_buf)[offset] << 24 | ((uint8 *)bundle_buf)[offset + 1] << 16 |
+                   ((uint8 *)bundle_buf)[offset + 2] << 8 | ((uint8 *)bundle_buf)[offset + 3];
+    offset += 4;
+    size_t name_len = strlen((char *)bundle_buf + offset);
+    if (offset + name_len + 1 + section->len > bundle_len) {
+      printf("eng: truncated bundle\n");
+      free(eng_bundle_sections);
+      eng_bundle_sections = NULL;
+      eng_bundle_sections_num = 0;
+      return;
+    }
+    section->name = "";
+    if (name_len > 0) {
+      section->name = (char *)bundle_buf + offset;
+    }
+    offset += name_len + 1;
+  }
+
+  // set section data pointers
+  for (int i = 0; i < eng_bundle_sections_num; i++) {
+    eng_bundle_section_t *section = &eng_bundle_sections[i];
+    section->data = (uint8 *)bundle_buf + offset;
+    offset += section->len;
+  }
+
+  // print sections
+  printf("eng: bundle contains %d sections\n", eng_bundle_sections_num);
+  for (int i = 0; i < eng_bundle_sections_num; i++) {
+    eng_bundle_section_t *section = &eng_bundle_sections[i];
+    printf("[%d]: type=%d name='%s' len=%zu\n", i, section->type, section->name, section->len);
+  }
+
+  // check main binary
+  if (eng_bundle_locate(ENG_BUNDLE_TYPE_BINARY, "main") == NULL) {
+    printf("eng: can't find main binary\n");
+    free(eng_bundle_sections);
+    eng_bundle_sections = NULL;
+    eng_bundle_sections_num = 0;
+    return;
+  }
 
   // clear screen
   gui_cleanup(false);
@@ -385,6 +479,10 @@ void eng_run(void *app, size_t app_len) {
 
   // free buffer
   free(frame_buffer);
+
+  // free bundle
+  free(eng_bundle_sections);
+  eng_bundle_sections = NULL;
 
   // log
   printf("eng: app finished\n");
