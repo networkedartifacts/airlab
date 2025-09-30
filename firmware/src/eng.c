@@ -214,6 +214,11 @@ static int eng_op_yield(wasm_exec_env_t _, int timeout, int flags) {
   return ret;
 }
 
+static int64_t eng_op_millis(wasm_exec_env_t _) {
+  // return time
+  return naos_millis();
+}
+
 /* sprite functions */
 
 static int eng_op_sprite_resolve(wasm_exec_env_t _, uint8 *name, int name_len) {
@@ -386,6 +391,7 @@ static int eng_op_i2c(wasm_exec_env_t _, int addr, uint8 *tx, int tx_len, uint8 
 // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
 static NativeSymbol native_symbols[] = {
     {"al_yield", eng_op_yield, "(ii)i", NULL},
+    {"al_millis", eng_op_millis, "()I", NULL},
     {"al_clear", eng_op_clear, "(i)", NULL},
     {"al_rect", eng_op_rect, "(iiiiii)", NULL},
     {"al_write", eng_op_write, "(iiii*~)", NULL},
