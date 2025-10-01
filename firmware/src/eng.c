@@ -55,11 +55,12 @@ static int eng_bundle_locate(eng_bundle_type_t type, const char *name, eng_bundl
 /* memory helpers */
 
 static void *eng_malloc(unsigned size) {
-  // perform alloc
-  return heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+  // perform alloc 8-byte aligned
+  return heap_caps_aligned_alloc(8, size, MALLOC_CAP_SPIRAM);
 }
 
 static void *eng_realloc(void *ptr, unsigned size) {
+  // TODO: Also 8-byte align?
   // perform realloc
   return heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM);
 }
