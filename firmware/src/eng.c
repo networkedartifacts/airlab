@@ -119,7 +119,14 @@ static void eng_op_rect(wasm_exec_env_t _, int x, int y, int w, int h, int c, in
   lv_canvas_draw_rect(eng_canvas, x, y, w, h, &rect_dsc);
 }
 
-static void eng_op_write(wasm_exec_env_t _, int x, int y, int f, int c, uint8 *text, int text_len) {
+typedef enum {
+  ENG_WRITE_ALIGN_CENTER = (1 << 0),
+  ENG_WRITE_ALIGN_RIGHT = (1 << 1),
+  ENG_WRITE_LINE_SPACE_4 = (1 << 2),
+  ENG_WRITE_LINE_SPACE_8 = (1 << 3),
+} eng_write_flags_t;
+
+static void eng_op_write(wasm_exec_env_t _, int x, int y, int s, int f, int c, uint8 *text, int text_len, int flags) {
   // copy text
   char copy[128];
   if (text_len >= sizeof(copy)) {
@@ -128,13 +135,22 @@ static void eng_op_write(wasm_exec_env_t _, int x, int y, int f, int c, uint8 *t
   memcpy(copy, text, text_len);
   copy[text_len] = 0;
 
-  printf("eng_write: x=%d, y=%d, f=%d, c=%d, s='%s'\n", x, y, f, c, copy);
+  printf("eng_write: x=%d, y=%d, s=%d, f=%d, c=%d, s='%s' flags=%d\n", x, y, s, f, c, copy, flags);
 
-  // write text
+  // prepare descriptor
   lv_draw_label_dsc_t label_dsc;
   lv_draw_label_dsc_init(&label_dsc);
   label_dsc.color = eng_color(c);
   label_dsc.font = eng_font(f);
+  label_dsc.line_space = s;
+  label_dsc.align = LV_TEXT_ALIGN_LEFT;
+  if (flags & ENG_WRITE_ALIGN_CENTER) {
+    label_dsc.align = LV_TEXT_ALIGN_CENTER;
+  } else if (flags & ENG_WRITE_ALIGN_RIGHT) {
+    label_dsc.align = LV_TEXT_ALIGN_RIGHT;
+  }
+
+  // write text
   lv_canvas_draw_text(eng_canvas, x, y, 296 - x, &label_dsc, copy);
 }
 
@@ -406,10 +422,10 @@ static NativeSymbol eng_operations[] = {
     {"al_millis", eng_op_millis, "()I", NULL},
     {"al_clear", eng_op_clear, "(i)", NULL},
     {"al_rect", eng_op_rect, "(iiiiii)", NULL},
-    {"al_write", eng_op_write, "(iiii*~)", NULL},
+    {"al_write", eng_op_write, "(iiiii*~i)", NULL},
     {"al_draw", eng_op_draw, "(iiiii**)", NULL},
     {"al_gpio", eng_op_gpio, "(ii)i", NULL},
-    {"al_i2c", eng_op_i2c, "(i*i*i*i)i", NULL},
+    {"al_i2c", eng_op_i2c, "(i*i*ii)i", NULL},
     {"al_sprite_resolve", eng_op_sprite_resolve, "(*~)i", NULL},
     {"al_sprite_width", eng_op_sprite_width, "(i)i", NULL},
     {"al_sprite_height", eng_op_sprite_height, "(i)i", NULL},
