@@ -1,0 +1,2 @@
+name: GPIO Test
+binary: ./main.wasm
