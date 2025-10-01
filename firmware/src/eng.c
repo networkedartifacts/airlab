@@ -166,11 +166,21 @@ static void eng_op_draw(wasm_exec_env_t _, int x, int y, int w, int h, int s, ui
 }
 
 typedef enum {
-  ENG_YF_SKIP_FRAME,
-  ENG_YF_WAIT_FRAME,
-  ENG_YF_INVERT,
-  ENG_YF_REFRESH,
+  ENG_YF_SKIP_FRAME = (1 << 0),
+  ENG_YF_WAIT_FRAME = (1 << 1),
+  ENG_YF_INVERT = (1 << 2),
+  ENG_YF_REFRESH = (1 << 3),
 } eng_yield_flags_t;
+
+typedef enum {
+  ENG_YIELD_TIMEOUT = 0,
+  ENG_YIELD_ENTER = 1,
+  ENG_YIELD_ESCAPE = 2,
+  ENG_YIELD_UP = 3,
+  ENG_YIELD_DOWN = 4,
+  ENG_YIELD_LEFT = 5,
+  ENG_YIELD_RIGHT = 6,
+} eng_yield_result_t;
 
 static int eng_op_yield(wasm_exec_env_t _, int timeout, int flags) {
   printf("eng_yield\n");
@@ -185,25 +195,25 @@ static int eng_op_yield(wasm_exec_env_t _, int timeout, int flags) {
   int ret = 0;
   switch (event.type) {
     case SIG_TIMEOUT:
-      ret = 0;
+      ret = ENG_YIELD_TIMEOUT;
       break;
     case SIG_ENTER:
-      ret = 1;
+      ret = ENG_YIELD_ENTER;
       break;
     case SIG_ESCAPE:
-      ret = 2;
+      ret = ENG_YIELD_ESCAPE;
       break;
     case SIG_UP:
-      ret = 3;
+      ret = ENG_YIELD_UP;
       break;
     case SIG_DOWN:
-      ret = 4;
+      ret = ENG_YIELD_DOWN;
       break;
     case SIG_LEFT:
-      ret = 5;
+      ret = ENG_YIELD_LEFT;
       break;
     case SIG_RIGHT:
-      ret = 6;
+      ret = ENG_YIELD_RIGHT;
       break;
     default:
       break;
