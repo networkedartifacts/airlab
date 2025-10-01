@@ -4,7 +4,7 @@
 
 int main() {
   // configure GPIOs
-  al_gpio(AL_GPIO_CONFIG, AL_GPIO_A); // output
+  al_gpio(AL_GPIO_CONFIG, AL_GPIO_A);  // output
   al_gpio(AL_GPIO_CONFIG, AL_GPIO_B | AL_GPIO_INPUT | AL_GPIO_PULL_UP);
 
   // clear screen

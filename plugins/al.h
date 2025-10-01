@@ -10,11 +10,9 @@ typedef enum {
 } al_write_flags_t;
 
 IMPORT("al_write")
-extern void _al_write(int x, int y, int s, int f, int c, const void *sp, int sl,
-                      int flags);
+extern void _al_write(int x, int y, int s, int f, int c, const void *sp, int sl, int flags);
 
-void al_write(int x, int y, int s, int f, int c, const char *str,
-              al_write_flags_t flags) {
+void al_write(int x, int y, int s, int f, int c, const char *str, al_write_flags_t flags) {
   _al_write(x, y, s, f, c, str, strlen(str), flags);
 }
 
@@ -39,9 +37,7 @@ typedef enum {
 
 IMPORT("al_yield") extern int _al_yield(int timeout, int flags);
 
-al_yield_result_t al_yield(int timeout, al_yield_flags_t flags) {
-  return _al_yield(timeout, flags);
-}
+al_yield_result_t al_yield(int timeout, al_yield_flags_t flags) { return _al_yield(timeout, flags); }
 
 /* I/O */
 
@@ -54,18 +50,15 @@ typedef enum {
 typedef enum {
   AL_GPIO_A = (1 << 0),
   AL_GPIO_B = (1 << 1),
-  AL_GPIO_HIGH = (1 << 2),  // or low
-  AL_GPIO_INPUT = (1 << 3), // or output
+  AL_GPIO_HIGH = (1 << 2),   // or low
+  AL_GPIO_INPUT = (1 << 3),  // or output
   AL_GPIO_PULL_UP = (1 << 4),
   AL_GPIO_PULL_DOWN = (1 << 5),
 } al_gpio_flags_t;
 
 IMPORT("al_gpio") extern int _al_gpio(int cmd, int flags);
 
-int al_gpio(al_gpio_cmd_t cmd, al_gpio_flags_t flags) {
-  return _al_gpio(cmd, flags);
-}
+int al_gpio(al_gpio_cmd_t cmd, al_gpio_flags_t flags) { return _al_gpio(cmd, flags); }
 
 IMPORT("al_i2c")
-extern int al_i2c(int addr, const void *w, int wl, void *r, int rl,
-                  int timeout);
+extern int al_i2c(int addr, const void *w, int wl, void *r, int rl, int timeout);

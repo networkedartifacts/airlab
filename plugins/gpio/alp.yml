@@ -1,2 +1,2 @@
-name: GPIO Test
+name: GPIO Example
 binary: ./main.wasm

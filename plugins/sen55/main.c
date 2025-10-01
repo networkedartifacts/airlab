@@ -27,8 +27,7 @@ static uint8_t sen55_crc(const uint8_t *data, uint16_t count) {
   return crc;
 }
 
-static int sen55_transfer(uint8_t target, uint16_t addr, size_t send,
-                          size_t receive, int timeout) {
+static int sen55_transfer(uint8_t target, uint16_t addr, size_t send, size_t receive, int timeout) {
   // prepare write length
   size_t write = 0;
 
@@ -72,7 +71,7 @@ int main() {
   for (;;) {
     // read sensor
     sen55_transfer(SEN55, 0x03C4, 0, 0, 1000);
-    al_yield(20, 0); // TODO: Use just a delay?
+    al_yield(20, 0);  // TODO: Use just a delay?
     sen55_transfer(SEN55, 0, 0, 4, 1000);
 
     // parse data
@@ -83,8 +82,7 @@ int main() {
 
     // format data
     char buffer[128];
-    snprintf(buffer, sizeof(buffer),
-             "PM1.0: %u\nPM2.5: %u\nPM4.0: %u\nPM10: %u\n", pm1, pm2, pm4, pmx);
+    snprintf(buffer, sizeof(buffer), "PM1.0: %u\nPM2.5: %u\nPM4.0: %u\nPM10: %u\n", pm1, pm2, pm4, pmx);
 
     // display data
     al_clear(0);

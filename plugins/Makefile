@@ -18,4 +18,4 @@ upload:
 	alpctl upload plugin.alp
 
 fmt:
-	clang-format -i al.h **/*.c
+	clang-format -i al.h **/*.c -style="{BasedOnStyle: Google, ColumnLimit: 120, SortIncludes: false}"
