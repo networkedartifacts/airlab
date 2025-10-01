@@ -375,7 +375,8 @@ static int eng_op_gpio(wasm_exec_env_t _, int cmd, int flags) {
     }
     case ENG_GPIO_WRITE: {
       // set GPIO level
-      esp_err_t err = gpio_set_level(num, (cmd & ENG_GPIO_HIGH) ? 1 : 0);
+      int level = (flags & ENG_GPIO_HIGH) ? 1 : 0;
+      esp_err_t err = gpio_set_level(num, level);
 
       return err == ESP_OK ? 0 : -1;
     }
@@ -400,7 +401,7 @@ static int eng_op_i2c(wasm_exec_env_t _, int addr, uint8 *tx, int tx_len, uint8 
 /* runtime */
 
 // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
-static NativeSymbol native_symbols[] = {
+static NativeSymbol eng_operations[] = {
     {"al_yield", eng_op_yield, "(ii)i", NULL},
     {"al_millis", eng_op_millis, "()I", NULL},
     {"al_clear", eng_op_clear, "(i)", NULL},
@@ -431,8 +432,8 @@ void *eng_run_task(void *) {
 
   // register native symbols
   init_args.native_module_name = "env";
-  init_args.native_symbols = native_symbols;
-  init_args.n_native_symbols = sizeof(native_symbols) / sizeof(NativeSymbol);
+  init_args.native_symbols = eng_operations;
+  init_args.n_native_symbols = sizeof(eng_operations) / sizeof(NativeSymbol);
 
   // initialize runtime
   if (!wasm_runtime_full_init(&init_args)) {
