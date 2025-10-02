@@ -100,6 +100,20 @@ static bool eng_get_bit(const uint8_t *buf, size_t pos) {
   return buf[byte] & (1 << bit) ? 1 : 0;
 }
 
+static char *eng_mkstr(const uint8 *buf, int len) {
+  // check length
+  if (len <= 0) {
+    return NULL;
+  }
+
+  // copy string
+  char *str = eng_malloc(len+1);
+  memcpy(str, buf, len);
+  str[len] = 0;
+
+  return str;
+}
+
 /* primary operations */
 
 static void eng_op_clear(wasm_exec_env_t _, int c) {
@@ -532,21 +546,11 @@ static void eng_op_http_new() {
 
 static int eng_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *str, int str_len, uint8 *str2, int str2_len) {
   // copy strings
-  char str_copy[128];
-  char str2_copy[128];
-  if (str_len >= sizeof(str_copy)) {
-    str_len = sizeof(str_copy) - 1;
-  }
-  if (str2_len >= sizeof(str2_copy)) {
-    str2_len = sizeof(str2_copy) - 1;
-  }
-  memcpy(str_copy, str, str_len);
-  memcpy(str2_copy, str2, str2_len);
-  str_copy[str_len] = 0;
-  str2_copy[str2_len] = 0;
+  char * str_copy = eng_mkstr(str, str_len);
+  char * str2_copy = eng_mkstr(str2, str2_len);
 
   // log
-  printf("eng_op_http_set: field=%d, num=%d, str='%s'\n", field, num, str_copy);
+  printf("eng_op_http_set: field=%d, num=%d, str='%s'\n", field, num, str_copy ? str_copy : "");
 
   // handle fields
   switch (field) {
@@ -583,6 +587,10 @@ static int eng_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *str, in
     default:
       return -1;
   }
+
+  // free
+  eng_free(str_copy);
+  eng_free(str2_copy);
 
   return 0;
 }
