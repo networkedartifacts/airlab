@@ -1,3 +1,4 @@
+#include <naos.h>
 #include <naos/sys.h>
 #include <math.h>
 #include <stdio.h>
@@ -9,7 +10,6 @@
 #include <lvgl.h>
 #include <esp_http_client.h>
 #include <esp_log.h>
-#include <naos.h>
 
 #include <al/core.h>
 
@@ -438,7 +438,7 @@ enum {
   ENG_HTTP_ERRNO,   // int
 };
 
-esp_err_t eng_http_handler(esp_http_client_event_t *evt) {
+static esp_err_t eng_http_handler(esp_http_client_event_t *evt) {
   // get value
   naos_value_t *val = evt->user_data;
 
@@ -631,7 +631,7 @@ static NativeSymbol eng_operations[] = {
     {"al_http_get", eng_op_http_get, "(i)i", NULL},
 };
 
-void *eng_run_task(void *) {
+static void *eng_run_task(void *) {
   char error_buf[128];
   uint32_t stack_size = 8 * 1024, heap_size = 32 * 1024;
 
