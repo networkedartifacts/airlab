@@ -139,8 +139,6 @@ static void eng_op_rect(wasm_exec_env_t _, int x, int y, int w, int h, int c, in
 typedef enum {
   ENG_WRITE_ALIGN_CENTER = (1 << 0),
   ENG_WRITE_ALIGN_RIGHT = (1 << 1),
-  ENG_WRITE_LINE_SPACE_4 = (1 << 2),
-  ENG_WRITE_LINE_SPACE_8 = (1 << 3),
 } eng_write_flags_t;
 
 static void eng_op_write(wasm_exec_env_t _, int x, int y, int s, int f, int c, uint8 *text, int text_len, int flags) {
@@ -154,6 +152,16 @@ static void eng_op_write(wasm_exec_env_t _, int x, int y, int s, int f, int c, u
 
   printf("eng_write: x=%d, y=%d, s=%d, f=%d, c=%d, s='%s' flags=%d\n", x, y, s, f, c, copy, flags);
 
+  // calculate text width
+  int w = lv_txt_get_width(copy, text_len, eng_font(f), 0, LV_TEXT_FLAG_NONE);
+
+  // apply alignment
+  if (flags & ENG_WRITE_ALIGN_CENTER) {
+    x -= w / 2;
+  } else if (flags & ENG_WRITE_ALIGN_RIGHT) {
+    x -= w;
+  }
+
   // prepare descriptor
   lv_draw_label_dsc_t label_dsc;
   lv_draw_label_dsc_init(&label_dsc);
@@ -166,9 +174,10 @@ static void eng_op_write(wasm_exec_env_t _, int x, int y, int s, int f, int c, u
   } else if (flags & ENG_WRITE_ALIGN_RIGHT) {
     label_dsc.align = LV_TEXT_ALIGN_RIGHT;
   }
+  label_dsc.flag = LV_TEXT_FLAG_FIT;
 
-  // write text
-  lv_canvas_draw_text(eng_canvas, x, y, 296 - x, &label_dsc, copy);
+  // draw text
+  lv_canvas_draw_text(eng_canvas, x, y, w, &label_dsc, copy);
 }
 
 static void eng_op_draw(wasm_exec_env_t _, int x, int y, int w, int h, int s, uint8 *i, uint8 *m) {
