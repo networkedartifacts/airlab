@@ -14,6 +14,8 @@ _Place it on a shelf, hang it on a wall, or keep it by your side – Air Lab hel
 
 We encourage you to join the development, report bugs, or just fork the repository and customize it to your needs. Make sure to post your project using GitHub discussions!
 
+## Licenses
+
 The source code and materials in this repository are open source and licensed under the Apache License 2.0.  
 This license allows you to use, modify, and redistribute the firmware freely, including for commercial purposes, provided you comply with the terms of the license. See LICENSE.md for the full license text.
 
