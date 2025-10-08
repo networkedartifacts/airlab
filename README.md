@@ -2,7 +2,7 @@
 
 **Portable and playful air quality monitor.**
 
-![](https://cdn.networkedartifacts.com/al1-gh__header__large.webp)
+![](https://cdn.networkedartifacts.com/al1-gh__header__medium.webp)
 
 _Using its high-quality sensors, Air Lab measures CO2, temperature, relative humidity, air pollutants (VOC, NOx), and atmospheric pressure. The device can record measurements for multiple days, which you can analyze directly on-device – no computer or smartphone required._
 
