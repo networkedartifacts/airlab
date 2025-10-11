@@ -183,18 +183,18 @@ void al_power_check() {
   // prepare state
   al_power_state_t state = {
       .battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
-      .usb = cc1 > 10 || cc2 > 10,
-      .fast = cc1 > 700 || cc2 > 700,  // 1.5A
+      .has_usb = cc1 > 10 || cc2 > 10,
+      .can_fast = cc1 > 700 || cc2 > 700,  // 1.5A
       .charging = charging,
   };
   if (AL_POWER_DEBUG) {
-    naos_log("al-pwr: state battery=%f usb=%d fast=%d", al_power_state.battery, al_power_state.usb,
-             al_power_state.fast);
+    naos_log("al-pwr: state battery=%f has_usb=%d can_fast=%d", al_power_state.battery, al_power_state.has_usb,
+             al_power_state.can_fast);
   }
 
   // update max current setting to 900mA
-  if (al_power_state.charging && al_power_state.fast != fast_charge) {
-    al_power_memory.reg0.iindpm = al_power_state.fast ? 0x8 : 0x4;
+  if (al_power_state.charging && al_power_state.can_fast != fast_charge) {
+    al_power_memory.reg0.iindpm = al_power_state.can_fast ? 0x8 : 0x4;
     al_power_write(0x00, al_power_memory.reg0.raw, true);
   }
 
@@ -203,7 +203,7 @@ void al_power_check() {
   al_power_write(0x01, al_power_memory.reg1.raw, true);
 
   // determine if state changed
-  bool changed = state.usb != al_power_state.usb || state.charging != al_power_state.charging;
+  bool changed = state.has_usb != al_power_state.has_usb || state.charging != al_power_state.charging;
 
   // update state
   al_power_state = state;

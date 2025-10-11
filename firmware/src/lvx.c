@@ -332,7 +332,7 @@ void lvx_status_update(lvx_status_t* status) {
   al_power_state_t power = al_power_get();
   if (power.charging) {
     lv_img_set_src(status->pwr, &img_charging);
-  } else if (power.usb) {
+  } else if (power.has_usb) {
     lv_img_set_src(status->pwr, &img_powered);
   } else if (power.battery > 0.75) {
     lv_img_set_src(status->pwr, &img_bat3);

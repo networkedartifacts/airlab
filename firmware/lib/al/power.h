@@ -8,8 +8,8 @@
  */
 typedef struct {
   float battery;
-  bool usb;
-  bool fast;
+  bool has_usb;
+  bool can_fast;
   bool charging;
 } al_power_state_t;
 

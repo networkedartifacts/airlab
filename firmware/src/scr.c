@@ -608,8 +608,8 @@ static void* scr_info() {
 
     // prepare text
     const char* text = lvx_fmt("%llds - %.0f%% - P%d - F%d\n%04d-%02d-%02d %02d:%02d:%02d\n%lu kB - %.1f%% - %.1f%%",
-                               naos_millis() / 1000, bat.battery * 100, bat.usb, bat.fast, year, month, day, hour,
-                               minute, seconds, esp_get_free_heap_size() / 1024, cpu0 * 100, cpu1 * 100);
+                               naos_millis() / 1000, bat.battery * 100, bat.has_usb, bat.can_fast, year, month, day,
+                               hour, minute, seconds, esp_get_free_heap_size() / 1024, cpu0 * 100, cpu1 * 100);
 
     // update label
     gfx_begin(false, false);
@@ -797,12 +797,12 @@ static void* scr_saver() {
     /* Sleep Control */
 
     // power off if battery is low and not charging
-    if (power.battery < 0.10 && !power.usb && !power.charging) {
+    if (power.battery < 0.10 && !power.has_usb && !power.charging) {
       scr_power_off(true, true);
     }
 
     // check if powered or connected via BLE
-    if (power.usb || naos_ble_connections() > 0) {
+    if (power.has_usb || naos_ble_connections() > 0) {
       // wait some time
       sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT, 60 * 1000);
 
@@ -1478,7 +1478,7 @@ static void* scr_usb() {
   }
 
   // check connection
-  if (!al_power_get().usb) {
+  if (!al_power_get().has_usb) {
     // show message
     gui_message(scr_trans()->usb__disconnected, SCR_MSG_TIMEOUT);
 
@@ -1858,7 +1858,7 @@ static void* scr_check() {
   gui_write("Plugin USB power...", 0);
   for (;;) {
     sig_await(SIG_POWER, 0);
-    if (al_power_get().usb) {
+    if (al_power_get().has_usb) {
       break;
     }
   }

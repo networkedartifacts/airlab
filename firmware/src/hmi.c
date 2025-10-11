@@ -40,7 +40,7 @@ static sig_type_t hmi_map[] = {
 static void hmi_power_hook(al_power_state_t state) {
   // log power state
   if (HMI_DEBUG) {
-    naos_log("hmi: power state: usb=%d, charging=%d", state.usb, state.charging);
+    naos_log("hmi: power state: has_usb=%d, charging=%d", state.has_usb, state.charging);
   }
 
   // dispatch event
@@ -251,7 +251,7 @@ static void hmi_led_check() {
   // set LED
   if (hmi_power_light && state.charging) {
     al_led_flash(HMI_LED_SLOW, HMI_LED_WHITE);
-  } else if (hmi_power_light && state.usb) {
+  } else if (hmi_power_light && state.has_usb) {
     al_led_set(HMI_LED_WHITE);
   } else {
     al_led_set(HMI_LED_OFF);
