@@ -4,6 +4,7 @@
 #include <driver/rtc_io.h>
 #include <esp_adc_cal.h>
 #include <art32/numbers.h>
+#include <math.h>
 
 #include <al/core.h>
 #include <al/power.h>
@@ -19,6 +20,9 @@
 #define AL_POWER_USB_CC2 ADC1_CHANNEL_6  // IO7
 #define AL_POWER_BAT_LVL ADC1_CHANNEL_7  // IO8
 #define AL_POWER_SAMPLES 3
+#define AL_POWER_CHG_TMP_MIN 10.f
+#define AL_POWER_CHG_TMP_MAX 45.f
+#define AL_POWER_CHG_TMP_HYST 2.f
 #define AL_POWER_DEBUG false
 
 typedef struct {
@@ -45,9 +49,11 @@ static struct {
   } reg0;
   union {
     struct {
-      uint8_t _omitted1 : 6;
-      uint8_t wdt_rst : 1;
+      uint8_t _omitted1 : 4;
+      uint8_t chg_config : 1;
       uint8_t _omitted2 : 1;
+      uint8_t wdt_rst : 1;
+      uint8_t _omitted3 : 1;
     };
     uint8_t raw;
   } reg1;
@@ -150,6 +156,10 @@ void al_power_check() {
     naos_log("al-pwr: inputs low=%d cc1=%dmV cc2=%dmV bat=%dmV", low, cc1, cc2, bat);
   }
 
+  // determine conditions
+  bool has_usb = cc1 > 10 || cc2 > 10;
+  bool can_fast = cc1 > 700 || cc2 > 700;  // 1.5A
+
   // read config
   if (!al_power_read(0x00, &al_power_memory.reg0.raw, 3)) {
     naos_unlock(al_power_mutex);
@@ -180,27 +190,56 @@ void al_power_check() {
     }
   }
 
-  // prepare state
-  al_power_state_t state = {
-      .battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
-      .has_usb = cc1 > 10 || cc2 > 10,
-      .can_fast = cc1 > 700 || cc2 > 700,  // 1.5A
-      .charging = charging,
-  };
-  if (AL_POWER_DEBUG) {
-    naos_log("al-pwr: state battery=%f has_usb=%d can_fast=%d", al_power_state.battery, al_power_state.has_usb,
-             al_power_state.can_fast);
+  // get ambient temperature
+  float tmp = al_sensor_raw_temp();
+
+  // determine if should be charging using hysteresis
+  static bool should_charge = true;
+  if (!isnan(tmp)) {
+    if (tmp < AL_POWER_CHG_TMP_MIN || tmp > AL_POWER_CHG_TMP_MAX) {
+      should_charge = false;
+    } else if (tmp > AL_POWER_CHG_TMP_MIN + AL_POWER_CHG_TMP_HYST &&
+               tmp < AL_POWER_CHG_TMP_MAX - AL_POWER_CHG_TMP_HYST) {
+      should_charge = true;
+    }
+  }
+
+  /* apply changes */
+
+  // configure charging
+  if (should_charge != (al_power_memory.reg1.chg_config == 1)) {
+    al_power_memory.reg1.chg_config = should_charge ? 1 : 0;
+    al_power_write(0x01, al_power_memory.reg1.raw, true);
+    if (AL_POWER_DEBUG) {
+      naos_log("al-pwr: charger %s", should_charge ? "enabled" : "disabled");
+    }
   }
 
   // update max current setting to 900mA
-  if (al_power_state.charging && al_power_state.can_fast != fast_charge) {
-    al_power_memory.reg0.iindpm = al_power_state.can_fast ? 0x8 : 0x4;
+  if (charging && can_fast != fast_charge) {
+    al_power_memory.reg0.iindpm = can_fast ? 0x8 : 0x4;
     al_power_write(0x00, al_power_memory.reg0.raw, true);
+    if (AL_POWER_DEBUG) {
+      naos_log("al-pwr: input current limit set to %dmA", can_fast ? 900 : 500);
+    }
   }
 
   // reset watchdog
   al_power_memory.reg1.wdt_rst = 1;
   al_power_write(0x01, al_power_memory.reg1.raw, true);
+
+  /* update state */
+
+  // prepare state
+  al_power_state_t state = {
+      .battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
+      .has_usb = has_usb,
+      .can_fast = can_fast,
+      .charging = charging,
+  };
+  if (AL_POWER_DEBUG) {
+    naos_log("al-pwr: state battery=%f has_usb=%d can_fast=%d", state.battery, state.has_usb, state.can_fast);
+  }
 
   // determine if state changed
   bool changed = state.has_usb != al_power_state.has_usb || state.charging != al_power_state.charging;

@@ -22,6 +22,7 @@ AL_KEEP static GasIndexAlgorithmParams al_sensor_nox_params = {0};
 AL_KEEP static int64_t al_sensor_switch_comp = 0;
 AL_KEEP static float al_sensor_long_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_long_comp_last = 0;
+static float al_sensor_last_raw_temp = NAN;
 
 static struct {
   float target;
@@ -57,6 +58,9 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   float co2 = (float)data.co2;
   float tmp = -45.f + 175.f * ((float)data.tmp / (float)(UINT16_MAX));
   float hum = 100.f * ((float)data.hum / (float)(UINT16_MAX));
+
+  // update last raw temperature
+  al_sensor_last_raw_temp = tmp;
 
   // apply mode switch temperature compensation
   if (al_sensor_state.mode != AL_SENSOR_HAL_MANUAL) {
@@ -338,4 +342,9 @@ void al_sensor_set_rate(al_sensor_rate_t rate) {
 
   // unlock mutex
   naos_unlock(al_sensor_mutex);
+}
+
+float al_sensor_raw_temp() {
+  // return last raw temperature
+  return al_sensor_last_raw_temp;
 }

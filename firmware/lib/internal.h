@@ -42,6 +42,8 @@ void al_clock_update();
 
 void al_power_check();
 
+float al_sensor_raw_temp();
+
 void al_touch_sleep();
 void al_touch_wake();
 
