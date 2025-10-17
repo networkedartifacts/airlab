@@ -21,8 +21,6 @@
 #define AL_BUTTONS_E GPIO_NUM_9
 #define AL_BUTTONS_F GPIO_NUM_13
 
-esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout);
-
 void al_accel_init(bool reset);
 void al_buttons_init();
 void al_buzzer_init();

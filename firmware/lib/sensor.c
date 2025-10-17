@@ -2,6 +2,7 @@
 #include <naos.h>
 #include <naos/sys.h>
 
+#include <al/core.h>
 #include <al/sensor.h>
 #include <al/clock.h>
 #include <al/store.h>

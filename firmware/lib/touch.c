@@ -3,9 +3,8 @@
 #include <naos/sys.h>
 #include <driver/gpio.h>
 
+#include <al/core.h>
 #include <al/touch.h>
-
-#include "internal.h"
 
 // Chip: CY8CMBR3108
 

@@ -2,6 +2,7 @@
 #include <naos/sys.h>
 #include <driver/gpio.h>
 
+#include <al/core.h>
 #include <al/accel.h>
 
 #include "internal.h"

@@ -16,7 +16,6 @@
 #include "fnt.h"
 #include "gfx.h"
 #include "gui.h"
-#include "internal.h"
 #include "lvx.h"
 #include "sig.h"
 

@@ -2,9 +2,8 @@
 #include <sys/time.h>
 #include <esp_err.h>
 
+#include <al/core.h>
 #include <al/clock.h>
-
-#include "internal.h"
 
 // Chip: BQ32000
 

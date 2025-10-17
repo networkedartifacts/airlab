@@ -1,6 +1,7 @@
 #ifndef AL_CORE_H
 #define AL_CORE_H
 
+#include <esp_err.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -59,5 +60,18 @@ void* al_alloc(size_t size);
  * @return Pointer to the allocated memory.
  */
 void* al_calloc(size_t count, size_t size);
+
+/**
+ * Performs an I2C transfer to the specified address with the provided data.
+ *
+ * @param addr The I2C address.
+ * @param tx Pointer to the data to transmit or NULL.
+ * @param tx_len Number of bytes to transmit.
+ * @param rx Pointer to the buffer to receive data or NULL.
+ * @param rx_len Number of bytes to receive.
+ * @param timeout Timeout in milliseconds.
+ * @return ESP_OK on success or an error code on failure.
+ */
+esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout);
 
 #endif  // AL_CORE_H

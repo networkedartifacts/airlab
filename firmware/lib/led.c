@@ -2,9 +2,8 @@
 #include <math.h>
 #include <naos.h>
 
+#include <al/core.h>
 #include <al/led.h>
-
-#include "internal.h"
 
 // Chip: KTD2037
 
