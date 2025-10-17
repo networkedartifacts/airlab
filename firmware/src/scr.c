@@ -1210,7 +1210,7 @@ static void* scr_view() {
       } else if (event.type == SIG_RIGHT) {
         position += resolution * (event.repeat ? 5 : 1);
       } else if (event.type == SIG_SCROLL) {
-        position += resolution * (int32_t)event.scroll_fast;
+        position += resolution * (int32_t)event.scroll.fast;
       }
       if (position > source_stop) {
         position = source_stop;
@@ -1878,7 +1878,7 @@ static void* scr_check() {
   gui_write("Scroll the touch strip...", 0);
   for (;;) {
     sig_event_t event = sig_await(SIG_SCROLL, 0);
-    if (event.scroll >= 2 || event.scroll <= -2) {
+    if (event.scroll.std >= 2 || event.scroll.std <= -2) {
       break;
     }
   }
@@ -2220,8 +2220,8 @@ static void* scr_develop() {
         } else if (event.type & SIG_TOUCH) {
           position = event.position;
         } else if (event.type & SIG_SCROLL) {
-          scroll = event.scroll;
-          scroll_fast = event.scroll_fast;
+          scroll = event.scroll.std;
+          scroll_fast = event.scroll.fast;
         }
       }
     }

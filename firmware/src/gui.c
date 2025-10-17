@@ -285,7 +285,7 @@ int gui_list(int total, int selected, int* offset, const char* select, const cha
     // handle arrows
     if ((event.type & (SIG_UP | SIG_DOWN | SIG_SCROLL)) != 0) {
       if (event.type == SIG_SCROLL) {
-        selected += (int)event.scroll;
+        selected += (int)event.scroll.std;
       } else {
         selected += event.type == SIG_UP ? -1 : 1;
       }

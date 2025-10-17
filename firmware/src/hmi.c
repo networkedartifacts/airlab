@@ -120,8 +120,8 @@ static void hmi_touch_check() {
   if (scroll != 0) {
     sig_dispatch((sig_event_t){
         .type = SIG_SCROLL,
-        .scroll = scroll,
-        .scroll_fast = scroll_fast,
+        .scroll.std = scroll,
+        .scroll.fast = scroll_fast,
     });
   }
 }

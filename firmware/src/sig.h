@@ -34,9 +34,11 @@ typedef struct {
   union {
     bool repeat;     // keys
     float position;  // touch
-    float scroll;    // scroll
+    struct {
+      float std;
+      float fast;
+    } scroll;
   };
-  float scroll_fast;  // scroll
 } sig_event_t;
 
 void sig_init();
