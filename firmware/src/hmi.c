@@ -25,6 +25,7 @@
 #define HMI_LED_WHITE .7f, .15f, .2f
 
 static bool hmi_power_light = true;
+
 static naos_mutex_t hmi_mutex;
 static float hmi_touch_scroll = 0;
 static float hmi_touch_scroll_fast = 0;

@@ -107,7 +107,7 @@ static char *eng_mkstr(const uint8 *buf, int len) {
   }
 
   // copy string
-  char *str = eng_malloc(len+1);
+  char *str = eng_malloc(len + 1);
   memcpy(str, buf, len);
   str[len] = 0;
 
@@ -546,8 +546,8 @@ static void eng_op_http_new() {
 
 static int eng_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *str, int str_len, uint8 *str2, int str2_len) {
   // copy strings
-  char * str_copy = eng_mkstr(str, str_len);
-  char * str2_copy = eng_mkstr(str2, str2_len);
+  char *str_copy = eng_mkstr(str, str_len);
+  char *str2_copy = eng_mkstr(str2, str2_len);
 
   // log
   printf("eng_op_http_set: field=%d, num=%d, str='%s'\n", field, num, str_copy ? str_copy : "");
