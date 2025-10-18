@@ -32,6 +32,14 @@ typedef struct {
 } eng_bundle_section_t;
 
 typedef struct {
+  const uint8_t *buf;
+  size_t len;
+  size_t offset;
+  uint16_t sections;
+  uint16_t current;
+} eng_bundle_iter_t;
+
+typedef struct {
   void *buf;
   size_t buf_len;
   eng_bundle_section_t *sections;
@@ -45,6 +53,68 @@ typedef struct {
 
 /* bundle helpers */
 
+// TODO: Bundle should have a full header length.
+// TODO: Bundle should already contain the byte buffer offset for sections.
+// TODO: Add various checksums?
+
+bool eng_bundle_iter_init(eng_bundle_iter_t *iter, const void *buf, size_t len) {
+  // check bundle header
+  uint8_t version = ((uint8 *)buf)[4];
+  if (len < 7 || memcmp(buf, "ALP", 4) != 0 || version != 1) {
+    return false;
+  }
+
+  // get number of sections
+  uint16_t sections = ((uint8 *)buf)[5] << 8 | ((uint8 *)buf)[6];
+
+  // initialize iterator
+  *iter = (eng_bundle_iter_t){
+      .buf = buf,
+      .len = len,
+      .offset = 7,
+      .sections = sections,
+  };
+
+  return true;
+}
+
+bool eng_bundle_iter_next(eng_bundle_iter_t *iter, eng_bundle_section_t *out) {
+  // check end of iteration
+  if (iter->current >= iter->sections || iter->offset >= iter->len) {
+    return false;
+  }
+
+  // get iterator state
+  const uint8_t *buf = iter->buf;
+  size_t off = iter->offset;
+
+  // check section header
+  if (off + 5 > iter->len) {
+    return false;
+  }
+
+  // get type and length
+  out->type = buf[off++];
+  out->len = (buf[off] << 24) | (buf[off + 1] << 16) | (buf[off + 2] << 8) | buf[off + 3];
+  off += 4;
+
+  // get name
+  size_t name_len = strlen((const char *)buf + off);
+  if (off + name_len + 1 + out->len > iter->len) {
+    return false;
+  }
+  out->name = (const char *)buf + off;
+  off += name_len + 1;
+
+  // update iterator
+  iter->offset = off;
+  iter->current++;
+
+  return true;
+}
+
+static bool eng_bundle_peek(eng_plugin_info_t info, void *buf, size_t len) {}
+
 static bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len) {
   // prepare bundle
   *b = (eng_bundle_t){
@@ -52,48 +122,25 @@ static bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len) {
       .buf_len = len,
   };
 
-  // check bundle header
-  uint8_t version = ((uint8 *)buf)[4];
-  if (len < 7 || memcmp(buf, "ALP", 4) != 0 || version != 1) {
+  // prepare iterator
+  eng_bundle_iter_t iter;
+  if (!eng_bundle_iter_init(&iter, buf, len)) {
     return false;
   }
 
-  // parse bundle sections
-  size_t offset = 7;
-  b->sections_num = ((uint8 *)buf)[5] << 8 | ((uint8 *)buf)[6];
-  b->sections = al_calloc(b->sections_num, sizeof(eng_bundle_section_t));
-  for (int i = 0; i < b->sections_num; i++) {
-    eng_bundle_section_t *section = &b->sections[i];
-    if (offset + 5 > len) {
-      free(b->sections);
-      b->sections = NULL;
-      b->sections_num = 0;
-      return false;
+  // parse sections
+  for (;;) {
+    eng_bundle_section_t section;
+    if (!eng_bundle_iter_next(&iter, &section)) {
+      break;
     }
-    section->type = ((uint8 *)buf)[offset];
-    offset += 1;
-    section->len = ((uint8 *)buf)[offset] << 24 | ((uint8 *)buf)[offset + 1] << 16 | ((uint8 *)buf)[offset + 2] << 8 |
-                   ((uint8 *)buf)[offset + 3];
-    offset += 4;
-    size_t name_len = strlen((char *)buf + offset);
-    if (offset + name_len + 1 + section->len > len) {
-      free(b->sections);
-      b->sections = NULL;
-      b->sections_num = 0;
-      return false;
-    }
-    section->name = "";
-    if (name_len > 0) {
-      section->name = (char *)buf + offset;
-    }
-    offset += name_len + 1;
   }
 
   // set section data pointers
   for (int i = 0; i < b->sections_num; i++) {
     eng_bundle_section_t *section = &b->sections[i];
-    section->data = (uint8 *)buf + offset;
-    offset += section->len;
+    section->data = (uint8 *)buf + iter.offset;
+    iter.offset += section->len;
   }
 
   return true;
@@ -369,7 +416,7 @@ static int64_t eng_op_millis(wasm_exec_env_t _) {
   return naos_millis();
 }
 
-/* sprite functions */
+/* sprite operations */
 
 static int eng_op_sprite_resolve(wasm_exec_env_t env, uint8 *name, int name_len) {
   // copy name
