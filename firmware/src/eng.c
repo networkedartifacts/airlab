@@ -18,10 +18,6 @@
 #include "lvx.h"
 #include "sig.h"
 
-#define BE_U16(buf) (((uint16_t)(buf)[0] << 8) | (uint16_t)(buf)[1])
-#define BE_U32(buf) \
-  (((uint32_t)(buf)[0] << 24) | ((uint32_t)(buf)[1] << 16) | ((uint32_t)(buf)[2] << 8) | (uint32_t)(buf)[3])
-
 typedef enum {
   ENG_BUNDLE_TYPE_ATTR = 0x00,
   ENG_BUNDLE_TYPE_BINARY = 0x01,
@@ -59,6 +55,18 @@ typedef struct {
 
 /* bundle helpers */
 
+static inline uint16_t eng_bundle_le16(const void *buf) {
+  uint16_t val;
+  memcpy(&val, buf, sizeof(val));
+  return val;
+}
+
+static inline uint32_t eng_bundle_le32(const void *buf) {
+  uint32_t val;
+  memcpy(&val, buf, sizeof(val));
+  return val;
+}
+
 bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t len) {
   // check bundle header
   if (len < 10 || memcmp(buf, "ALP\0", 4) != 0) {
@@ -66,8 +74,8 @@ bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t len) {
   }
 
   // get header length and number of sections
-  uint32_t header_len = BE_U32(((uint8 *)buf) + 4);
-  uint16_t sections = BE_U16(((uint8 *)buf) + 8);
+  uint32_t header_len = eng_bundle_le32(buf + 4);
+  uint16_t sections = eng_bundle_le16(buf + 8);
 
   // initialize iterator
   *i = (eng_bundle_iter_t){
@@ -94,9 +102,9 @@ bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) {
 
   // get type and length
   s->type = i->buf[i->pos++];
-  s->off = BE_U32(((uint8 *)i->buf) + i->pos);
+  s->off = eng_bundle_le32(i->buf + i->pos);
   i->pos += 4;
-  s->len = BE_U32(((uint8 *)i->buf) + i->pos);
+  s->len = eng_bundle_le32(i->buf + i->pos);
   i->pos += 4;
 
   // get name
