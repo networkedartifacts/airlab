@@ -46,6 +46,8 @@ set(SOURCE_FILES
         src/dev.h
         src/eng.c
         src/eng.h
+        src/eng_bundle.c
+        src/eng_bundle.h
         src/fnt.h
         src/fnt.c
         src/gfx.c

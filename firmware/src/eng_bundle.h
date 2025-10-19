@@ -15,6 +15,7 @@ typedef struct {
   const char *name;
   size_t off;
   size_t len;
+  uint32_t crc32;
   const uint8_t *data;
 } eng_bundle_section_t;
 

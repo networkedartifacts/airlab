@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <string.h>
+#include <esp_crc.h>
 
 #include <al/core.h>
 
@@ -20,6 +21,7 @@ static uint32_t eng_bundle_le32(const void *buf) {
 bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t len) {
   // check bundle header
   if (len < 10 || memcmp(buf, "ALP\0", 4) != 0) {
+    naos_log("eng_bundle_iter_init: invalid bundle header");
     return false;
   }
 
@@ -41,12 +43,13 @@ bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t len) {
 
 bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) {
   // check end of iteration
-  if (i->current >= i->sections || i->pos >= i->len) {
+  if (i->current >= i->sections) {
     return false;
   }
 
   // check section header
   if (i->pos + 9 > i->len) {
+    naos_log("eng_bundle_iter_next: incomplete section header");
     return false;
   }
 
@@ -56,10 +59,13 @@ bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) {
   i->pos += 4;
   s->len = eng_bundle_le32(i->buf + i->pos);
   i->pos += 4;
+  s->crc32 = eng_bundle_le32(i->buf + i->pos);
+  i->pos += 4;
 
   // get name
   size_t name_len = strlen((const char *)i->buf + i->pos);
   if (i->pos + name_len + 1 + s->len > i->len) {
+    naos_log("eng_bundle_iter_next: truncated section name");
     return false;
   }
   s->name = (const char *)i->buf + i->pos;
@@ -67,6 +73,13 @@ bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) {
 
   // set data pointer
   s->data = i->buf + s->off;
+
+  // validate checksum
+  uint32_t crc32 = esp_crc32_le(0, s->data, s->len);
+  if (crc32 != s->crc32) {
+    naos_log("eng_bundle_iter_next: crc32 mismatch for section '%s'", s->name);
+    return false;
+  }
 
   // update iterator
   i->current++;
@@ -84,7 +97,6 @@ bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len) {
   // prepare iterator
   eng_bundle_iter_t iter;
   if (!eng_bundle_iter_init(&iter, buf, len)) {
-    naos_log("eng_bundle_parse: iter init failed");
     return false;
   }
 
@@ -96,7 +108,6 @@ bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len) {
   for (int i = 0; i < iter.sections; i++) {
     eng_bundle_section_t *s = &b->sections[i];
     if (!eng_bundle_iter_next(&iter, s)) {
-      naos_log("eng_bundle_parse: iter next failed at %d", i);
       return false;
     }
   }
