@@ -37,6 +37,12 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 		return nil, fmt.Errorf("invalid bundle: bad magic")
 	}
 
+	// check header length
+	headerLen := int(enc.Uint32(data[4:8]))
+	if headerLen > len(data) || headerLen < 10 {
+		return nil, fmt.Errorf("invalid bundle: bad header length")
+	}
+
 	// read sections
 	sections := int(enc.Uint16(data[8:10]))
 
@@ -49,7 +55,7 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 	for i := 0; i < sections; i++ {
 		// check length
 		if offset+9 > len(data) {
-			return nil, fmt.Errorf("invalid bundle: section %d header too short", i)
+			return nil, fmt.Errorf("invalid bundle: section %d: header too short", i)
 		}
 
 		// read section type
@@ -66,8 +72,8 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 
 		// read section name
 		nameLen := bytes.IndexByte(data[offset:], 0)
-		if offset+nameLen > len(data) {
-			return nil, fmt.Errorf("invalid bundle: section %d name too long", i)
+		if nameLen < 0 {
+			return nil, fmt.Errorf("invalid bundle: section %d: missing null terminator", i)
 		}
 		name := string(data[offset : offset+nameLen])
 		offset += nameLen + 1
@@ -80,12 +86,20 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 		})
 	}
 
+	// check lengths
+	if offset != headerLen {
+		return nil, fmt.Errorf("invalid bundle: header length mismatch")
+	}
+
 	// read section data
 	for i, s := range b.Sections {
 		if offsets[i]+len(s.Data) > len(data) {
-			return nil, fmt.Errorf("invalid bundle: section %d data too long", i)
+			return nil, fmt.Errorf("invalid bundle: section %d: missing data", i)
+		} else if offset != offsets[i] {
+			return nil, fmt.Errorf("invalid bundle: section %d: offset mismatch", i)
 		}
 		b.Sections[i].Data = data[offsets[i] : offsets[i]+len(s.Data)]
+		offset += len(s.Data)
 	}
 
 	return b, nil
