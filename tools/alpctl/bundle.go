@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 
 	"tools/alp"
@@ -14,6 +15,8 @@ import (
 
 type Manifest struct {
 	Name    string   `yaml:"name"`
+	Title   string   `yaml:"title"`
+	Version string   `yaml:"version"`
 	Binary  string   `yaml:"binary"`
 	Sprites []string `yaml:"sprites"`
 }
@@ -38,6 +41,17 @@ func bundle(dir, out string) {
 		panic(err)
 	}
 
+	// check fields
+	if manifest.Name == "" {
+		panic("missing name")
+	} else if manifest.Title == "" {
+		panic("missing title")
+	} else if manifest.Version == "" {
+		panic("missing version")
+	} else if !semver.IsValid(manifest.Version) {
+		panic("invalid version")
+	}
+
 	// resolves sprites
 	var sprites []string
 	for _, sprite := range manifest.Sprites {
@@ -48,9 +62,11 @@ func bundle(dir, out string) {
 		sprites = append(sprites, matches...)
 	}
 
-	// print info
-	fmt.Printf("Name: %s\n", manifest.Name)
-	fmt.Printf("Binary: %s\n", manifest.Binary)
+	// print fields
+	fmt.Printf("==> Name: %s\n", manifest.Name)
+	fmt.Printf("==> Title: %s\n", manifest.Title)
+	fmt.Printf("==> Version: %s\n", manifest.Version)
+	fmt.Printf("==> Binary: %s\n", manifest.Binary)
 
 	// print sprites
 	if len(sprites) > 0 {
@@ -65,12 +81,10 @@ func bundle(dir, out string) {
 	// prepare bundle
 	var bundle alp.Bundle
 
-	// add name attribute
-	bundle.Sections = append(bundle.Sections, alp.BundleSection{
-		Type: alp.BundleTypeAttr,
-		Name: "name",
-		Data: []byte(manifest.Name),
-	})
+	// add attributes
+	bundle.AddAttr("name", []byte(manifest.Name))
+	bundle.AddAttr("title", []byte(manifest.Title))
+	bundle.AddAttr("version", []byte(manifest.Version))
 
 	// add binary
 	binPath := filepath.Join(root, manifest.Binary)
@@ -114,11 +128,11 @@ func bundle(dir, out string) {
 	}
 
 	// print bundle info
-	fmt.Printf("Wrote: %s\n", file)
+	fmt.Printf("==> Wrote: %s\n", file)
 	if *verbose {
-		fmt.Printf("Sections: %d\n", len(bundle.Sections))
+		fmt.Printf("==> Sections: %d\n", len(bundle.Sections))
 		for i, section := range bundle.Sections {
-			fmt.Printf(" - Section %d: Type=%d Name=%q Size=%d\n", i, section.Type, section.Name, len(section.Data))
+			fmt.Printf("    Num=%d Type=%s Name=%q Size=%d\n", i, section.Type, section.Name, len(section.Data))
 		}
 	}
 }

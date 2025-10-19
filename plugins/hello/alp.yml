@@ -1,2 +1,4 @@
-name: Hello World
+name: hello-world
+title: Hello World
+version: v0.1.0
 binary: ./main.wasm

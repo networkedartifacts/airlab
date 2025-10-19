@@ -1,2 +1,4 @@
-name: HTTP Example
+name: http-example
+title: HTTP Example
+version: v0.1.0
 binary: ./main.wasm

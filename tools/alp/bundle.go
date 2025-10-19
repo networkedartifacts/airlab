@@ -16,6 +16,19 @@ const (
 	BundleTypeSprite BundleType = 2
 )
 
+func (bt BundleType) String() string {
+	switch bt {
+	case BundleTypeAttr:
+		return "A"
+	case BundleTypeBinary:
+		return "B"
+	case BundleTypeSprite:
+		return "S"
+	default:
+		return "?"
+	}
+}
+
 type BundleSection struct {
 	Type BundleType
 	Name string
@@ -103,6 +116,23 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 	}
 
 	return b, nil
+}
+
+func (b *Bundle) AddAttr(name string, value []byte) {
+	b.Sections = append(b.Sections, BundleSection{
+		Type: BundleTypeAttr,
+		Name: name,
+		Data: value,
+	})
+}
+
+func (b *Bundle) GetAttr(name string) []byte {
+	for _, section := range b.Sections {
+		if section.Type == BundleTypeAttr && section.Name == name {
+			return section.Data
+		}
+	}
+	return nil
 }
 
 func (b *Bundle) Encode() []byte {

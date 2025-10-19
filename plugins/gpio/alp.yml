@@ -1,2 +1,4 @@
-name: GPIO Example
+name: gpio-example
+title: GPIO Example
+version: v0.1.0
 binary: ./main.wasm

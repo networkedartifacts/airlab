@@ -1,2 +1,4 @@
-name: SEN55 Example
+name: sen55-example
+title: SEN55 Example
+version: v0.1.0
 binary: ./main.wasm

@@ -1,2 +1,4 @@
-name: Graphics Example
+name: gfx-example
+title: Graphics Example
+version: v0.1.0
 binary: ./main.wasm
