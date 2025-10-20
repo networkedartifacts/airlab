@@ -139,10 +139,10 @@ static void eng_exec_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, in
   lv_canvas_draw_rect(ctx->canvas, x, y, w, h, &rect_dsc);
 }
 
-typedef enum {
+enum {
   ENG_WRITE_ALIGN_CENTER = (1 << 0),
   ENG_WRITE_ALIGN_RIGHT = (1 << 1),
-} eng_exec_write_flags_t;
+};
 
 static void eng_exec_op_write(wasm_exec_env_t env, int x, int y, int s, int f, int c, uint8 *text, int text_len,
                               int flags) {
@@ -226,14 +226,14 @@ static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, in
   lv_canvas_draw_img(ctx->canvas, x, y, &img, &img_draw);
 }
 
-typedef enum {
-  ENG_YF_SKIP_FRAME = (1 << 0),
-  ENG_YF_WAIT_FRAME = (1 << 1),
-  ENG_YF_INVERT = (1 << 2),
-  ENG_YF_REFRESH = (1 << 3),
-} eng_exec_yield_flags_t;
+enum {
+  ENG_YIELD_SKIP_FRAME = (1 << 0),
+  ENG_YIELD_WAIT_FRAME = (1 << 1),
+  ENG_YIELD_INVERT = (1 << 2),
+  ENG_YIELD_REFRESH = (1 << 3),
+};
 
-typedef enum {
+enum {
   ENG_YIELD_TIMEOUT = 0,
   ENG_YIELD_ENTER = 1,
   ENG_YIELD_ESCAPE = 2,
@@ -241,7 +241,7 @@ typedef enum {
   ENG_YIELD_DOWN = 4,
   ENG_YIELD_LEFT = 5,
   ENG_YIELD_RIGHT = 6,
-} eng_exec_yield_result_t;
+};
 
 static int eng_exec_op_yield(wasm_exec_env_t _, int timeout, int flags) {
   // log
@@ -250,7 +250,7 @@ static int eng_exec_op_yield(wasm_exec_env_t _, int timeout, int flags) {
   }
 
   // unlock graphics
-  gfx_end(flags & ENG_YF_SKIP_FRAME, flags & ENG_YF_WAIT_FRAME);
+  gfx_end(flags & ENG_YIELD_SKIP_FRAME, flags & ENG_YIELD_WAIT_FRAME);
 
   // await event or deadline
   sig_event_t event = sig_await(SIG_KEYS, timeout);
@@ -284,7 +284,7 @@ static int eng_exec_op_yield(wasm_exec_env_t _, int timeout, int flags) {
   }
 
   // lock graphics
-  gfx_begin(flags & ENG_YF_REFRESH, flags & ENG_YF_INVERT);
+  gfx_begin(flags & ENG_YIELD_REFRESH, flags & ENG_YIELD_INVERT);
 
   return ret;
 }
@@ -443,20 +443,20 @@ static int eng_exec_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y
 
 /* IO operations */
 
-typedef enum {
+enum {
   ENG_GPIO_CONFIG,
   ENG_GPIO_WRITE,
   ENG_GPIO_READ,
-} eng_exec_gpio_cmd_t;
+};
 
-typedef enum {
+enum {
   ENG_GPIO_A = (1 << 0),
   ENG_GPIO_B = (1 << 1),
   ENG_GPIO_HIGH = (1 << 2),   // or low
   ENG_GPIO_INPUT = (1 << 3),  // or output
   ENG_GPIO_PULL_UP = (1 << 4),
   ENG_GPIO_PULL_DOWN = (1 << 5),
-} eng_exec_gpio_flags_t;
+};
 
 static int eng_exec_op_gpio(wasm_exec_env_t _, int cmd, int flags) {
   // log
