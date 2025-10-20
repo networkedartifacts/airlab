@@ -44,6 +44,17 @@ IMPORT("al_yield") extern int _al_yield(int timeout, int flags);
 
 al_yield_result_t al_yield(int timeout, al_yield_flags_t flags) { return _al_yield(timeout, flags); }
 
+/* Sprites */
+
+IMPORT("al_sprite_resolve") extern int _al_sprite_resolve(const void *name, int name_len);
+
+int al_sprite_resolve(const char *name) { return _al_sprite_resolve(name, strlen(name)); }
+
+IMPORT("al_sprite_width") extern int al_sprite_width(int sprite);
+IMPORT("al_sprite_height") extern int al_sprite_height(int sprite);
+
+IMPORT("al_sprite_draw") extern void al_sprite_draw(int sprite, int x, int y, int s);
+
 /* I/O */
 
 typedef enum {

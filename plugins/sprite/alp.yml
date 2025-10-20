@@ -1,0 +1,6 @@
+name: sprite-example
+title: Sprite Example
+version: v0.1.0
+binary: ./main.wasm
+sprites:
+  - sprite.png
