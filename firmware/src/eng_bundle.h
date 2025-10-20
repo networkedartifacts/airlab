@@ -42,4 +42,13 @@ eng_bundle_t *eng_bundle_load();
 int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, eng_bundle_section_t **s);
 void eng_bundle_free(eng_bundle_t *b);
 
+typedef struct {
+  uint16_t width;
+  uint16_t height;
+  const uint8_t *image;
+  const uint8_t *mask;
+} eng_bundle_sprite_t;
+
+bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_section_t *sc);
+
 #endif  // ENG_BUNDLE_H

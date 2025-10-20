@@ -155,3 +155,32 @@ void eng_bundle_free(eng_bundle_t *b) {
   // free bundle
   free(b);
 }
+
+bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_section_t *sc) {
+  // get width and height
+  uint16_t width, height;
+  memcpy(&width, sc->data, 2);
+  memcpy(&height, sc->data + 2, 2);
+
+  // calculate size
+  size_t size = (width * height + 7) / 8;
+
+  // check size
+  if (sc->len < 4 + size * 2) {
+    return false;
+  }
+
+  // get image and mask
+  const uint8_t *image = sc->data + 4;
+  const uint8_t *mask = image + size;
+
+  // set sprite
+  *sp = (eng_bundle_sprite_t){
+      .width = width,
+      .height = height,
+      .image = image,
+      .mask = mask,
+  };
+
+  return true;
+}

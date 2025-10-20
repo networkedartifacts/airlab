@@ -189,7 +189,7 @@ static void eng_op_write(wasm_exec_env_t env, int x, int y, int s, int f, int c,
   lv_canvas_draw_text(ctx->canvas, x, y, w, &label_dsc, copy);
 }
 
-static void eng_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, uint8 *i, uint8 *m) {
+static void eng_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, const uint8 *i, const uint8 *m) {
   // log
   if (ENG_DEBUG) {
     naos_log("eng_op_draw: x=%d, y=%d, w=%d, h=%d, s=%d", x, y, w, h, s);
@@ -334,11 +334,14 @@ static int eng_op_sprite_width(wasm_exec_env_t env, int sprite) {
     return -1;
   }
 
-  // get width
-  const uint8 *data = ctx->bundle->sections[sprite].data;
-  int width = data[0] | (data[1] << 8);
+  // parse sprite
+  eng_bundle_sprite_t sp;
+  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+    naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
+    return -1;
+  }
 
-  return width;
+  return sp.width;
 }
 
 static int eng_op_sprite_height(wasm_exec_env_t env, int sprite) {
@@ -356,11 +359,14 @@ static int eng_op_sprite_height(wasm_exec_env_t env, int sprite) {
     return -1;
   }
 
-  // get height
-  const uint8 *data = ctx->bundle->sections[sprite].data;
-  int height = data[2] | (data[3] << 8);
+  // parse sprite
+  eng_bundle_sprite_t sp;
+  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+    naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
+    return -1;
+  }
 
-  return height;
+  return sp.height;
 }
 
 static void eng_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, int s) {
@@ -378,15 +384,15 @@ static void eng_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, in
     return;
   }
 
-  // get data
-  const uint8 *data = ctx->bundle->sections[sprite].data;
-  int w = data[0] | (data[1] << 8);
-  int h = data[2] | (data[3] << 8);
-  uint8 *img = data + 4;
-  uint8 *msk = img + ((w * h + 7) / 8);
+  // parse sprite
+  eng_bundle_sprite_t sp;
+  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+    naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
+    return;
+  }
 
   // draw sprite
-  eng_op_draw(env, x, y, w, h, s, img, msk);
+  eng_op_draw(env, x, y, sp.width, sp.height, s, sp.image, sp.mask);
 }
 
 static int eng_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
@@ -404,28 +410,28 @@ static int eng_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
     return -1;
   }
 
-  // get size
-  const uint8 *data = ctx->bundle->sections[sprite].data;
-  int w = data[0] | (data[1] << 8);
-  int h = data[2] | (data[3] << 8);
-  uint8 *img = data + 4;
-  uint8 *msk = img + ((w * h + 7) / 8);
+  // parse sprite
+  eng_bundle_sprite_t sp;
+  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+    naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
+    return -1;
+  }
 
   // check parameters
-  if (x < 0 || y < 0 || x >= w || y >= h) {
+  if (x < 0 || y < 0 || x >= sp.width || y >= sp.height) {
     return -1;
   }
 
   // compute index
-  int idx = y * w + x;
+  int idx = y * sp.width + x;
 
   // test mask
-  if (eng_get_bit(msk, idx) == 0) {
+  if (eng_get_bit(sp.mask, idx) == 0) {
     return -1;
   }
 
   // test image
-  if (eng_get_bit(img, idx) != 0) {
+  if (eng_get_bit(sp.image, idx) != 0) {
     return 1;
   } else {
     return 0;
