@@ -110,10 +110,8 @@ func (s Sprite) Encode() []byte {
 	buf := new(bytes.Buffer)
 
 	// add width & height as uint16
-	buf.WriteByte(byte(s.Width))
-	buf.WriteByte(byte(s.Width >> 8))
-	buf.WriteByte(byte(s.Height))
-	buf.WriteByte(byte(s.Height >> 8))
+	buf.Write(enc.AppendUint16(nil, uint16(s.Width)))
+	buf.Write(enc.AppendUint16(nil, uint16(s.Height)))
 
 	// add image & mask
 	buf.Write(s.Image)
