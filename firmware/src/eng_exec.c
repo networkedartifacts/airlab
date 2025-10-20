@@ -18,8 +18,9 @@
 #include "lvx.h"
 #include "sig.h"
 #include "eng_bundle.h"
+#include "hmi.h"
 
-#define ENG_EXEC_DEBUG true
+#define ENG_EXEC_DEBUG false
 
 typedef struct {
   eng_bundle_t *bundle;
@@ -224,6 +225,22 @@ static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, in
 
   // draw image
   lv_canvas_draw_img(ctx->canvas, x, y, &img, &img_draw);
+}
+
+static int eng_exec_op_config(wasm_exec_env_t _, int s, int a, int b, int c) {
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_config: a=%d b=%d c=%d", a, b, c);
+  }
+
+  // handle configs
+  switch (s) {
+    case 0:  // button repeat
+      hmi_set_button_repeat(a);
+      return 0;
+    default:
+      return -1;
+  }
 }
 
 enum {
@@ -721,6 +738,7 @@ static int eng_exec_op_http_get(wasm_exec_env_t _, int field) {
 
 // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
 static NativeSymbol eng_exec_ops[] = {
+    {"al_config", eng_exec_op_config, "(iiii)i", NULL},
     {"al_yield", eng_exec_op_yield, "(ii)i", NULL},
     {"al_millis", eng_exec_op_millis, "()I", NULL},
     {"al_clear", eng_exec_op_clear, "(i)", NULL},
