@@ -3,6 +3,7 @@
 #include <esp_crc.h>
 
 #include <al/core.h>
+#include <al/storage.h>
 
 #include "eng_bundle.h"
 
@@ -87,17 +88,28 @@ bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) {
   return true;
 }
 
-bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len) {
+eng_bundle_t *eng_bundle_load() {
+  // read bundle
+  size_t buf_len = 0;
+  void *buf = al_storage_load(AL_STORAGE_INT, "engine", "app.wasm", &buf_len);
+  if (!buf) {
+    naos_log("eng: failed to read bundle");
+    return NULL;
+  }
+
+  // allocate bundle
+  eng_bundle_t *b = al_alloc(sizeof(eng_bundle_t));
+
   // prepare bundle
   *b = (eng_bundle_t){
       .buf = buf,
-      .buf_len = len,
+      .buf_len = buf_len,
   };
 
   // prepare iterator
   eng_bundle_iter_t iter;
-  if (!eng_bundle_iter_init(&iter, buf, len)) {
-    return false;
+  if (!eng_bundle_iter_init(&iter, buf, buf_len)) {
+    return NULL;
   }
 
   // allocate sections
@@ -108,11 +120,11 @@ bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len) {
   for (int i = 0; i < iter.sections; i++) {
     eng_bundle_section_t *s = &b->sections[i];
     if (!eng_bundle_iter_next(&iter, s)) {
-      return false;
+      return NULL;
     }
   }
 
-  return true;
+  return b;
 }
 
 int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, eng_bundle_section_t **s) {
@@ -130,11 +142,16 @@ int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, en
 }
 
 void eng_bundle_free(eng_bundle_t *b) {
+  // free buffer
+  if (b->buf) {
+    free(b->buf);
+  }
+
   // free sections
   if (b->sections) {
     free(b->sections);
   }
 
-  // clear bundle
-  memset(b, 0, sizeof(eng_bundle_t));
+  // free bundle
+  free(b);
 }

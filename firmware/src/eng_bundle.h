@@ -38,7 +38,7 @@ typedef struct {
 bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t len);
 bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s);
 
-bool eng_bundle_parse(eng_bundle_t *b, void *buf, size_t len);
+eng_bundle_t *eng_bundle_load();
 int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, eng_bundle_section_t **s);
 void eng_bundle_free(eng_bundle_t *b);
 

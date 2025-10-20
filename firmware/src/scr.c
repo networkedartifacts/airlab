@@ -108,20 +108,11 @@ static void scr_start_engine() {
   gui_cleanup(false);
   gui_write("Loading app...", false);
 
-  // load app
-  size_t app_len = 0;
-  void* app = al_storage_load(AL_STORAGE_INT, "engine", "app.wasm", &app_len);
-  if (!app) {
-    gui_cleanup(false);
-    gui_message("App not found!", 2000);
-    return;
-  }
-
   // run app
-  eng_run(app, app_len);
-
-  // clean up
-  free(app);
+  if (!eng_run()) {
+    gui_cleanup(false);
+    gui_message("Failed run app!", 2000);
+  }
 }
 
 /* Translations */

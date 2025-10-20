@@ -1,8 +1,8 @@
 #ifndef ENG_H
 #define ENG_H
 
-#include <stddef.h>
+#include <stdbool.h>
 
-void eng_run(void* bundle_buf, size_t bundle_len);
+bool eng_run();
 
 #endif  // ENG_H

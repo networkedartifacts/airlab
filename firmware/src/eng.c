@@ -20,7 +20,7 @@
 #include "eng_bundle.h"
 
 typedef struct {
-  eng_bundle_t bundle;
+  eng_bundle_t *bundle;
   lv_obj_t *canvas;
 } eng_context_t;
 
@@ -287,7 +287,7 @@ static int eng_op_sprite_resolve(wasm_exec_env_t env, uint8 *name, int name_len)
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // locate sprite
-  return eng_bundle_locate(&ctx->bundle, ENG_BUNDLE_TYPE_SPRITE, copy, NULL);
+  return eng_bundle_locate(ctx->bundle, ENG_BUNDLE_TYPE_SPRITE, copy, NULL);
 }
 
 static int eng_op_sprite_width(wasm_exec_env_t env, int sprite) {
@@ -297,12 +297,13 @@ static int eng_op_sprite_width(wasm_exec_env_t env, int sprite) {
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle.sections_num || ctx->bundle.sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
+      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
     return -1;
   }
 
   // get width
-  uint8 *data = ctx->bundle.sections[sprite].data;
+  const uint8 *data = ctx->bundle->sections[sprite].data;
   int width = data[0] | (data[1] << 8);
 
   return width;
@@ -315,12 +316,13 @@ static int eng_op_sprite_height(wasm_exec_env_t env, int sprite) {
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle.sections_num || ctx->bundle.sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
+      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
     return -1;
   }
 
   // get height
-  uint8 *data = ctx->bundle.sections[sprite].data;
+  const uint8 *data = ctx->bundle->sections[sprite].data;
   int height = data[2] | (data[3] << 8);
 
   return height;
@@ -333,12 +335,13 @@ static void eng_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, in
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle.sections_num || ctx->bundle.sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
+      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
     return;
   }
 
   // get data
-  uint8 *data = ctx->bundle.sections[sprite].data;
+  const uint8 *data = ctx->bundle->sections[sprite].data;
   int w = data[0] | (data[1] << 8);
   int h = data[2] | (data[3] << 8);
   uint8 *img = data + 4;
@@ -355,12 +358,13 @@ static int eng_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle.sections_num || ctx->bundle.sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
+      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
     return -1;
   }
 
   // get size
-  uint8 *data = ctx->bundle.sections[sprite].data;
+  const uint8 *data = ctx->bundle->sections[sprite].data;
   int w = data[0] | (data[1] << 8);
   int h = data[2] | (data[3] << 8);
   uint8 *img = data + 4;
@@ -699,8 +703,8 @@ static void *eng_run_task(void *arg) {
 
   // locate main binary
   eng_bundle_section_t *main;
-  if (eng_bundle_locate(&ctx->bundle, ENG_BUNDLE_TYPE_BINARY, "main", &main) < 0) {
     printf("eng: locating main binary failed\n");
+  if (eng_bundle_locate(ctx->bundle, ENG_BUNDLE_TYPE_BINARY, "main", &main) < 0) {
     return NULL;
   }
 
@@ -776,28 +780,31 @@ fail:
   return NULL;
 }
 
-void eng_run(void *bundle_buf, size_t bundle_len) {
-  // prepare context
-  eng_context_t ctx = {0};
-
-  // parse bundle
-  if (!eng_bundle_parse(&ctx.bundle, bundle_buf, bundle_len)) {
+bool eng_run() {
+  // load bundle
+  eng_bundle_t *bundle = eng_bundle_load();
+  if (!bundle) {
     printf("eng: parsing bundle failed\n");
-    return;
+    return false;
   }
 
+  // prepare context
+  eng_context_t ctx = {
+      .bundle = bundle,
+  };
+
   // print sections
-  printf("eng: bundle contains %d sections\n", ctx.bundle.sections_num);
-  for (int i = 0; i < ctx.bundle.sections_num; i++) {
-    eng_bundle_section_t *section = &ctx.bundle.sections[i];
+  printf("eng: bundle contains %d sections\n", ctx.bundle->sections_num);
+  for (int i = 0; i < ctx.bundle->sections_num; i++) {
+    eng_bundle_section_t *section = &ctx.bundle->sections[i];
     printf("[%d]: type=%d name='%s' len=%zu\n", i, section->type, section->name, section->len);
   }
 
   // check main binary
-  if (eng_bundle_locate(&ctx.bundle, ENG_BUNDLE_TYPE_BINARY, "main", NULL) < 0) {
+  if (eng_bundle_locate(ctx.bundle, ENG_BUNDLE_TYPE_BINARY, "main", NULL) < 0) {
     printf("eng: can't find main binary\n");
-    eng_bundle_free(&ctx.bundle);
-    return;
+    eng_bundle_free(ctx.bundle);
+    return false;
   }
 
   // clear screen
@@ -818,19 +825,24 @@ void eng_run(void *bundle_buf, size_t bundle_len) {
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   pthread_attr_setstacksize(&attr, 5120);
 
+  // prepare return value
+  bool ok = true;
+
   // create thread
   pthread_t t;
   int res = pthread_create(&t, &attr, eng_run_task, &ctx);
   if (res != 0) {
     printf("eng: pthread_create failed: %d\n", res);
-    return;
+    ok = false;
+    // continue
   }
 
   // join thread
   res = pthread_join(t, NULL);
   if (res != 0) {
     printf("eng: pthread_join failed: %d\n", res);
-    return;
+    ok = false;
+    // continue
   }
 
   // clear screen
@@ -840,5 +852,7 @@ void eng_run(void *bundle_buf, size_t bundle_len) {
   free(frame_buffer);
 
   // free bundle
-  eng_bundle_free(&ctx.bundle);
+  eng_bundle_free(ctx.bundle);
+
+  return ok;
 }
