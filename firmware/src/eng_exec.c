@@ -103,7 +103,7 @@ static void eng_exec_op_clear(wasm_exec_env_t env, int c) {
 static void eng_exec_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2, int c, int b) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_line: x1=%d, y1=%d, x2=%d, y2=%d, c=%d, b=%d", x1, y1, x2, y2, c, b);
+    naos_log("eng_exec_op_line: x1=%d y1=%d x2=%d y2=%d c=%d b=%d", x1, y1, x2, y2, c, b);
   }
 
   // get context
@@ -123,7 +123,7 @@ static void eng_exec_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2
 static void eng_exec_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, int c, int b) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_rect: x=%d, y=%d, w=%d, h=%d, c=%d, b=%d", x, y, w, h, c, b);
+    naos_log("eng_exec_op_rect: x=%d y=%d w=%d h=%d c=%d b=%d", x, y, w, h, c, b);
   }
 
   // get context
@@ -156,7 +156,7 @@ static void eng_exec_op_write(wasm_exec_env_t env, int x, int y, int s, int f, i
 
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_write: x=%d, y=%d, s=%d, f=%d, c=%d, s='%s' flags=%d", x, y, s, f, c, copy, flags);
+    naos_log("eng_exec_op_write: x=%d y=%d, s=%d f=%d c=%d s='%s' flags=%d", x, y, s, f, c, copy, flags);
   }
 
   // get context
@@ -193,7 +193,7 @@ static void eng_exec_op_write(wasm_exec_env_t env, int x, int y, int s, int f, i
 static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, const uint8 *i, const uint8 *m) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_draw: x=%d, y=%d, w=%d, h=%d, s=%d", x, y, w, h, s);
+    naos_log("eng_exec_op_draw: x=%d y=%d w=%d h=%d s=%d", x, y, w, h, s, a);
   }
 
   // check dimensions
@@ -373,7 +373,7 @@ static int eng_exec_op_sprite_height(wasm_exec_env_t env, int sprite) {
 static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, int s) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_sprite_draw: sprite=%d, x=%d, y=%d, s=%d", sprite, x, y, s);
+    naos_log("eng_exec_op_sprite_draw: sprite=%d x=%d y=%d s=%d", sprite, x, y, s, a);
   }
 
   // get context
@@ -399,7 +399,7 @@ static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int 
 static int eng_exec_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_sprite_read: sprite=%d, x=%d, y=%d", sprite, x, y);
+    naos_log("eng_exec_op_sprite_read: sprite=%d x=%d y=%d", sprite, x, y);
   }
 
   // get context
@@ -459,7 +459,7 @@ typedef enum {
 static int eng_exec_op_gpio(wasm_exec_env_t _, int cmd, int flags) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_gpio: cmd=%d, flags=0x%X", cmd, flags);
+    naos_log("eng_exec_op_gpio: cmd=%d flags=0x%X", cmd, flags);
   }
 
   // determine GPIO num
@@ -620,7 +620,7 @@ static int eng_exec_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *st
 
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_http_set: field=%d, num=%d, str='%s'", field, num, str_copy ? str_copy : "");
+    naos_log("eng_exec_op_http_set: field=%d num=%d str='%s'", field, num, str_copy ? str_copy : "");
   }
 
   // handle fields
@@ -669,7 +669,7 @@ static int eng_exec_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *st
 static int eng_exec_op_http_run(wasm_exec_env_t _, uint8 *req, int req_len, uint8 *res, int res_len) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_http_run: req_len=%d, res_len=%d", req_len, res_len);
+    naos_log("eng_exec_op_http_run: req_len=%d res_len=%d", req_len, res_len);
   }
 
   // set request data
