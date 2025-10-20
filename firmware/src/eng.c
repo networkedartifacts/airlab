@@ -329,14 +329,14 @@ static int eng_op_sprite_width(wasm_exec_env_t env, int sprite) {
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
-      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  eng_bundle_section_t *section = &ctx->bundle->sections[sprite];
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num || section->type != ENG_BUNDLE_TYPE_SPRITE) {
     return -1;
   }
 
   // parse sprite
   eng_bundle_sprite_t sp;
-  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+  if (!eng_bundle_parse_sprite(&sp, ctx->bundle, section)) {
     naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
     return -1;
   }
@@ -354,14 +354,14 @@ static int eng_op_sprite_height(wasm_exec_env_t env, int sprite) {
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
-      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  eng_bundle_section_t *section = &ctx->bundle->sections[sprite];
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num || section->type != ENG_BUNDLE_TYPE_SPRITE) {
     return -1;
   }
 
   // parse sprite
   eng_bundle_sprite_t sp;
-  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+  if (!eng_bundle_parse_sprite(&sp, ctx->bundle, section)) {
     naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
     return -1;
   }
@@ -379,14 +379,14 @@ static void eng_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, in
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
-      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  eng_bundle_section_t *section = &ctx->bundle->sections[sprite];
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num || section->type != ENG_BUNDLE_TYPE_SPRITE) {
     return;
   }
 
   // parse sprite
   eng_bundle_sprite_t sp;
-  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+  if (!eng_bundle_parse_sprite(&sp, ctx->bundle, section)) {
     naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
     return;
   }
@@ -405,14 +405,14 @@ static int eng_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // check sprite
-  if (sprite < 0 || sprite >= ctx->bundle->sections_num ||
-      ctx->bundle->sections[sprite].type != ENG_BUNDLE_TYPE_SPRITE) {
+  eng_bundle_section_t *section = &ctx->bundle->sections[sprite];
+  if (sprite < 0 || sprite >= ctx->bundle->sections_num || section->type != ENG_BUNDLE_TYPE_SPRITE) {
     return -1;
   }
 
   // parse sprite
   eng_bundle_sprite_t sp;
-  if (!eng_bundle_parse_sprite(&sp, &ctx->bundle->sections[sprite])) {
+  if (!eng_bundle_parse_sprite(&sp, ctx->bundle, section)) {
     naos_log("eng_op_sprite_draw: parsing sprite %d failed", sprite);
     return -1;
   }
@@ -769,14 +769,15 @@ static void *eng_run_task(void *arg) {
   wasm_runtime_set_log_level(WASM_LOG_LEVEL_WARNING);
 
   // locate main binary
-  eng_bundle_section_t *main;
-  if (eng_bundle_locate(ctx->bundle, ENG_BUNDLE_TYPE_BINARY, "main", &main) < 0) {
+  size_t main_len = 0;
+  void *main = eng_bundle_binary(ctx->bundle, "main", &main_len);
+  if (!main) {
     naos_log("eng: locating main binary failed");
     return NULL;
   }
 
   // load application
-  wasm_module_t module = wasm_runtime_load(main->data, main->len, error_buf, sizeof(error_buf));
+  wasm_module_t module = wasm_runtime_load(main, main_len, error_buf, sizeof(error_buf));
   if (!module) {
     naos_log("eng: loading WASM module failed: %s", error_buf);
     goto fail;
@@ -851,7 +852,6 @@ bool eng_run() {
   // load bundle
   eng_bundle_t *bundle = eng_bundle_load();
   if (!bundle) {
-    naos_log("eng: parsing bundle failed");
     return false;
   }
 
@@ -868,7 +868,7 @@ bool eng_run() {
   }
 
   // check main binary
-  if (eng_bundle_locate(ctx.bundle, ENG_BUNDLE_TYPE_BINARY, "main", NULL) < 0) {
+  if (!eng_bundle_binary(ctx.bundle, "main", NULL)) {
     naos_log("eng: can't find main binary");
     eng_bundle_free(ctx.bundle);
     return false;

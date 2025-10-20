@@ -16,19 +16,24 @@ typedef struct {
   size_t off;
   size_t len;
   uint32_t crc32;
-  const uint8_t *data;
+  void *data;
 } eng_bundle_section_t;
 
 typedef struct {
-  void *buf;
-  size_t buf_len;
+  void *header;
+  size_t header_len;
   eng_bundle_section_t *sections;
   uint16_t sections_num;
 } eng_bundle_t;
 
 eng_bundle_t *eng_bundle_load();
 int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, eng_bundle_section_t **s);
+void *eng_bundle_read(eng_bundle_t *b, eng_bundle_section_t *s);
+void *eng_bundle_get(eng_bundle_t *b, eng_bundle_type_t t, const char *name, size_t *len);
 void eng_bundle_free(eng_bundle_t *b);
+
+void *eng_bundle_attr(eng_bundle_t *b, const char *name, size_t *len);
+void *eng_bundle_binary(eng_bundle_t *b, const char *name, size_t *len);
 
 typedef struct {
   uint16_t width;
@@ -37,6 +42,6 @@ typedef struct {
   const uint8_t *mask;
 } eng_bundle_sprite_t;
 
-bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_section_t *sc);
+bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_t *b, eng_bundle_section_t *sc);
 
 #endif  // ENG_BUNDLE_H

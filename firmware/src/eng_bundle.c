@@ -28,6 +28,11 @@ static uint32_t eng_bundle_le32(const void *buf) {
   return val;
 }
 
+static size_t eng_bundle_strnlen(const char *s, size_t max_len) {
+  const char *end = memchr(s, 0, max_len);
+  return end ? (size_t)(end - s) : max_len;
+}
+
 static bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t len) {
   // check bundle header
   if (len < 10 || memcmp(buf, "ALP\0", 4) != 0) {
@@ -43,8 +48,8 @@ static bool eng_bundle_iter_init(eng_bundle_iter_t *i, const void *buf, size_t l
   *i = (eng_bundle_iter_t){
       .buf = buf,
       .len = len,
-      .header_len = header_len,
       .pos = 10,
+      .header_len = header_len,
       .sections = sections,
   };
 
@@ -58,7 +63,7 @@ static bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) 
   }
 
   // check section header
-  if (i->pos + 9 > i->len) {
+  if (i->pos + 13 > i->len) {
     naos_log("eng_bundle_iter_next: incomplete section header");
     return false;
   }
@@ -73,23 +78,13 @@ static bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) 
   i->pos += 4;
 
   // get name
-  size_t name_len = strlen((const char *)i->buf + i->pos);
-  if (i->pos + name_len + 1 + s->len > i->len) {
+  size_t name_len = strnlen((const char *)i->buf + i->pos, i->len - i->pos);
+  if (i->pos + name_len + 1 > i->len) {
     naos_log("eng_bundle_iter_next: truncated section name");
     return false;
   }
   s->name = (const char *)i->buf + i->pos;
   i->pos += name_len + 1;
-
-  // set data pointer
-  s->data = i->buf + s->off;
-
-  // validate checksum
-  uint32_t crc32 = esp_crc32_le(0, s->data, s->len);
-  if (crc32 != s->crc32) {
-    naos_log("eng_bundle_iter_next: crc32 mismatch for section '%s'", s->name);
-    return false;
-  }
 
   // update iterator
   i->current++;
@@ -98,11 +93,43 @@ static bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) 
 }
 
 eng_bundle_t *eng_bundle_load() {
-  // read bundle
-  size_t buf_len = 0;
-  void *buf = al_storage_load(AL_STORAGE_INT, "engine", "app.wasm", &buf_len);
-  if (!buf) {
-    naos_log("eng: failed to read bundle");
+  // get file size
+  int size = al_storage_stat(AL_STORAGE_INT, "engine", "app.wasm");
+  if (size < 0) {
+    naos_log("eng_bundle_load: failed to stat bundle file");
+    return NULL;
+  }
+
+  // reader bundle prefix
+  uint8_t prefix[10];
+  if (!al_storage_read(AL_STORAGE_INT, "engine", "app.wasm", prefix, 0, sizeof(prefix))) {
+    naos_log("eng_bundle_load: failed to read bundle prefix");
+    return NULL;
+  }
+
+  // parse bundle prefix
+  eng_bundle_iter_t iter;
+  if (!eng_bundle_iter_init(&iter, prefix, sizeof(prefix))) {
+    return NULL;
+  }
+
+  // check header length
+  if (iter.header_len > (size_t)size) {
+    naos_log("eng_bundle_load: invalid bundle header length");
+    return NULL;
+  }
+
+  // read bundle header
+  uint8_t *header = al_alloc(iter.header_len);
+  if (!al_storage_read(AL_STORAGE_INT, "engine", "app.wasm", header, 0, iter.header_len)) {
+    naos_log("eng_bundle_load: failed to read bundle header");
+    free(header);
+    return NULL;
+  }
+
+  // prepare iterator
+  if (!eng_bundle_iter_init(&iter, header, iter.header_len)) {
+    free(header);
     return NULL;
   }
 
@@ -111,15 +138,9 @@ eng_bundle_t *eng_bundle_load() {
 
   // prepare bundle
   *b = (eng_bundle_t){
-      .buf = buf,
-      .buf_len = buf_len,
+      .header = header,
+      .header_len = iter.header_len,
   };
-
-  // prepare iterator
-  eng_bundle_iter_t iter;
-  if (!eng_bundle_iter_init(&iter, buf, buf_len)) {
-    return NULL;
-  }
 
   // allocate sections
   b->sections = al_calloc(iter.sections, sizeof(eng_bundle_section_t));
@@ -129,6 +150,7 @@ eng_bundle_t *eng_bundle_load() {
   for (int i = 0; i < iter.sections; i++) {
     eng_bundle_section_t *s = &b->sections[i];
     if (!eng_bundle_iter_next(&iter, s)) {
+      eng_bundle_free(b);
       return NULL;
     }
   }
@@ -140,7 +162,7 @@ int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, en
   // find matching section
   for (int i = 0; i < b->sections_num; i++) {
     if (b->sections[i].type == t && strcmp(b->sections[i].name, name) == 0) {
-      if (s != NULL) {
+      if (s) {
         *s = &b->sections[i];
       }
       return i;
@@ -150,10 +172,60 @@ int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, en
   return -1;
 }
 
+void *eng_bundle_read(eng_bundle_t *b, eng_bundle_section_t *s) {
+  // return data if already loaded
+  if (s->data) {
+    return s->data;
+  }
+
+  // read data
+  void *data = al_alloc(s->len);
+  if (!al_storage_read(AL_STORAGE_INT, "engine", "app.wasm", data, s->off, s->len)) {
+    naos_log("eng_bundle_read: failed to read section '%s'", s->name);
+    free(data);
+    return NULL;
+  }
+
+  // validate checksum
+  uint32_t crc32 = esp_crc32_le(0, data, s->len);
+  if (crc32 != s->crc32) {
+    naos_log("eng_bundle_read: crc32 mismatch for section '%s'", s->name);
+    free(data);
+    return NULL;
+  }
+
+  // set data pointer
+  s->data = data;
+
+  return data;
+}
+
+void *eng_bundle_get(eng_bundle_t *b, eng_bundle_type_t t, const char *name, size_t *len) {
+  // locate section
+  eng_bundle_section_t *s;
+  int idx = eng_bundle_locate(b, t, name, &s);
+  if (idx < 0) {
+    return NULL;
+  }
+
+  // read section
+  void *data = eng_bundle_read(b, s);
+
+  // set length
+  if (len) {
+    *len = s->len;
+  }
+
+  return data;
+}
+
 void eng_bundle_free(eng_bundle_t *b) {
-  // free buffer
-  if (b->buf) {
-    free(b->buf);
+  // free section data
+  for (int i = 0; i < b->sections_num; i++) {
+    eng_bundle_section_t *s = &b->sections[i];
+    if (s->data) {
+      free(s->data);
+    }
   }
 
   // free sections
@@ -161,18 +233,39 @@ void eng_bundle_free(eng_bundle_t *b) {
     free(b->sections);
   }
 
+  // free buffer
+  if (b->header) {
+    free(b->header);
+  }
+
   // free bundle
   free(b);
 }
 
-bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_section_t *sc) {
+void *eng_bundle_attr(eng_bundle_t *b, const char *name, size_t *len) {
+  // get attribute section
+  return eng_bundle_get(b, ENG_BUNDLE_TYPE_ATTR, name, len);
+}
+
+void *eng_bundle_binary(eng_bundle_t *b, const char *name, size_t *len) {
+  // get binary section
+  return eng_bundle_get(b, ENG_BUNDLE_TYPE_BINARY, name, len);
+}
+
+bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_t *b, eng_bundle_section_t *sc) {
+  // read section
+  void *data = eng_bundle_read(b, sc);
+  if (!data) {
+    return false;
+  }
+
   // get width and height
   uint16_t width, height;
-  memcpy(&width, sc->data, 2);
-  memcpy(&height, sc->data + 2, 2);
+  memcpy(&width, data, 2);
+  memcpy(&height, data + 2, 2);
 
   // calculate size
-  size_t size = (width * height + 7) / 8;
+  size_t size = ((size_t)width * (size_t)height + 7) / 8;
 
   // check size
   if (sc->len < 4 + size * 2) {
@@ -180,7 +273,7 @@ bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_section_t *sc) 
   }
 
   // get image and mask
-  const uint8_t *image = sc->data + 4;
+  const uint8_t *image = data + 4;
   const uint8_t *mask = image + size;
 
   // set sprite
