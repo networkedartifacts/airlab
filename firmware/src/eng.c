@@ -19,6 +19,8 @@
 #include "sig.h"
 #include "eng_bundle.h"
 
+#define ENG_DEBUG true
+
 typedef struct {
   eng_bundle_t *bundle;
   lv_obj_t *canvas;
@@ -86,7 +88,10 @@ static char *eng_mkstr(const uint8 *buf, int len) {
 /* primary operations */
 
 static void eng_op_clear(wasm_exec_env_t env, int c) {
-  printf("eng_clear: c=%d\n", c);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_clear: c=%d", c);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -96,7 +101,10 @@ static void eng_op_clear(wasm_exec_env_t env, int c) {
 }
 
 static void eng_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2, int c, int b) {
-  printf("eng_line: x1=%d, y1=%d, x2=%d, y2=%d, c=%d, b=%d\n", x1, y1, x2, y2, c, b);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_line: x1=%d, y1=%d, x2=%d, y2=%d, c=%d, b=%d", x1, y1, x2, y2, c, b);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -113,7 +121,10 @@ static void eng_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2, int
 }
 
 static void eng_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, int c, int b) {
-  printf("eng_rect: x=%d, y=%d, w=%d, h=%d, c=%d, b=%d\n", x, y, w, h, c, b);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_rect: x=%d, y=%d, w=%d, h=%d, c=%d, b=%d", x, y, w, h, c, b);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -142,7 +153,10 @@ static void eng_op_write(wasm_exec_env_t env, int x, int y, int s, int f, int c,
   memcpy(copy, text, text_len);
   copy[text_len] = 0;
 
-  printf("eng_write: x=%d, y=%d, s=%d, f=%d, c=%d, s='%s' flags=%d\n", x, y, s, f, c, copy, flags);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_write: x=%d, y=%d, s=%d, f=%d, c=%d, s='%s' flags=%d", x, y, s, f, c, copy, flags);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -176,8 +190,12 @@ static void eng_op_write(wasm_exec_env_t env, int x, int y, int s, int f, int c,
 }
 
 static void eng_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, uint8 *i, uint8 *m) {
-  printf("eng_draw: x=%d, y=%d, w=%d, h=%d, s=%d\n", x, y, w, h, s);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_draw: x=%d, y=%d, w=%d, h=%d, s=%d", x, y, w, h, s);
+  }
 
+  // check dimensions
   if (w <= 0 || h <= 0 || s <= 0) {
     return;
   }
@@ -223,7 +241,10 @@ typedef enum {
 } eng_yield_result_t;
 
 static int eng_op_yield(wasm_exec_env_t _, int timeout, int flags) {
-  printf("eng_yield\n");
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_yield: timeout=%d flags=%d", timeout, flags);
+  }
 
   // unlock graphics
   gfx_end(flags & ENG_YF_SKIP_FRAME, flags & ENG_YF_WAIT_FRAME);
@@ -266,6 +287,11 @@ static int eng_op_yield(wasm_exec_env_t _, int timeout, int flags) {
 }
 
 static int64_t eng_op_millis(wasm_exec_env_t _) {
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_millis");
+  }
+
   // return time
   return naos_millis();
 }
@@ -281,7 +307,10 @@ static int eng_op_sprite_resolve(wasm_exec_env_t env, uint8 *name, int name_len)
   memcpy(copy, name, name_len);
   copy[name_len] = 0;
 
-  printf("eng_op_sprite_resolve: name='%s'\n", copy);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_sprite_resolve: name='%s'", copy);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -291,7 +320,10 @@ static int eng_op_sprite_resolve(wasm_exec_env_t env, uint8 *name, int name_len)
 }
 
 static int eng_op_sprite_width(wasm_exec_env_t env, int sprite) {
-  printf("eng_op_sprite_width: sprite=%d\n", sprite);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_sprite_width: sprite=%d", sprite);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -310,7 +342,10 @@ static int eng_op_sprite_width(wasm_exec_env_t env, int sprite) {
 }
 
 static int eng_op_sprite_height(wasm_exec_env_t env, int sprite) {
-  printf("eng_op_sprite_height: sprite=%d\n", sprite);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_sprite_height: sprite=%d", sprite);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -329,7 +364,10 @@ static int eng_op_sprite_height(wasm_exec_env_t env, int sprite) {
 }
 
 static void eng_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, int s) {
-  printf("eng_op_sprite_draw: sprite=%d, x=%d, y=%d, s=%d\n", sprite, x, y, s);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_sprite_draw: sprite=%d, x=%d, y=%d, s=%d", sprite, x, y, s);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -352,7 +390,10 @@ static void eng_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, in
 }
 
 static int eng_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
-  printf("eng_op_sprite_read: sprite=%d, x=%d, y=%d\n", sprite, x, y);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_sprite_read: sprite=%d, x=%d, y=%d", sprite, x, y);
+  }
 
   // get context
   eng_context_t *ctx = wasm_runtime_get_user_data(env);
@@ -409,7 +450,10 @@ typedef enum {
 } eng_gpio_flags_t;
 
 static int eng_op_gpio(wasm_exec_env_t _, int cmd, int flags) {
-  printf("eng_gpio: cmd=%d, flags=0x%X\n", cmd, flags);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_gpio: cmd=%d, flags=0x%X", cmd, flags);
+  }
 
   // determine GPIO num
   gpio_num_t num = 0;
@@ -455,6 +499,11 @@ static int eng_op_gpio(wasm_exec_env_t _, int cmd, int flags) {
 }
 
 static int eng_op_i2c(wasm_exec_env_t _, int addr, uint8 *tx, int tx_len, uint8 *rx, int rx_len, int timeout) {
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_i2c: addr=%d tx=%d rx=%d timeout=%d", addr, tx_len, rx_len, timeout);
+  }
+
   // perform transfer
   esp_err_t err = al_i2c_transfer(addr, tx, tx_len, rx, rx_len, timeout);
 
@@ -529,6 +578,11 @@ static esp_err_t eng_http_handler(esp_http_client_event_t *evt) {
 }
 
 static void eng_op_http_new() {
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_http_new");
+  }
+
   // destroy previous client
   if (eng_http_client) {
     ESP_ERROR_CHECK(esp_http_client_cleanup(eng_http_client));
@@ -557,7 +611,9 @@ static int eng_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *str, in
   char *str2_copy = eng_mkstr(str2, str2_len);
 
   // log
-  printf("eng_op_http_set: field=%d, num=%d, str='%s'\n", field, num, str_copy ? str_copy : "");
+  if (ENG_DEBUG) {
+    naos_log("eng_op_http_set: field=%d, num=%d, str='%s'", field, num, str_copy ? str_copy : "");
+  }
 
   // handle fields
   switch (field) {
@@ -603,7 +659,10 @@ static int eng_op_http_set(wasm_exec_env_t _, int field, int num, uint8 *str, in
 }
 
 static int eng_op_http_run(wasm_exec_env_t _, uint8 *req, int req_len, uint8 *res, int res_len) {
-  printf("eng_op_http_run: req_len=%d, res_len=%d\n", req_len, res_len);
+  // log
+  if (ENG_DEBUG) {
+    naos_log("eng_op_http_run: req_len=%d, res_len=%d", req_len, res_len);
+  }
 
   // set request data
   if (req && req_len > 0) {
@@ -628,7 +687,9 @@ static int eng_op_http_run(wasm_exec_env_t _, uint8 *req, int req_len, uint8 *re
 
 static int eng_op_http_get(wasm_exec_env_t _, int field) {
   // log
-  printf("eng_op_http_get: field=%d\n", field);
+  if (ENG_DEBUG) {
+    naos_log("eng_op_http_get: field=%d", field);
+  }
 
   // handle fields
   switch (field) {
@@ -694,7 +755,7 @@ static void *eng_run_task(void *arg) {
 
   // initialize runtime
   if (!wasm_runtime_full_init(&init_args)) {
-    printf("eng: init runtime failed\n");
+    naos_log("eng: init runtime failed");
     return NULL;
   }
 
@@ -703,15 +764,15 @@ static void *eng_run_task(void *arg) {
 
   // locate main binary
   eng_bundle_section_t *main;
-    printf("eng: locating main binary failed\n");
   if (eng_bundle_locate(ctx->bundle, ENG_BUNDLE_TYPE_BINARY, "main", &main) < 0) {
+    naos_log("eng: locating main binary failed");
     return NULL;
   }
 
   // load application
   wasm_module_t module = wasm_runtime_load(main->data, main->len, error_buf, sizeof(error_buf));
   if (!module) {
-    printf("eng: loading WASM module failed: %s\n", error_buf);
+    naos_log("eng: loading WASM module failed: %s", error_buf);
     goto fail;
   }
 
@@ -720,7 +781,7 @@ static void *eng_run_task(void *arg) {
   memset(&module_inst, 0, sizeof(wasm_module_inst_t));
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
   if (!module_inst) {
-    printf("eng: instantiating WASM module failed: %s\n", error_buf);
+    naos_log("eng: instantiating WASM module failed: %s", error_buf);
     goto fail;
   }
 
@@ -729,7 +790,7 @@ static void *eng_run_task(void *arg) {
   memset(&exec_env, 0, sizeof(wasm_exec_env_t));
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
   if (!exec_env) {
-    printf("eng: creating WASM execution environment failed\n");
+    naos_log("eng: creating WASM execution environment failed");
     goto fail;
   }
 
@@ -739,7 +800,7 @@ static void *eng_run_task(void *arg) {
   // find _start function
   wasm_function_inst_t func = wasm_runtime_lookup_function(module_inst, "_start");
   if (!func) {
-    printf("eng: looking up _start function failed\n");
+    naos_log("eng: looking up _start function failed");
     goto fail;
   }
 
@@ -754,7 +815,7 @@ static void *eng_run_task(void *arg) {
 
   // check result
   if (!ok) {
-    printf("eng: calling _start function failed: %s\n", wasm_runtime_get_exception(module_inst));
+    naos_log("eng: calling _start function failed: %s", wasm_runtime_get_exception(module_inst));
     goto fail;
   }
 
@@ -784,7 +845,7 @@ bool eng_run() {
   // load bundle
   eng_bundle_t *bundle = eng_bundle_load();
   if (!bundle) {
-    printf("eng: parsing bundle failed\n");
+    naos_log("eng: parsing bundle failed");
     return false;
   }
 
@@ -794,15 +855,15 @@ bool eng_run() {
   };
 
   // print sections
-  printf("eng: bundle contains %d sections\n", ctx.bundle->sections_num);
+  naos_log("eng: bundle contains %d sections", ctx.bundle->sections_num);
   for (int i = 0; i < ctx.bundle->sections_num; i++) {
     eng_bundle_section_t *section = &ctx.bundle->sections[i];
-    printf("[%d]: type=%d name='%s' len=%zu\n", i, section->type, section->name, section->len);
+    naos_log("[%d]: type=%d name='%s' len=%zu", i, section->type, section->name, section->len);
   }
 
   // check main binary
   if (eng_bundle_locate(ctx.bundle, ENG_BUNDLE_TYPE_BINARY, "main", NULL) < 0) {
-    printf("eng: can't find main binary\n");
+    naos_log("eng: can't find main binary");
     eng_bundle_free(ctx.bundle);
     return false;
   }
@@ -832,7 +893,7 @@ bool eng_run() {
   pthread_t t;
   int res = pthread_create(&t, &attr, eng_run_task, &ctx);
   if (res != 0) {
-    printf("eng: pthread_create failed: %d\n", res);
+    naos_log("eng: pthread_create failed: %d", res);
     ok = false;
     // continue
   }
@@ -840,7 +901,7 @@ bool eng_run() {
   // join thread
   res = pthread_join(t, NULL);
   if (res != 0) {
-    printf("eng: pthread_join failed: %d\n", res);
+    naos_log("eng: pthread_join failed: %d", res);
     ok = false;
     // continue
   }
