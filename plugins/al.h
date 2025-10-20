@@ -53,7 +53,7 @@ int al_sprite_resolve(const char *name) { return _al_sprite_resolve(name, strlen
 IMPORT("al_sprite_width") extern int al_sprite_width(int sprite);
 IMPORT("al_sprite_height") extern int al_sprite_height(int sprite);
 
-IMPORT("al_sprite_draw") extern void al_sprite_draw(int sprite, int x, int y, int s);
+IMPORT("al_sprite_draw") extern void al_sprite_draw(int sprite, int x, int y, int s, int a);
 
 /* I/O */
 

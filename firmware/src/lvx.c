@@ -630,8 +630,13 @@ static lv_res_t lvx_sprite_decoder_open(lv_img_decoder_t* d, lv_img_decoder_dsc_
   // fill descriptor
   dsc->img_data = NULL;
   dsc->header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA;
-  dsc->header.w = sprite->w * sprite->s;
-  dsc->header.h = sprite->h * sprite->s;
+  if (sprite->a == 90 || sprite->a == 270) {
+    dsc->header.w = sprite->h * sprite->s;
+    dsc->header.h = sprite->w * sprite->s;
+  } else {
+    dsc->header.w = sprite->w * sprite->s;
+    dsc->header.h = sprite->h * sprite->s;
+  }
   dsc->user_data = (void*)sprite;
 
   return LV_RES_OK;
@@ -653,10 +658,33 @@ static lv_res_t lvx_sprite_decoder_read(lv_img_decoder_t* d, lv_img_decoder_dsc_
   // write pixels
   for (int xx = x; xx < x + len; xx++) {
     // get source position
-    int sx = xx / sprite->s;
-    int sy = y / sprite->s;
-    if (sx >= sprite->w) sx = sprite->w - 1;
-    if (sy >= sprite->h) sy = sprite->h - 1;
+    int sx, sy;
+    int px = xx / sprite->s;
+    int py = y / sprite->s;
+    switch (sprite->a) {
+      case 90:
+        sx = py;
+        sy = sprite->h - 1 - px;
+        break;
+      case 180:
+        sx = sprite->w - 1 - px;
+        sy = sprite->h - 1 - py;
+        break;
+      case 270:
+        sx = sprite->w - 1 - py;
+        sy = px;
+        break;
+      default:  // 0°
+        sx = px;
+        sy = py;
+        break;
+    }
+    if (sx >= sprite->w) {
+      sx = sprite->w - 1;
+    }
+    if (sy >= sprite->h) {
+      sy = sprite->h - 1;
+    }
 
     // get index
     int idx = sy * sprite->w + sx;
@@ -670,12 +698,20 @@ static lv_res_t lvx_sprite_decoder_read(lv_img_decoder_t* d, lv_img_decoder_dsc_
 }
 
 lv_img_dsc_t lvx_sprite_img(lvx_sprite_t* sprite) {
+  // calculate width and height
+  uint16_t w = sprite->w;
+  uint16_t h = sprite->h;
+  if (sprite->a == 90 || sprite->a == 270) {
+    w = sprite->h;
+    h = sprite->w;
+  }
+
   // prepare image
   return (lv_img_dsc_t){
       .header =
           (lv_img_header_t){
-              .w = sprite->w * sprite->s,
-              .h = sprite->h * sprite->s,
+              .w = w * sprite->s,
+              .h = h * sprite->s,
               .cf = LV_IMG_CF_USER_ENCODED_0,
           },
       .data = (uint8_t*)sprite,

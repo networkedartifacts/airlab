@@ -117,7 +117,7 @@ void lvx_style_set_pad(lv_style_t *style, lv_coord_t top, lv_coord_t bottom, lv_
 /* Bitmap Decoder */
 
 typedef struct {
-  uint16_t w, h, s;
+  uint16_t w, h, s, a;
   const uint8_t *img;
   const uint8_t *mask;
 } lvx_sprite_t;

@@ -190,10 +190,11 @@ static void eng_exec_op_write(wasm_exec_env_t env, int x, int y, int s, int f, i
   lv_canvas_draw_text(ctx->canvas, x, y, w, &label_dsc, copy);
 }
 
-static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, const uint8 *i, const uint8 *m) {
+static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, int a, const uint8 *i,
+                             const uint8 *m) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_draw: x=%d y=%d w=%d h=%d s=%d", x, y, w, h, s, a);
+    naos_log("eng_exec_op_draw: x=%d y=%d w=%d h=%d s=%d a=%d", x, y, w, h, s, a);
   }
 
   // check dimensions
@@ -209,6 +210,7 @@ static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, in
       .w = w,
       .h = h,
       .s = s,
+      .a = a,
       .img = i,
       .mask = m,
   };
@@ -370,10 +372,10 @@ static int eng_exec_op_sprite_height(wasm_exec_env_t env, int sprite) {
   return sp.height;
 }
 
-static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, int s) {
+static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int y, int s, int a) {
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_sprite_draw: sprite=%d x=%d y=%d s=%d", sprite, x, y, s, a);
+    naos_log("eng_exec_op_sprite_draw: sprite=%d x=%d y=%d s=%d a=%d", sprite, x, y, s, a);
   }
 
   // get context
@@ -393,7 +395,7 @@ static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int sprite, int x, int 
   }
 
   // draw sprite
-  eng_exec_op_draw(env, x, y, sp.width, sp.height, s, sp.image, sp.mask);
+  eng_exec_op_draw(env, x, y, sp.width, sp.height, s, a, sp.image, sp.mask);
 }
 
 static int eng_exec_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
@@ -725,13 +727,13 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_line", eng_exec_op_line, "(iiiiii)", NULL},
     {"al_rect", eng_exec_op_rect, "(iiiiii)", NULL},
     {"al_write", eng_exec_op_write, "(iiiii*~i)", NULL},
-    {"al_draw", eng_exec_op_draw, "(iiiii**)", NULL},
+    {"al_draw", eng_exec_op_draw, "(iiiiii**)", NULL},
     {"al_gpio", eng_exec_op_gpio, "(ii)i", NULL},
     {"al_i2c", eng_exec_op_i2c, "(i*i*ii)i", NULL},
     {"al_sprite_resolve", eng_exec_op_sprite_resolve, "(*~)i", NULL},
     {"al_sprite_width", eng_exec_op_sprite_width, "(i)i", NULL},
     {"al_sprite_height", eng_exec_op_sprite_height, "(i)i", NULL},
-    {"al_sprite_draw", eng_exec_op_sprite_draw, "(iiii)", NULL},
+    {"al_sprite_draw", eng_exec_op_sprite_draw, "(iiiii)", NULL},
     {"al_sprite_read", eng_exec_op_sprite_read, "(iii)i", NULL},
     {"al_http_new", eng_exec_op_http_new, "()", NULL},
     {"al_http_set", eng_exec_op_http_set, "(ii*~*~)i", NULL},
