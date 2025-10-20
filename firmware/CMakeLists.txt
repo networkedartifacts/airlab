@@ -48,6 +48,8 @@ set(SOURCE_FILES
         src/eng.h
         src/eng_bundle.c
         src/eng_bundle.h
+        src/eng_exec.c
+        src/eng_exec.h
         src/fnt.h
         src/fnt.c
         src/gfx.c

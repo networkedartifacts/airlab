@@ -7,6 +7,8 @@
 
 #include "eng_bundle.h"
 
+#define ENG_BUNDLE_DEBUG false
+
 typedef struct {
   const uint8_t *buf;
   size_t len;
@@ -152,6 +154,15 @@ eng_bundle_t *eng_bundle_load() {
     if (!eng_bundle_iter_next(&iter, s)) {
       eng_bundle_free(b);
       return NULL;
+    }
+  }
+
+  // print sections
+  if (ENG_BUNDLE_DEBUG) {
+    naos_log("eng_bundle_load: found %d sections", b->sections_num);
+    for (int i = 0; i < b->sections_num; i++) {
+      eng_bundle_section_t *section = &b->sections[i];
+      naos_log("[%d]: type=%d name='%s' len=%zu", i, section->type, section->name, section->len);
     }
   }
 
