@@ -13,7 +13,7 @@
 
 #define ENG_DIR "engine"
 #define ENG_LIST_SIZE 32
-#define ENG_DEBUG true
+#define ENG_DEBUG false
 
 static eng_plugin_t *eng_list = NULL;
 static int eng_list_len = 0;
@@ -48,7 +48,7 @@ void eng_reload() {
 
     // log
     if (ENG_DEBUG) {
-      naos_log("eng: found '%s'", entry->d_name);
+      naos_log("eng_reload: found '%s'", entry->d_name);
     }
 
     // ignore non regular files
@@ -75,7 +75,7 @@ void eng_reload() {
     // peek bundle
     eng_bundle_t *b = eng_bundle_load(info->file);
     if (!b) {
-      naos_log("eng: failed to peek bundle '%s'", info->file);
+      naos_log("eng_reload: failed to peek bundle '%s'", info->file);
       continue;
     }
 
@@ -84,14 +84,14 @@ void eng_reload() {
     const char *title = eng_bundle_attr(b, "title", NULL);
     const char *version = eng_bundle_attr(b, "version", NULL);
     if (!name || !title || !version) {
-      naos_log("eng: missing bundle name/title/version");
+      naos_log("eng_reload: missing bundle name/title/version");
       eng_bundle_free(b);
       continue;
     }
 
     // log
     if (ENG_DEBUG) {
-      naos_log("eng: bundle name='%s' title='%s' version='%s'", name, title, version);
+      naos_log("eng_reload: got bundle name='%s' title='%s' version='%s'", name, title, version);
     }
 
     // copy attributes
@@ -105,7 +105,7 @@ void eng_reload() {
     // increment
     eng_list_len++;
     if (eng_list_len >= ENG_LIST_SIZE) {
-      naos_log("eng: too many entries");
+      naos_log("eng_reload: too many entries");
       break;
     }
   }

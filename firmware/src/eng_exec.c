@@ -354,12 +354,12 @@ static int eng_exec_op_gpio(wasm_exec_env_t _, int cmd, int flags) {
     case ENG_GPIO_CONFIG: {
       // configure GPIO
       gpio_config_t io_conf = {
-        .pin_bit_mask = BIT64(num),
-        .mode = flags & ENG_GPIO_INPUT ? GPIO_MODE_INPUT : GPIO_MODE_OUTPUT,
-        .pull_up_en = flags & ENG_GPIO_PULL_UP ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
-        .pull_down_en = flags & ENG_GPIO_PULL_DOWN ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
+          .pin_bit_mask = BIT64(num),
+          .mode = flags & ENG_GPIO_INPUT ? GPIO_MODE_INPUT : GPIO_MODE_OUTPUT,
+          .pull_up_en = flags & ENG_GPIO_PULL_UP ? GPIO_PULLUP_ENABLE : GPIO_PULLUP_DISABLE,
+          .pull_down_en = flags & ENG_GPIO_PULL_DOWN ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE,
+          .intr_type = GPIO_INTR_DISABLE,
+      };
       esp_err_t err = gpio_config(&io_conf);
 
       return err == ESP_OK ? 0 : -1;
