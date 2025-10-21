@@ -10,7 +10,7 @@ import (
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 
-	"tools/alp"
+	"github.com/networkedartifacts/airlab/tools/alp"
 )
 
 type Manifest struct {

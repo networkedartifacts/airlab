@@ -118,7 +118,7 @@ func DecodeBundle(data []byte) (*Bundle, error) {
 			return nil, fmt.Errorf("invalid bundle: section %d: offset mismatch", i)
 		}
 		b.Sections[i].Data = data[offsets[i] : offsets[i]+len(s.Data)]
-		offset += len(s.Data)
+		offset += len(s.Data) + 1
 		checksum := crc32.NewIEEE()
 		_, _ = checksum.Write(b.Sections[i].Data)
 		if checksum.Sum32() != checksums[i] {
@@ -172,12 +172,13 @@ func (b *Bundle) Encode() []byte {
 		out = enc.AppendUint32(out, checksum.Sum32())
 		out = append(out, []byte(section.Name)...)
 		out = append(out, 0)
-		offset += len(section.Data)
+		offset += len(section.Data) + 1
 	}
 
 	// write section data
 	for _, section := range b.Sections {
 		out = append(out, section.Data...)
+		out = append(out, 0)
 	}
 
 	return out
