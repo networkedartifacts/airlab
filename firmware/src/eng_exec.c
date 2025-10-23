@@ -11,6 +11,7 @@
 #include <esp_log.h>
 
 #include <al/core.h>
+#include <al/buzzer.h>
 
 #include "fnt.h"
 #include "gfx.h"
@@ -314,6 +315,16 @@ static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, in
 
   // draw image
   lv_canvas_draw_img(ctx->canvas, x, y, &img, &img_draw);
+}
+
+static void eng_exec_op_beep(wasm_exec_env_t _, float freq, int duration) {
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_beep: freq=%d duration=%d", freq, duration);
+  }
+
+  // play beep
+  al_buzzer_beep(freq, duration);
 }
 
 /* IO operations */
@@ -745,6 +756,7 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_line", eng_exec_op_line, "(iiiiii)", NULL},
     {"al_rect", eng_exec_op_rect, "(iiiiii)", NULL},
     {"al_write", eng_exec_op_write, "(iiiii*~i)", NULL},
+    {"al_beep", eng_exec_op_beep, "(fi)", NULL},
     {"al_draw", eng_exec_op_draw, "(iiiiii**)", NULL},
     {"al_gpio", eng_exec_op_gpio, "(ii)i", NULL},
     {"al_i2c", eng_exec_op_i2c, "(i*i*ii)i", NULL},
