@@ -12,7 +12,7 @@ $1:
 	@if [ "$$(LAUNCH)" = "1" ]; then alpctl launch $1.alp; fi
 endef
 
-$(foreach t,data gfx hello gpio sen55 sprite http i2c weather,$(eval $(call build_task,$t)))
+$(foreach t,data gfx gpio hello http i2c sen55 sprite weather,$(eval $(call build_task,$t)))
 
 all: data gfx gpio hello http i2c sen55 sprite weather
 
