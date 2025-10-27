@@ -621,7 +621,7 @@ static void* scr_info() {
 
     // prepare text
     const char* text = lvx_fmt("%llds - %.0f%% - P%d - F%d\n%04d-%02d-%02d %02d:%02d:%02d\n%lu kB - %.1f%% - %.1f%%",
-                               naos_millis() / 1000, bat.battery * 100, bat.has_usb, bat.can_fast, year, month, day,
+                               naos_millis() / 1000, bat.bat_level * 100, bat.has_usb, bat.can_fast, year, month, day,
                                hour, minute, seconds, esp_get_free_heap_size() / 1024, cpu0 * 100, cpu1 * 100);
 
     // update label
@@ -810,7 +810,7 @@ static void* scr_saver() {
     /* Sleep Control */
 
     // power off if battery is low and not charging
-    if (power.battery < 0.10 && !power.has_usb && !power.charging) {
+    if (power.bat_level < 0.10 && !power.has_usb && !power.charging) {
       scr_power_off(true, true);
     }
 

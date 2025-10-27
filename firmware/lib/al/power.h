@@ -7,7 +7,8 @@
  * The power state.
  */
 typedef struct {
-  float battery;
+  float bat_voltage;
+  float bat_level;
   bool has_usb;
   bool can_fast;
   bool charging;

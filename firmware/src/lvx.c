@@ -332,11 +332,11 @@ void lvx_status_update(lvx_status_t* status) {
     lv_img_set_src(status->pwr, &img_charging);
   } else if (power.has_usb) {
     lv_img_set_src(status->pwr, &img_powered);
-  } else if (power.battery > 0.75) {
+  } else if (power.bat_level > 0.75) {
     lv_img_set_src(status->pwr, &img_bat3);
-  } else if (power.battery > 0.5) {
+  } else if (power.bat_level > 0.5) {
     lv_img_set_src(status->pwr, &img_bat2);
-  } else if (power.battery > 0.25) {
+  } else if (power.bat_level > 0.25) {
     lv_img_set_src(status->pwr, &img_bat1);
   } else {
     lv_img_set_src(status->pwr, &img_bat0);

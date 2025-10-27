@@ -232,13 +232,14 @@ void al_power_check() {
 
   // prepare state
   al_power_state_t state = {
-      .battery = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
+      .bat_voltage = (float)bat / 1000.f,
+      .bat_level = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
       .has_usb = has_usb,
       .can_fast = can_fast,
       .charging = charging,
   };
   if (AL_POWER_DEBUG) {
-    naos_log("al-pwr: state battery=%f has_usb=%d can_fast=%d", state.battery, state.has_usb, state.can_fast);
+    naos_log("al-pwr: state bat_level=%f has_usb=%d can_fast=%d", state.bat_level, state.has_usb, state.can_fast);
   }
 
   // determine if state changed

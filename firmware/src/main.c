@@ -20,7 +20,7 @@
 
 static float battery() {
   // return battery level
-  return al_power_get().battery;
+  return al_power_get().bat_level;
 }
 
 static void sync() {
