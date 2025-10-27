@@ -26,6 +26,11 @@ static void al_buzzer_done() {
 }
 
 static void al_buzzer_tone(int hz, int us, bool wait) {
+  // check frequency
+  if (hz < 150) {
+    return;
+  }
+
   // acquire token
   if (!naos_pop(al_buzzer_queue, NULL, 10)) {
     if (BUZZER_DEBUG) {
