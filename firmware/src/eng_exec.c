@@ -171,6 +171,10 @@ static float eng_exec_op_info(wasm_exec_env_t _, int i) {
   }
 }
 
+enum {
+  ENG_CONFIG_BUTTON_REPEAT,
+};
+
 static int eng_exec_op_config(wasm_exec_env_t _, int s, int a, int b, int c) {
   // log
   if (ENG_EXEC_DEBUG) {
@@ -179,7 +183,7 @@ static int eng_exec_op_config(wasm_exec_env_t _, int s, int a, int b, int c) {
 
   // handle configs
   switch (s) {
-    case 0:  // button repeat
+    case ENG_CONFIG_BUTTON_REPEAT:
       hmi_set_button_repeat(a);
       return 0;
     default:
