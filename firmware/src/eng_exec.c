@@ -14,6 +14,9 @@
 #include <al/core.h>
 #include <al/storage.h>
 #include <al/buzzer.h>
+#include <al/accel.h>
+#include <al/power.h>
+#include <al/store.h>
 
 #include "fnt.h"
 #include "gfx.h"
@@ -103,6 +106,70 @@ static bool eng_valid_buf(wasm_exec_env_t env, void *ptr, size_t len, bool allow
 }
 
 /* primary operations */
+
+enum {
+  ENG_INFO_BATTERY_LEVEL,
+  ENG_INFO_BATTERY_VOLTAGE,
+  ENG_INFO_POWER_USB,
+  ENG_INGO_POWER_CHARGING,
+  ENG_INFO_SENSOR_TEMPERATURE,
+  ENG_INFO_SENSOR_HUMIDITY,
+  ENG_INFO_SENSOR_CO2,
+  ENG_INFO_SENSOR_VOC,
+  ENG_INFO_SENSOR_NOX,
+  ENG_INFO_SENSOR_PRESSURE,
+  ENG_INGO_STORE_SHORT,
+  ENG_INGO_STORE_LONG,
+  ENG_INFO_ACCEL_FRONT,
+  ENG_INFO_ACCEL_ROTATION,
+  ENG_INFO_STORAGE_INT,
+  ENG_INFO_STORAGE_EXT,
+};
+
+static float eng_exec_op_info(wasm_exec_env_t _, int i) {
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_info: i=%d", i);
+  }
+
+  // handle info
+  switch (i) {
+    case ENG_INFO_BATTERY_LEVEL:
+      return al_power_get().bat_level;
+    case ENG_INFO_BATTERY_VOLTAGE:
+      return al_power_get().bat_voltage;
+    case ENG_INFO_POWER_USB:
+      return al_power_get().has_usb ? al_power_get().can_fast ? 2.0f : 1.0f : 0.0f;
+    case ENG_INGO_POWER_CHARGING:
+      return al_power_get().charging ? 1.0f : 0.0f;
+    case ENG_INFO_SENSOR_TEMPERATURE:
+      return (float)al_store_last().tmp / 100.f;
+    case ENG_INFO_SENSOR_HUMIDITY:
+      return (float)al_store_last().hum / 100.f;
+    case ENG_INFO_SENSOR_CO2:
+      return al_store_last().co2;
+    case ENG_INFO_SENSOR_VOC:
+      return al_store_last().voc;
+    case ENG_INFO_SENSOR_NOX:
+      return al_store_last().nox;
+    case ENG_INFO_SENSOR_PRESSURE:
+      return al_store_last().prs;
+    case ENG_INGO_STORE_SHORT:
+      return (float)al_store_count(AL_STORE_SHORT);
+    case ENG_INGO_STORE_LONG:
+      return (float)al_store_count(AL_STORE_LONG);
+    case ENG_INFO_ACCEL_FRONT:
+      return al_accel_get().front ? 1.0f : 0.0f;
+    case ENG_INFO_ACCEL_ROTATION:
+      return (float)al_accel_get().rotation;
+    case ENG_INFO_STORAGE_INT:
+      return al_storage_info(AL_STORAGE_INT).usage;
+    case ENG_INFO_STORAGE_EXT:
+      return al_storage_info(AL_STORAGE_EXT).usage;
+    default:
+      return -1;
+  }
+}
 
 static int eng_exec_op_config(wasm_exec_env_t _, int s, int a, int b, int c) {
   // log
@@ -202,6 +269,8 @@ static int64_t eng_exec_op_millis(wasm_exec_env_t _) {
   // return time
   return naos_millis();
 }
+
+/* interface operations */
 
 static void eng_exec_op_clear(wasm_exec_env_t env, int c) {
   // log
@@ -944,6 +1013,7 @@ static int eng_exec_op_http_get(wasm_exec_env_t _, int field) {
 
 // https://github.com/bytecodealliance/wasm-micro-runtime/blob/main/doc/export_native_api.md
 static NativeSymbol eng_exec_ops[] = {
+    {"al_info", eng_exec_op_info, "(i)f", NULL},
     {"al_config", eng_exec_op_config, "(iiii)i", NULL},
     {"al_yield", eng_exec_op_yield, "(ii)i", NULL},
     {"al_delay", eng_exec_op_delay, "(i)", NULL},
