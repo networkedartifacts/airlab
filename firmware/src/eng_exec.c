@@ -3,13 +3,13 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <pthread.h>
 #include <wasm_export.h>
-#include <bh_platform.h>
 #include <lvgl.h>
 #include <driver/gpio.h>
 #include <esp_http_client.h>
 #include <esp_log.h>
-#include <sys/stat.h>
 
 #include <al/core.h>
 #include <al/storage.h>
@@ -161,7 +161,7 @@ static float eng_exec_op_info(wasm_exec_env_t _, int i) {
     case ENG_INFO_ACCEL_FRONT:
       return al_accel_get().front ? 1.0f : 0.0f;
     case ENG_INFO_ACCEL_ROTATION:
-      return (float)al_accel_get().rotation;
+      return al_accel_get().rotation;
     case ENG_INFO_STORAGE_INT:
       return al_storage_info(AL_STORAGE_INT).usage;
     case ENG_INFO_STORAGE_EXT:
