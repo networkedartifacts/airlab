@@ -203,6 +203,7 @@ typedef struct {
   const char* intro__correct;
   const char* intro__adjust;
   const char* intro__end;
+  const char* engine__run;
 } scr_trans_t;
 
 static const scr_trans_t scr_trans_map[] = {
@@ -277,6 +278,7 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__correct = "Richtig!",
             .intro__adjust = "<Anpassen>",
             .intro__end = "Ach, Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen!",
+            .engine__run = "Starten",
         },
     [SCR_EN] =
         {
@@ -349,6 +351,7 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__correct = "Correct!",
             .intro__adjust = "<Adjust>",
             .intro__end = "Oh, how time flies...\nLet's go to the lab!",
+            .engine__run = "Run",
         },
 };
 
@@ -2097,9 +2100,10 @@ static void* scr_engine() {
 
   for (;;) {
     // select plugin
-    selected = gui_list(count, selected, &offset, "Run", "Back", scr_engine_cb, NULL, SCR_ACTION_TIMEOUT);
+    selected = gui_list(count, selected, &offset, scr_trans()->engine__run, scr_trans()->back, scr_engine_cb, NULL,
+                        SCR_ACTION_TIMEOUT);
     if (selected < 0) {
-      return scr_develop;
+      return scr_menu;
     }
 
     // launch plugin
@@ -2114,9 +2118,9 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info",   "Sensor Data",  "Device Check",  "Sleep Mode",   "Power Reset", "Power Off",
-      "Shipping Mode", "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info",  "Compensation",
-      "Buzzer",        "Gamepad",      "Engine",        NULL,
+      "System Info", "Sensor Data",   "Device Check", "Sleep Mode",    "Power Reset",
+      "Power Off",   "Shipping Mode", "Screen Saver", "Clear Display", "Test Bubbles",
+      "Touch Info",  "Compensation",  "Buzzer",       "Gamepad",       NULL,
   };
 
   for (;;) {
@@ -2353,18 +2357,13 @@ static void* scr_develop() {
       // cleanup
       gui_cleanup(false);
     }
-
-    // handle engine
-    if (selected == 14) {
-      return scr_engine;
-    }
   }
 }
 
 static void* scr_menu() {
   // prepare variables
   static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
-  static int8_t opt = 0;   // create, explore, settings, usb, ble, develop
+  static int8_t opt = 0;   // create, explore, settings, usb, ble, plugins, develop
   static bool fan_alt = false;
 
   // get settings
@@ -2484,6 +2483,8 @@ static void* scr_menu() {
     } else if (opt == 4) {
       lv_img_set_src(icon, &img_ble);
     } else if (opt == 5) {
+      lv_img_set_src(icon, &img_engine);
+    } else if (opt == 6) {
       lv_img_set_src(icon, &img_wrench);
     }
 
@@ -2630,12 +2631,12 @@ static void* scr_menu() {
     if (event.type == SIG_LEFT) {
       opt--;
       if (opt < 0) {
-        opt = developer ? 5 : 4;
+        opt = developer ? 6 : 5;
       }
       continue;
     } else if (event.type == SIG_RIGHT) {
       opt++;
-      if (opt > (developer ? 5 : 4)) {
+      if (opt > (developer ? 6 : 5)) {
         opt = 0;
       }
       continue;
@@ -2658,18 +2659,20 @@ static void* scr_menu() {
     // handle enter
     if (event.type == SIG_ENTER) {
       switch (opt) {
-        case 0:  // view recording or live
+        case 0:
           scr_file = rec_running() ? rec_file() : 0;
           return scr_view;
-        case 1:  // explore
+        case 1:
           return scr_explore;
-        case 2:  // settings
+        case 2:
           return scr_settings;
-        case 3:  // usb
+        case 3:
           return scr_usb;
-        case 4:  // ble
+        case 4:
           return scr_ble;
-        case 5:  // develop
+        case 5:
+          return scr_engine;
+        case 6:
           return scr_develop;
         default:
           ESP_ERROR_CHECK(ESP_FAIL);

@@ -13,6 +13,7 @@ extern const lv_img_dsc_t img_arrow_up;
 extern const lv_img_dsc_t img_lab;
 extern const lv_img_dsc_t img_cog;
 extern const lv_img_dsc_t img_wrench;
+extern const lv_img_dsc_t img_engine;
 extern const lv_img_dsc_t img_usb;
 extern const lv_img_dsc_t img_ble;
 extern const lv_img_dsc_t img_ble_conn;
