@@ -31,6 +31,8 @@
 typedef struct {
   eng_bundle_t *bundle;
   lv_obj_t *canvas;
+  esp_http_client_config_t http_cfg;
+  esp_http_client_handle_t http_client;
 } eng_exec_context_t;
 
 /* memory helpers */
@@ -812,9 +814,6 @@ static int eng_exec_op_data_set(wasm_exec_env_t env, uint8_t *name, int name_len
 
 /* HTTP operations */
 
-static esp_http_client_config_t eng_exec_http_cfg = {0};
-static esp_http_client_handle_t eng_exec_http_client = {0};
-
 enum {
   // request
   ENG_HTTP_URL,       // string
@@ -877,30 +876,33 @@ static esp_err_t eng_exec_http_handler(esp_http_client_event_t *evt) {
   return ESP_OK;
 }
 
-static void eng_exec_op_http_new() {
+static void eng_exec_op_http_new(wasm_exec_env_t env) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_http_new");
   }
 
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
   // destroy previous client
-  if (eng_exec_http_client) {
-    ESP_ERROR_CHECK(esp_http_client_cleanup(eng_exec_http_client));
+  if (ctx->http_client) {
+    ESP_ERROR_CHECK(esp_http_client_cleanup(ctx->http_client));
   }
 
   // initialize config
-  memset(&eng_exec_http_cfg, 0, sizeof(esp_http_client_config_t));
-  eng_exec_http_cfg.url = "http://networkedartifacts.com";
-  eng_exec_http_cfg.max_redirection_count = 3;
-  eng_exec_http_cfg.max_authorization_retries = -1;
-  eng_exec_http_cfg.buffer_size = 1024;
-  eng_exec_http_cfg.buffer_size_tx = 1024;
-  eng_exec_http_cfg.event_handler = eng_exec_http_handler;
-  eng_exec_http_cfg.transport_type = HTTP_TRANSPORT_OVER_TCP;
+  memset(&ctx->http_cfg, 0, sizeof(esp_http_client_config_t));
+  ctx->http_cfg.url = "http://networkedartifacts.com";
+  ctx->http_cfg.max_redirection_count = 3;
+  ctx->http_cfg.max_authorization_retries = -1;
+  ctx->http_cfg.buffer_size = 1024;
+  ctx->http_cfg.buffer_size_tx = 1024;
+  ctx->http_cfg.event_handler = eng_exec_http_handler;
+  ctx->http_cfg.transport_type = HTTP_TRANSPORT_OVER_TCP;
 
   // create client
-  eng_exec_http_client = esp_http_client_init(&eng_exec_http_cfg);
-  if (!eng_exec_http_client) {
+  ctx->http_client = esp_http_client_init(&ctx->http_cfg);
+  if (!ctx->http_client) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
 }
@@ -921,38 +923,41 @@ static int eng_exec_op_http_set(wasm_exec_env_t env, int field, int num, uint8_t
     naos_log("eng_exec_op_http_set: field=%d num=%d str='%s'", field, num, str_copy ? str_copy : "");
   }
 
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
   // handle fields
   bool ok = true;
   switch (field) {
     case ENG_HTTP_URL:
-      esp_http_client_set_url(eng_exec_http_client, str_copy);  // makes copy
+      esp_http_client_set_url(ctx->http_client, str_copy);  // makes copy
       break;
     case ENG_HTTP_METHOD:
       if (strcmp(str_copy, "GET") == 0) {
-        ok = esp_http_client_set_method(eng_exec_http_client, HTTP_METHOD_GET) == ESP_OK;
+        ok = esp_http_client_set_method(ctx->http_client, HTTP_METHOD_GET) == ESP_OK;
       } else if (strcmp(str_copy, "POST") == 0) {
-        ok = esp_http_client_set_method(eng_exec_http_client, HTTP_METHOD_POST) == ESP_OK;
+        ok = esp_http_client_set_method(ctx->http_client, HTTP_METHOD_POST) == ESP_OK;
       } else if (strcmp(str_copy, "PUT") == 0) {
-        ok = esp_http_client_set_method(eng_exec_http_client, HTTP_METHOD_PUT) == ESP_OK;
+        ok = esp_http_client_set_method(ctx->http_client, HTTP_METHOD_PUT) == ESP_OK;
       } else if (strcmp(str_copy, "PATH") == 0) {
-        ok = esp_http_client_set_method(eng_exec_http_client, HTTP_METHOD_PATCH) == ESP_OK;
+        ok = esp_http_client_set_method(ctx->http_client, HTTP_METHOD_PATCH) == ESP_OK;
       } else if (strcmp(str_copy, "DELETE") == 0) {
-        ok = esp_http_client_set_method(eng_exec_http_client, HTTP_METHOD_DELETE) == ESP_OK;
+        ok = esp_http_client_set_method(ctx->http_client, HTTP_METHOD_DELETE) == ESP_OK;
       } else {
         ok = false;
       }
       break;
     case ENG_HTTP_USERNAME:
-      ok = esp_http_client_set_username(eng_exec_http_client, str_copy) == ESP_OK;  // makes copy
+      ok = esp_http_client_set_username(ctx->http_client, str_copy) == ESP_OK;  // makes copy
       break;
     case ENG_HTTP_PASSWORD:
-      ok = esp_http_client_set_password(eng_exec_http_client, str_copy) == ESP_OK;  // makes copy
+      ok = esp_http_client_set_password(ctx->http_client, str_copy) == ESP_OK;  // makes copy
       break;
     case ENG_HTTP_HEADER:
-      ok = esp_http_client_set_header(eng_exec_http_client, str_copy, str2_copy) == ESP_OK;  // makes copy
+      ok = esp_http_client_set_header(ctx->http_client, str_copy, str2_copy) == ESP_OK;  // makes copy
       break;
     case ENG_HTTP_TIMEOUT:
-      ok = esp_http_client_set_timeout_ms(eng_exec_http_client, num) == ESP_OK;
+      ok = esp_http_client_set_timeout_ms(ctx->http_client, num) == ESP_OK;
       break;
     default:
       ok = false;
@@ -976,43 +981,49 @@ static int eng_exec_op_http_run(wasm_exec_env_t env, uint8_t *req, int req_len, 
     naos_log("eng_exec_op_http_run: req_len=%d res_len=%d", req_len, res_len);
   }
 
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
   // set request data
   if (req && req_len > 0) {
-    esp_http_client_set_post_field(eng_exec_http_client, (const char *)req, req_len);
+    esp_http_client_set_post_field(ctx->http_client, (const char *)req, req_len);
   } else {
-    esp_http_client_set_post_field(eng_exec_http_client, NULL, 0);
+    esp_http_client_set_post_field(ctx->http_client, NULL, 0);
   }
 
   // set response buffer
   if (res && res_len > 0) {
     naos_value_t val = {.buf = res, .len = res_len};
-    esp_http_client_set_user_data(eng_exec_http_client, &val);
+    esp_http_client_set_user_data(ctx->http_client, &val);
   } else {
-    esp_http_client_set_user_data(eng_exec_http_client, NULL);
+    esp_http_client_set_user_data(ctx->http_client, NULL);
   }
 
   // perform request
-  esp_err_t err = esp_http_client_perform(eng_exec_http_client);
+  esp_err_t err = esp_http_client_perform(ctx->http_client);
 
   return err;
 }
 
-static int eng_exec_op_http_get(wasm_exec_env_t _, int field) {
+static int eng_exec_op_http_get(wasm_exec_env_t env, int field) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_http_get: field=%d", field);
   }
 
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
   // handle fields
   switch (field) {
     case ENG_HTTP_STATUS: {
-      return esp_http_client_get_status_code(eng_exec_http_client);
+      return esp_http_client_get_status_code(ctx->http_client);
     }
     case ENG_HTTP_LENGTH: {
-      return (int)esp_http_client_get_content_length(eng_exec_http_client);
+      return (int)esp_http_client_get_content_length(ctx->http_client);
     }
     case ENG_HTTP_ERRNO: {
-      return esp_http_client_get_errno(eng_exec_http_client);
+      return esp_http_client_get_errno(ctx->http_client);
     }
     default:
       return -1;
