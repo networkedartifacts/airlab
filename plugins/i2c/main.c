@@ -1,7 +1,3 @@
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-
 #include "../al.h"
 
 int main() {

@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define AL_W 296
 #define AL_H 128

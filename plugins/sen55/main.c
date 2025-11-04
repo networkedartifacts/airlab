@@ -1,7 +1,3 @@
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-
 #include "../al.h"
 
 #define SEN55 0x69
