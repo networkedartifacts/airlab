@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
 
 #define AL_W 296
 #define AL_H 128
@@ -156,3 +157,23 @@ IMPORT("al_http_run")
 extern int al_http_run(void *req, int req_len, void *res, int res_len);
 
 IMPORT("al_http_get") extern int al_http_get(int field);
+
+/* utils */
+
+IMPORT("al_log") extern void _al_log(const void *msg, int msg_len);
+extern void al_log(const char *msg) {
+  _al_log(msg, strlen(msg));
+}
+extern void al_logf(const char *fmt, ...) {
+  char buf[256];
+  va_list args;
+  va_start(args, fmt);
+  int len = vsnprintf(buf, sizeof(buf), fmt, args);
+  va_end(args);
+  if (len > 0) {
+    if (len >= sizeof(buf)) {
+      len = sizeof(buf) - 1;
+    }
+    _al_log(buf, len);
+  }
+}
