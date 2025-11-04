@@ -135,11 +135,18 @@ bool eng_run(const char *file) {
     return false;
   }
 
-  // execute bundle
-  bool ok = eng_exec(bundle, "main");
+  // start execution
+  void *ref = eng_exec_start(bundle, "main");
+  if (!ref) {
+    eng_bundle_free(bundle);
+    return false;
+  }
+
+  // wait for completion
+  eng_exec_wait(ref);
 
   // free bundle
   eng_bundle_free(bundle);
 
-  return ok;
+  return true;
 }

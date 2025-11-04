@@ -1,8 +1,7 @@
 #ifndef ENG_EXEC_H
 #define ENG_EXEC_H
 
-#include <stdbool.h>
-
-bool eng_exec(eng_bundle_t *bundle, const char *name);
+void *eng_exec_start(eng_bundle_t *bundle, const char *name);
+void eng_exec_wait(void *ref);
 
 #endif  // ENG_EXEC_H

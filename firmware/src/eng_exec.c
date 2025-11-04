@@ -31,6 +31,8 @@
 typedef struct {
   eng_bundle_t *bundle;
   lv_obj_t *canvas;
+  lv_color_t *frame_buffer;
+  pthread_t thread;
   esp_http_client_config_t http_cfg;
   esp_http_client_handle_t http_client;
 } eng_exec_context_t;
@@ -1171,29 +1173,37 @@ fail:
   return NULL;
 }
 
-bool eng_exec(eng_bundle_t *bundle, const char *name) {
+void *eng_exec_start(eng_bundle_t *bundle, const char *name) {
   // check binary
   if (!eng_bundle_binary(bundle, name, NULL)) {
-    naos_log("eng_exec: binary not found");
-    return false;
+    naos_log("eng_exec_start: binary not found");
+    return NULL;
   }
 
-  // prepare context
-  eng_exec_context_t ctx = {
-      .bundle = bundle,
-  };
+  // allocate context
+  eng_exec_context_t *ctx = eng_exec_malloc(sizeof(eng_exec_context_t));
+  if (!ctx) {
+    naos_log("eng_exec_start: malloc failed");
+    return NULL;
+  }
+
+  // clear context
+  memset(ctx, 0, sizeof(eng_exec_context_t));
+
+  // set bundle
+  ctx->bundle = bundle;
 
   // clear screen
   gui_cleanup(false);
 
   // allocate frame buffer
-  lv_color_t *frame_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(296, 128));
+  ctx->frame_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(296, 128));
 
   // create canvas
-  ctx.canvas = lv_canvas_create(lv_scr_act());
-  lv_canvas_set_buffer(ctx.canvas, frame_buffer, 296, 128, LV_IMG_CF_TRUE_COLOR);
-  lv_obj_align(ctx.canvas, LV_ALIGN_TOP_LEFT, 0, 0);
-  lv_canvas_fill_bg(ctx.canvas, lv_color_white(), LV_OPA_COVER);
+  ctx->canvas = lv_canvas_create(lv_scr_act());
+  lv_canvas_set_buffer(ctx->canvas, ctx->frame_buffer, 296, 128, LV_IMG_CF_TRUE_COLOR);
+  lv_obj_align(ctx->canvas, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_canvas_fill_bg(ctx->canvas, lv_color_white(), LV_OPA_COVER);
 
   // prepare thread attributes
   pthread_attr_t attr;
@@ -1201,31 +1211,33 @@ bool eng_exec(eng_bundle_t *bundle, const char *name) {
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
   pthread_attr_setstacksize(&attr, 5120);
 
-  // prepare return value
-  bool ok = true;
-
   // create thread
-  pthread_t t;
-  int res = pthread_create(&t, &attr, eng_exec_task, &ctx);
+  int res = pthread_create(&ctx->thread, &attr, eng_exec_task, ctx);
   if (res != 0) {
-    naos_log("eng_exec: pthread_create failed: %d", res);
-    ok = false;
-    // continue
+    naos_log("eng_exec_start: pthread_create failed: %d", res);
+    eng_exec_free(ctx);
+    return NULL;
+  }
+
+  return ctx;
+}
+
+void eng_exec_wait(void *ref) {
+  // get context
+  eng_exec_context_t *ctx = ref;
+  if (!ctx) {
+    return;
   }
 
   // join thread
-  res = pthread_join(t, NULL);
+  int res = pthread_join(ctx->thread, NULL);
   if (res != 0) {
-    naos_log("eng_exec: pthread_join failed: %d", res);
-    ok = false;
-    // continue
+    naos_log("eng_exec_wait: pthread_join failed: %d", res);
   }
 
   // clear screen
   gui_cleanup(false);
 
   // free buffer
-  free(frame_buffer);
-
-  return ok;
+  free(ctx->frame_buffer);
 }
