@@ -203,6 +203,7 @@ typedef struct {
   const char* intro__correct;
   const char* intro__adjust;
   const char* intro__end;
+  const char* engine__empty;
   const char* engine__run;
 } scr_trans_t;
 
@@ -278,6 +279,7 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__correct = "Richtig!",
             .intro__adjust = "<Anpassen>",
             .intro__end = "Ach, Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen!",
+            .engine__empty = "Keine Plugins installiert.",
             .engine__run = "Starten",
         },
     [SCR_EN] =
@@ -351,6 +353,7 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__correct = "Correct!",
             .intro__adjust = "<Adjust>",
             .intro__end = "Oh, how time flies...\nLet's go to the lab!",
+            .engine__empty = "No plugins installed.",
             .engine__run = "Run",
         },
 };
@@ -2097,6 +2100,12 @@ static void* scr_engine() {
 
   // get count
   int count = (int)eng_num();
+
+  // check count
+  if (count == 0) {
+    gui_message(scr_trans()->engine__empty, SCR_MSG_TIMEOUT);
+    return scr_menu;
+  }
 
   for (;;) {
     // select plugin
