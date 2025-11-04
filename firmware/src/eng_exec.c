@@ -9,7 +9,6 @@
 #include <lvgl.h>
 #include <driver/gpio.h>
 #include <esp_http_client.h>
-#include <esp_log.h>
 
 #include <al/core.h>
 #include <al/storage.h>
@@ -1186,6 +1185,10 @@ static void *eng_exec_task(void *arg) {
 
   // unlock graphics
   gfx_end(false, false);
+
+  // reset GPIOs
+  gpio_reset_pin(AL_GPIO_A);
+  gpio_reset_pin(AL_GPIO_B);
 
   // check result
   if (!ok) {
