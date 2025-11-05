@@ -436,7 +436,7 @@ const lv_img_dsc_t img_wrench = {
     .data = img_wrench_map,
 };
 
-const uint8_t img_engine_map[] = {
+static const uint8_t img_engine_map[] = {
     0xff, 0xff, 0xff, 0xff, /* color of index 0 */
     0x00, 0x00, 0x00, 0xff, /* color of index 1 */
 
@@ -456,7 +456,7 @@ const lv_img_dsc_t img_engine = {
     .data = img_engine_map,
 };
 
-const uint8_t ing_usb_map[] = {
+static const uint8_t ing_usb_map[] = {
     0xfe, 0xfe, 0xfe, 0xfe, /* color of index 0 */
     0x00, 0x00, 0x00, 0xff, /* color of index 1 */
 
@@ -476,7 +476,7 @@ const lv_img_dsc_t img_usb = {
     .data = ing_usb_map,
 };
 
-const uint8_t img_ble_map[] = {
+static const uint8_t img_ble_map[] = {
     0xfe, 0xfe, 0xfe, 0xfe, /* color of index 0 */
     0x00, 0x00, 0x00, 0xff, /* color of index 1 */
 
@@ -496,7 +496,7 @@ const lv_img_dsc_t img_ble = {
     .data = img_ble_map,
 };
 
-const uint8_t img_ble_conn_map[] = {
+static const uint8_t img_ble_conn_map[] = {
     0xff, 0xff, 0xff, 0xff, /* color of index 0 */
     0x00, 0x00, 0x00, 0xff, /* color of index 1 */
 
@@ -708,7 +708,7 @@ const lv_img_dsc_t img_charging = {
     .data = img_charging_map,
 };
 
-const uint8_t img_powered_map[] = {
+static const uint8_t img_powered_map[] = {
     0x00, 0x00, 0x00, 0xff, /* color of index 0 */
     0xfb, 0xfb, 0xfd, 0xff, /* color of index 1 */
 
@@ -744,7 +744,7 @@ const lv_img_dsc_t img_record = {
     .data = img_record_map,
 };
 
-const uint8_t img_connected_map[] = {
+static const uint8_t img_connected_map[] = {
     0xff, 0xff, 0xff, 0xff, /* color of index 0 */
     0x00, 0x00, 0x00, 0xff, /* color of index 1 */
 

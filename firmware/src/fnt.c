@@ -2,7 +2,7 @@
 
 // Grand9K - 24px - 1bpp (0x20-0x7F, 0xA0-0xFF, 0x2191, 0x2193)
 
-static LV_ATTRIBUTE_LARGE_CONST const uint8_t fnt_bitmap_24[] = {
+static const uint8_t fnt_bitmap_24[] = {
     /* U+0020 " " */
     0x0,
 
@@ -1000,7 +1000,7 @@ const lv_font_t fnt_24 = {
 
 // Grand9K - 16px - 1bpp (0x20-0x7F, 0xA0-0xFF, 0x2191, 0x2193)
 
-static LV_ATTRIBUTE_LARGE_CONST const uint8_t fnt_bitmap_16[] = {
+static const uint8_t fnt_bitmap_16[] = {
     /* U+0020 " " */
     0x0,
 
