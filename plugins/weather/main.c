@@ -1,13 +1,5 @@
 #include "../al.h"
 
-#define SJ_IMPL
-#include "../sj.h"
-
-static bool eq(sj_Value val, char *s) {
-  size_t len = val.end - val.start;
-  return strlen(s) == len && !memcmp(s, val.start, len);
-}
-
 int main() {
   // clear screen
   al_clear(0);
@@ -20,56 +12,33 @@ int main() {
 
   // make request
   al_http_new();
-  al_http_set(ENG_HTTP_URL, 0,
-              "http://api.open-meteo.com/v1/"
-              "forecast?latitude=47.3667&longitude=8.55&daily=temperature_2m_max,temperature_2m_min&forecast_days=3",
-              NULL);
+  al_http_set(ENG_HTTP_URL, 0, "https://f.networkedartifacts.com/call/weather?cty=Zurich", NULL);
   al_http_set(ENG_HTTP_METHOD, 0, "GET", NULL);
-  al_http_set(ENG_HTTP_TIMEOUT, 1000, NULL, NULL);
+  al_http_set(ENG_HTTP_TIMEOUT, 2000, NULL, NULL);
   al_http_run(NULL, 0, res, 1024);
 
   // prepare temperatures
   float max_temps[3] = {0};
   float min_temps[3] = {0};
 
-  // parse JSON
-  sj_Reader r = sj_reader(res, strlen(res));
-  sj_Value obj = sj_read(&r);
-
-  // iterate root object
-  sj_Value key, val;
-  while (sj_iter_object(&r, obj, &key, &val)) {
-    if (eq(key, "daily")) {
-      // iterate daily object
-      sj_Value v2, k2;
-      while (sj_iter_object(&r, val, &k2, &v2)) {
-        // iterate max temperatures
-        if (eq(k2, "temperature_2m_max")) {
-          int i = 0;
-          sj_Value arr;
-          while (sj_iter_array(&r, v2, &arr)) {
-            char buf[16];
-            snprintf(buf, sizeof(buf), arr.start, arr.end - arr.start);
-            buf[arr.end - arr.start] = 0;
-            max_temps[i] = strtof(buf, NULL);
-            i++;
-          }
-        }
-
-        // iterate min temperatures
-        if (eq(k2, "temperature_2m_min")) {
-          int i = 0;
-          sj_Value arr;
-          while (sj_iter_array(&r, v2, &arr)) {
-            char buf[16];
-            snprintf(buf, sizeof(buf), arr.start, arr.end - arr.start);
-            buf[arr.end - arr.start] = 0;
-            min_temps[i] = strtof(buf, NULL);
-            i++;
-          }
-        }
+  // parse result
+  int i = 0;
+  char *line = strtok(res, "\n");
+  while (line) {
+    float x, y, z;
+    if (sscanf(line, "%f,%f,%f", &x, &y, &z) == 3) {
+      if (i == 0) {
+        max_temps[0] = x;
+        max_temps[1] = y;
+        max_temps[2] = z;
+      } else if (i == 1) {
+        min_temps[0] = x;
+        min_temps[1] = y;
+        min_temps[2] = z;
       }
     }
+    line = strtok(NULL, "\n");
+    i++;
   }
 
   // format result
