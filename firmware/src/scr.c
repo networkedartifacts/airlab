@@ -1891,12 +1891,19 @@ static void* scr_check() {
   }
 
   // sensors
-  gui_cleanup(false);
-  gui_write("Blow on the sensors...", 0);
   for (;;) {
+    gui_cleanup(false);
+    al_sample_t sample = al_store_last();
+    float co2 = al_sample_read(sample, AL_SAMPLE_CO2);
+    float tmp = al_sample_read(sample, AL_SAMPLE_TMP);
+    float hum = al_sample_read(sample, AL_SAMPLE_HUM);
+    float voc = al_sample_read(sample, AL_SAMPLE_VOC);
+    gui_write(
+        lvx_fmt("Blow on the sensors...\nCO2: %.0f/2500, TMP: %.1f/26\nHUM: %.0f/60, VOC: %.0f/50", co2, tmp, hum, voc),
+        0);
     sig_await(SIG_SENSOR, 0);
     al_sample_t state = al_store_last();
-    if (state.co2 > 3000 && state.tmp > 26 && state.hum > 60 && state.voc > 70 && state.voc > 50) {
+    if (state.co2 > 2500 && state.tmp > 26 && state.hum > 60 && state.voc > 50) {
       break;
     }
   }
