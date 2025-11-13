@@ -31,7 +31,6 @@
 #include "stm.h"
 #include "hmi.h"
 #include "dat.h"
-#include "hid.h"
 #include "eng.h"
 
 #define SCR_MSG_TIMEOUT 2000
@@ -2131,9 +2130,8 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info", "Sensor Data",   "Device Check", "Sleep Mode",    "Power Reset",
-      "Power Off",   "Shipping Mode", "Screen Saver", "Clear Display", "Test Bubbles",
-      "Touch Info",  "Compensation",  "Buzzer",       "Gamepad",       NULL,
+      "System Info",  "Sensor Data",   "Device Check", "Sleep Mode", "Power Reset",  "Power Off", "Shipping Mode",
+      "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info", "Compensation", "Buzzer",    NULL,
   };
 
   for (;;) {
@@ -2357,18 +2355,6 @@ static void* scr_develop() {
 
         break;
       }
-    }
-
-    // handle gamepad
-    if (selected == 13) {
-      // write message
-      gui_write("Gamepad mode active...\nDisconnect USB to exit.", false);
-
-      // run HID
-      hid_run();
-
-      // cleanup
-      gui_cleanup(false);
     }
   }
 }
