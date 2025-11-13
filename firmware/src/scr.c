@@ -924,7 +924,7 @@ static void* scr_view() {
   // prepare position
   int32_t position = 0;
   if (!recording) {
-    position = source.stop(source.ctx) / 2;
+    position = source.stop(source.ctx);
   }
 
   for (;;) {
