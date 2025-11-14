@@ -27,6 +27,12 @@ typedef struct {
 } lvx_wheel_t;
 
 void lvx_wheel_create(lvx_wheel_t *wheel, lv_obj_t *parent);
+void lvx_wheel_focus(lvx_wheel_t *wheel, bool focused);
+void lvx_wheel_update(lvx_wheel_t *wheel, int change);
+
+/* Wheel Group */
+
+void lvx_wheel_group_update(lvx_wheel_t **wheels, int num_wheels, sig_event_t event, int *selected);
 
 /* Sign */
 
@@ -107,8 +113,6 @@ typedef struct {
 void lvx_chart_draw(lvx_chart_t chart);
 
 /* Helpers */
-
-bool lvx_handle(sig_event_t event, bool focus);
 
 void lvx_log_event(lv_event_t *event);
 

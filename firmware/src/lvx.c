@@ -98,77 +98,6 @@ const char* lvx_truncate(const char* str, size_t max_len) {
 
 /* Wheel */
 
-static void lvx_wheel_refocus(lvx_wheel_t* wheel, bool focused) {
-  // handle defocused
-  if (!focused) {
-    lv_obj_set_style_opa(wheel->_up, LV_OPA_TRANSP, LV_PART_MAIN);
-    lv_obj_set_style_opa(wheel->_down, LV_OPA_TRANSP, LV_PART_MAIN);
-    return;
-  }
-
-  // handle focused
-  if (wheel->value > wheel->min) {
-    lv_obj_set_style_opa(wheel->_down, LV_OPA_COVER, LV_PART_MAIN);
-  } else {
-    lv_obj_set_style_opa(wheel->_down, LV_OPA_TRANSP, LV_PART_MAIN);
-  }
-  if (wheel->value < wheel->max) {
-    lv_obj_set_style_opa(wheel->_up, LV_OPA_COVER, LV_PART_MAIN);
-  } else {
-    lv_obj_set_style_opa(wheel->_up, LV_OPA_TRANSP, LV_PART_MAIN);
-  }
-}
-
-static void lvx_wheel_key(lv_event_t* event) {
-  // get value
-  lvx_wheel_t* wheel = event->user_data;
-
-  // handle key
-  switch (lv_event_get_key(event)) {
-    case LV_KEY_UP:
-      if (wheel->value >= wheel->max) {
-        wheel->value = wheel->min;
-      } else {
-        wheel->value += wheel->step;
-      }
-      break;
-    case LV_KEY_DOWN:
-      if (wheel->value <= wheel->min) {
-        wheel->value = wheel->max;
-      } else {
-        wheel->value -= wheel->step;
-      }
-      break;
-    default:
-      return;
-  }
-
-  // update text
-  char text[32];
-  snprintf(text, 32, wheel->format, wheel->value);
-  lv_label_set_text(event->target, text);
-
-  // update arrows
-  lvx_wheel_refocus(wheel, true);
-}
-
-static void lvx_wheel_focus(lv_event_t* event) {
-  // get wheel
-  lvx_wheel_t* wheel = event->user_data;
-
-  // handle event
-  switch (event->code) {
-    case LV_EVENT_FOCUSED:
-      lvx_wheel_refocus(wheel, true);
-      break;
-    case LV_EVENT_DEFOCUSED:
-      lvx_wheel_refocus(wheel, false);
-      break;
-    default:
-      break;
-  }
-}
-
 void lvx_wheel_create(lvx_wheel_t* wheel, lv_obj_t* parent) {
   // prepare static variables
   static lv_style_t base;
@@ -220,8 +149,6 @@ void lvx_wheel_create(lvx_wheel_t* wheel, lv_obj_t* parent) {
   lv_label_set_text(wheel->_lbl, text);
   lv_obj_add_style(wheel->_lbl, &base, LV_PART_MAIN);
   lv_obj_add_style(wheel->_lbl, &focused, LV_PART_MAIN | LV_STATE_FOCUSED);
-  lv_obj_add_event_cb(wheel->_lbl, lvx_wheel_key, LV_EVENT_KEY, wheel);
-  lv_group_add_obj(gfx_get_group(), wheel->_lbl);
 
   // handle size
   if (wheel->fixed) {
@@ -237,9 +164,97 @@ void lvx_wheel_create(lvx_wheel_t* wheel, lv_obj_t* parent) {
   wheel->_down = lv_img_create(wheel->_col);
   lv_img_set_src(wheel->_down, &img_arrow_down);
 
-  // handle arrow focuses
-  lv_obj_add_event_cb(wheel->_lbl, lvx_wheel_focus, LV_EVENT_ALL, wheel);
-  lvx_wheel_refocus(wheel, lv_group_get_focused(gfx_get_group()) == wheel->_lbl);
+  // set initial focus
+  lvx_wheel_focus(wheel, false);
+}
+
+void lvx_wheel_focus(lvx_wheel_t* wheel, bool focused) {
+  // handle defocused
+  if (!focused) {
+    lv_obj_clear_state(wheel->_lbl, LV_STATE_FOCUSED);
+    lv_obj_set_style_opa(wheel->_up, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_opa(wheel->_down, LV_OPA_TRANSP, LV_PART_MAIN);
+    return;
+  }
+
+  // add focused style
+  lv_obj_add_state(wheel->_lbl, LV_STATE_FOCUSED);
+
+  // handle focused
+  if (wheel->value > wheel->min) {
+    lv_obj_set_style_opa(wheel->_down, LV_OPA_COVER, LV_PART_MAIN);
+  } else {
+    lv_obj_set_style_opa(wheel->_down, LV_OPA_TRANSP, LV_PART_MAIN);
+  }
+  if (wheel->value < wheel->max) {
+    lv_obj_set_style_opa(wheel->_up, LV_OPA_COVER, LV_PART_MAIN);
+  } else {
+    lv_obj_set_style_opa(wheel->_up, LV_OPA_TRANSP, LV_PART_MAIN);
+  }
+}
+
+void lvx_wheel_update(lvx_wheel_t* wheel, int change) {
+  // compute range and steps
+  int range = wheel->max - wheel->min + 1;
+  int steps = range / wheel->step;
+
+  // determine step index
+  int idx = (wheel->value - wheel->min) / wheel->step;
+
+  // apply change
+  idx += change;
+
+  // wrap index
+  if (idx < 0) {
+    idx = (idx % steps + steps) % steps;
+  } else {
+    idx = idx % steps;
+  }
+
+  // apply change
+  wheel->value = wheel->min + idx * wheel->step;
+
+  // update text
+  char text[32];
+  snprintf(text, 32, wheel->format, wheel->value);
+  lv_label_set_text(wheel->_lbl, text);
+
+  // update focus
+  lvx_wheel_focus(wheel, true);
+}
+
+/* Wheel Group */
+
+void lvx_wheel_group_update(lvx_wheel_t** wheels, int num_wheels, sig_event_t event, int* selected) {
+  // handle selection
+  if (event.type & (SIG_LEFT | SIG_RIGHT)) {
+    lvx_wheel_focus(wheels[*selected], false);
+    if (event.type == SIG_LEFT) {
+      *selected -= 1;
+      if (*selected < 0) {
+        *selected = num_wheels - 1;
+      }
+    } else {
+      *selected += 1;
+      if (*selected >= num_wheels) {
+        *selected = 0;
+      }
+    }
+    lvx_wheel_focus(wheels[*selected], true);
+  }
+
+  // handle change
+  if (event.type & (SIG_UP | SIG_DOWN | SIG_SCROLL)) {
+    int change = 0;
+    if (event.type == SIG_UP) {
+      change = 1;
+    } else if (event.type == SIG_DOWN) {
+      change = -1;
+    } else if (event.type == SIG_SCROLL) {
+      change = event.scroll.std;
+    }
+    lvx_wheel_update(wheels[*selected], change);
+  }
 }
 
 /* Sign */
@@ -520,44 +535,6 @@ void lvx_chart_draw(lvx_chart_t chart) {
 }
 
 /* Helpers */
-
-static uint32_t lvx_key_map[] = {
-    [SIG_ENTER] = LV_KEY_ENTER, [SIG_ESCAPE] = LV_KEY_ESC, [SIG_UP] = LV_KEY_UP,
-    [SIG_DOWN] = LV_KEY_DOWN,   [SIG_LEFT] = LV_KEY_LEFT,  [SIG_RIGHT] = LV_KEY_RIGHT,
-};
-
-bool lvx_handle(sig_event_t event, bool focus) {
-  // handle focus
-  if (focus) {
-    if (event.type == SIG_LEFT) {
-      lv_group_focus_prev(gfx_get_group());
-      return true;
-    } else if (event.type == SIG_RIGHT) {
-      lv_group_focus_next(gfx_get_group());
-      return true;
-    }
-  }
-
-  // handle scroll
-  if (event.type == SIG_SCROLL) {
-    int distance = (int)event.scroll.std;
-    if (distance < 0) {
-      for (int i = 0; i < -distance; i++) {
-        lv_group_send_data(gfx_get_group(), LV_KEY_DOWN);
-      }
-    } else if (distance > 0) {
-      for (int i = 0; i < distance; i++) {
-        lv_group_send_data(gfx_get_group(), LV_KEY_UP);
-      }
-    }
-    return false;
-  }
-
-  // send event as key to group
-  lv_group_send_data(gfx_get_group(), lvx_key_map[event.type]);
-
-  return false;
-}
 
 void lvx_log_event(lv_event_t* event) {
   // prepare names

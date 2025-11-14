@@ -376,16 +376,25 @@ bool gui_wheel(const char* title, int32_t* value, int32_t min, int32_t step, int
   lvx_sign_create(&sign_a, lv_scr_act());
   lvx_sign_create(&sign_b, lv_scr_act());
 
+  // focus first wheel
+  lvx_wheel_focus(&wheel, true);
+
   // end draw
   gfx_end(false, false);
+
+  // prepare wheels
+  lvx_wheel_t* wheels[] = {&wheel};
+  int cur_wheel = 0;
 
   for (;;) {
     // await event
     sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, timeout);
 
-    // forward arrows
-    if ((event.type & (SIG_ARROWS | SIG_SCROLL)) != 0) {
-      lvx_handle(event, true);
+    // apply wheel events
+    if (event.type & (SIG_ARROWS | SIG_SCROLL)) {
+      gfx_begin(false, false);
+      lvx_wheel_group_update(wheels, 1, event, &cur_wheel);
+      gfx_end(false, false);
       continue;
     }
 
