@@ -99,7 +99,7 @@ static void gfx_flush(lv_disp_drv_t* driver, const lv_area_t* area, lv_color_t* 
 }
 
 static naos_param_t gfx_params[] = {
-    {.name = "gfx-record", .type = NAOS_BOOL, .sync_b = &gfx_record},
+    {.name = "gfx-record", .type = NAOS_BOOL, .sync_b = &gfx_record, .mode = NAOS_VOLATILE},
 };
 
 void gfx_init(bool reset) {
