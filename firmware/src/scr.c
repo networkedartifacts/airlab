@@ -2797,6 +2797,10 @@ void scr_run(al_trigger_t trigger) {
     scr_handler = scr_return_timeout;
   }
 
+  // clear return handlers
+  scr_return_unlock = NULL;
+  scr_return_timeout = NULL;
+
   // run screen task
   naos_run("scr", 8192, 1, scr_task);
 }
