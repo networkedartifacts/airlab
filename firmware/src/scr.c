@@ -719,9 +719,9 @@ static void* scr_sensor() {
   }
 }
 
-static void* scr_saver() {
+static void* scr_idle() {
   // set timeout return
-  scr_return_timeout = scr_saver;
+  scr_return_timeout = scr_idle;
 
   // begin draw
   gfx_begin(false, false);
@@ -1128,7 +1128,7 @@ static void* scr_view() {
       // set return
       scr_return_unlock = scr_view;
 
-      return scr_saver;
+      return scr_idle;
     }
 
     // handle escape
@@ -2155,8 +2155,8 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info",  "Sensor Data",   "Device Check", "Sleep Mode", "Power Reset",  "Power Off", "Shipping Mode",
-      "Screen Saver", "Clear Display", "Test Bubbles", "Touch Info", "Compensation", "Buzzer",    NULL,
+      "System Info", "Sensor Data",   "Device Check", "Sleep Mode", "Power Reset",  "Power Off", "Shipping Mode",
+      "Idle Screen", "Clear Display", "Test Bubbles", "Touch Info", "Compensation", "Buzzer",    NULL,
   };
 
   for (;;) {
@@ -2240,12 +2240,12 @@ static void* scr_develop() {
       gui_cleanup(false);
     }
 
-    // handle screen saver
+    // handle idle screen
     if (selected == 7) {
       // set return
       scr_return_unlock = scr_develop;
 
-      return scr_saver;
+      return scr_idle;
     }
 
     // handle clear display
@@ -2622,7 +2622,7 @@ static void* scr_menu() {
       continue;
     }
 
-    // enter screen saver on escape
+    // enter idle screen on escape
     if (event.type == SIG_ESCAPE) {
       // cleanup
       gui_cleanup(false);
@@ -2630,7 +2630,7 @@ static void* scr_menu() {
       // set return
       scr_return_unlock = scr_menu;
 
-      return scr_saver;
+      return scr_idle;
     }
 
     // loop on sensor or interrupt
@@ -2692,12 +2692,12 @@ static void* scr_menu() {
     // clear action
     scr_action = 0;
 
-    // enter screen saver on timeout
+    // enter idle screen on timeout
     if (event.type == SIG_TIMEOUT) {
       // set return
       scr_return_unlock = scr_menu;
 
-      return scr_saver;
+      return scr_idle;
     }
 
     // handle enter
