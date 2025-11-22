@@ -119,6 +119,54 @@ static void scr_launch(const char* file) {
   }
 }
 
+static bool scr_idle_sleep() {
+  // read power state
+  al_power_state_t power = al_power_get();
+
+  // power off (no return) if battery is low and not charging
+  if (power.bat_level < 0.10 && !power.has_usb && !power.charging) {
+    scr_power_off(true, true);
+  }
+
+  // check if powered or connected via BLE
+  if (power.has_usb || naos_ble_connections() > 0) {
+    // wait some time
+    sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH, 60 * 1000);
+
+    // start engine on launch
+    if (event.type == SIG_LAUNCH) {
+      // run engine
+      scr_launch(event.file);
+
+      return false;
+    }
+
+    // handle unlock
+    if (event.type & SIG_KEYS) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // determine rate
+  al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
+  int32_t raw_rate = naos_get_l(rec_running() ? "record-rate" : "sleep-rate");
+  if (raw_rate == 30) {
+    rate = AL_SENSOR_RATE_30S;
+  } else if (raw_rate == 60) {
+    rate = AL_SENSOR_RATE_60S;
+  }
+
+  // set rate
+  al_sensor_set_rate(rate);
+
+  // sleep for one minute (no return)
+  al_sleep(true, 60 * 1000);
+
+  return true;
+}
+
 /* Translations */
 
 typedef enum {
@@ -769,9 +817,6 @@ static void* scr_idle() {
       sample = al_store_last();
     }
 
-    // read power state
-    al_power_state_t power = al_power_get();
-
     // get accelerometer state
     al_accel_state_t acc = al_accel_get();
 
@@ -835,45 +880,9 @@ static void* scr_idle() {
     // end draw
     gfx_end(false, true);
 
-    /* Sleep Control */
-
-    // power off if battery is low and not charging
-    if (power.bat_level < 0.10 && !power.has_usb && !power.charging) {
-      scr_power_off(true, true);
-    }
-
-    // check if powered or connected via BLE
-    if (power.has_usb || naos_ble_connections() > 0) {
-      // wait some time
-      sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH, 60 * 1000);
-
-      // start engine on launch
-      if (event.type == SIG_LAUNCH) {
-        // run engine
-        scr_launch(event.file);
-
-        return scr_menu;
-      }
-
-      // handle unlock
-      if (event.type & (SIG_KEYS | SIG_LAUNCH)) {
-        break;
-      }
-    } else {
-      // determine rate
-      al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
-      int32_t raw_rate = naos_get_l(rec_running() ? "record-rate" : "sleep-rate");
-      if (raw_rate == 30) {
-        rate = AL_SENSOR_RATE_30S;
-      } else if (raw_rate == 60) {
-        rate = AL_SENSOR_RATE_60S;
-      }
-
-      // set rate
-      al_sensor_set_rate(rate);
-
-      // sleep for one minute (no return)
-      al_sleep(true, 60 * 1000);
+    // sleep until next update
+    if (!scr_idle_sleep()) {
+      break;
     }
   }
 
