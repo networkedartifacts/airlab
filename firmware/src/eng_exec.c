@@ -35,11 +35,12 @@ typedef struct {
   eng_bundle_t *bundle;
   const char *binary;
   lv_obj_t *canvas;
-  lv_color_t *frame_buffer;
   pthread_t thread;
   esp_http_client_config_t http_cfg;
   esp_http_client_handle_t http_client;
 } eng_exec_context_t;
+
+static lv_color_t *eng_exec_buffer = NULL;
 
 /* memory helpers */
 
@@ -1280,7 +1281,7 @@ static void *eng_exec_task(void *arg) {
 
   // create canvas
   ctx->canvas = lv_canvas_create(lv_scr_act());
-  lv_canvas_set_buffer(ctx->canvas, ctx->frame_buffer, 296, 128, LV_IMG_CF_TRUE_COLOR);
+  lv_canvas_set_buffer(ctx->canvas, eng_exec_buffer, 296, 128, LV_IMG_CF_TRUE_COLOR);
   lv_obj_align(ctx->canvas, LV_ALIGN_TOP_LEFT, 0, 0);
   lv_canvas_fill_bg(ctx->canvas, lv_color_white(), LV_OPA_COVER);
 
@@ -1351,8 +1352,12 @@ void *eng_exec_start(eng_bundle_t *bundle, const char *binary) {
   // clear screen
   gui_cleanup(false);
 
-  // allocate frame buffer
-  ctx->frame_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(296, 128));
+  // ensure frame buffer
+  if (!eng_exec_buffer) {
+    eng_exec_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(296, 128));
+  } else {
+    memset(eng_exec_buffer, 0, LV_CANVAS_BUF_SIZE_TRUE_COLOR(296, 128));
+  }
 
   // prepare thread attributes
   pthread_attr_t attr;
@@ -1364,7 +1369,6 @@ void *eng_exec_start(eng_bundle_t *bundle, const char *binary) {
   int res = pthread_create(&ctx->thread, &attr, eng_exec_task, ctx);
   if (res != 0) {
     naos_log("eng_exec_start: pthread_create failed: %d", res);
-    free(ctx->frame_buffer);
     eng_exec_free(ctx);
     return NULL;
   }
@@ -1387,9 +1391,6 @@ void eng_exec_wait(void *ref) {
 
   // clear screen
   gui_cleanup(false);
-
-  // free buffer
-  free(ctx->frame_buffer);
 
   // free context
   eng_exec_free(ctx);
