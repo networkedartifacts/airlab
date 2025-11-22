@@ -1389,9 +1389,6 @@ void eng_exec_wait(void *ref) {
     naos_log("eng_exec_wait: pthread_join failed: %d", res);
   }
 
-  // clear screen
-  gui_cleanup(false);
-
   // free context
   eng_exec_free(ctx);
 }
