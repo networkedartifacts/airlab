@@ -33,6 +33,7 @@
 
 typedef struct {
   eng_bundle_t *bundle;
+  const char *binary;
   lv_obj_t *canvas;
   lv_color_t *frame_buffer;
   pthread_t thread;
@@ -1233,7 +1234,7 @@ static void *eng_exec_task(void *arg) {
 
   // locate main binary
   size_t main_len = 0;
-  void *main = eng_bundle_binary(ctx->bundle, "main", &main_len);
+  void *main = eng_bundle_binary(ctx->bundle, ctx->binary, &main_len);
   if (!main) {
     naos_log("eng_exec_task: locating main binary failed");
     return NULL;
@@ -1326,10 +1327,10 @@ fail:
   return NULL;
 }
 
-void *eng_exec_start(eng_bundle_t *bundle, const char *name) {
+void *eng_exec_start(eng_bundle_t *bundle, const char *binary) {
   // check binary
-  if (!eng_bundle_binary(bundle, name, NULL)) {
-    naos_log("eng_exec_start: binary not found");
+  if (!eng_bundle_binary(bundle, binary, NULL)) {
+    naos_log("eng_exec_start: binary '%s' not found", binary);
     return NULL;
   }
 
@@ -1343,8 +1344,9 @@ void *eng_exec_start(eng_bundle_t *bundle, const char *name) {
   // clear context
   memset(ctx, 0, sizeof(eng_exec_context_t));
 
-  // set bundle
+  // set bundle and binary
   ctx->bundle = bundle;
+  ctx->binary = binary;
 
   // clear screen
   gui_cleanup(false);

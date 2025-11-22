@@ -15,6 +15,6 @@ void eng_reload();
 size_t eng_num();
 eng_plugin_t* eng_get(size_t index);
 
-bool eng_run(const char* file);
+bool eng_run(const char* file, const char* binary);
 
 #endif  // ENG_H

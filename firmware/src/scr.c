@@ -108,7 +108,7 @@ static void scr_launch(const char* file) {
   gui_write("Loading plugin...", false);
 
   // run plugin
-  if (!eng_run(file)) {
+  if (!eng_run(file, "main")) {
     gui_cleanup(false);
     gui_message("Failed to run plugin!", SCR_MSG_TIMEOUT);
   }

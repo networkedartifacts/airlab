@@ -128,7 +128,7 @@ eng_plugin_t *eng_get(size_t index) {
   return &eng_list[index];
 }
 
-bool eng_run(const char *file) {
+bool eng_run(const char *file, const char *binary) {
   // load bundle
   eng_bundle_t *bundle = eng_bundle_load(file);
   if (!bundle) {
@@ -136,7 +136,7 @@ bool eng_run(const char *file) {
   }
 
   // start execution
-  void *ref = eng_exec_start(bundle, "main");
+  void *ref = eng_exec_start(bundle, binary);
   if (!ref) {
     eng_bundle_free(bundle);
     return false;
