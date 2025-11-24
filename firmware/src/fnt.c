@@ -1,5 +1,21 @@
 #include "fnt.h"
 
+/*
+ * Grand9K Pixel
+ * Version 1.0 (2013-05-13)
+ *
+ * Copyright © 2009–2013 Grand Chaos Productions.
+ * Designer: Jayvee D. Enaguas (Grand Chaos)
+ * Source: https://online-fonts.com/fonts/grand9k-pixel
+ *
+ * Licensed under the Creative Commons Attribution-ShareAlike 3.0 License:
+ * http://creativecommons.org/licenses/by-sa/3.0
+ *
+ * Some Rights Reserved.
+ *
+ * Conversion to C arrays using https://lvgl.io/tools/fontconverter.
+ */
+
 // Grand9K - 24px - 1bpp (0x20-0x7F, 0xA0-0xFF, 0x2191, 0x2193)
 
 static const uint8_t fnt_bitmap_24[] = {
