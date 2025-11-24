@@ -234,7 +234,7 @@ void al_power_check() {
   al_power_state_t state = {
       .bat_voltage = (float)bat / 1000.f,
       .bat_level = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
-      .bat_low = low || bat < 3500,
+      .bat_low = low || bat < 3450,
       .has_usb = has_usb,
       .can_fast = can_fast,
       .charging = charging,
