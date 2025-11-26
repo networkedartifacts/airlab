@@ -35,5 +35,6 @@ extern const lv_img_dsc_t img_bubble2;
 extern const lv_img_dsc_t img_bubble3;
 extern const lv_img_dsc_t img_arrow_left;
 extern const lv_img_dsc_t img_arrow_right;
+extern const lv_img_dsc_t img_shipping_mode;
 
 #endif  // IMG_H

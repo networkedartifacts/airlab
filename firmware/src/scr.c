@@ -2243,8 +2243,25 @@ static void* scr_develop() {
       // disable developer mode
       naos_set_b("developer", false);
 
+      // begin draw
+      gfx_begin(false, false);
+
+      // show image
+      lv_obj_t* img = lv_img_create(lv_scr_act());
+      lv_img_set_src(img, &img_shipping_mode);
+      lv_obj_align(img, LV_ALIGN_TOP_MID, 0, 20);
+
       // show message
-      gui_write("To exit shipping mode,\nplug in a USB-C cable,\nand press <A> to start.", false);
+      lv_obj_t* lbl = lv_label_create(lv_scr_act());
+      lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -20);
+      lv_label_set_text(lbl, "Yo! Plug in a USB-C cable,\nand press <A> to begin.");
+      lv_obj_set_style_text_line_space(lbl, 6, LV_PART_MAIN);
+      lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+
+      // end draw
+      gfx_end(false, false);
+
+      // show message
       naos_delay(1000);
 
       // enable ship mode
