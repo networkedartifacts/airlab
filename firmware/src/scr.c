@@ -2059,24 +2059,24 @@ static void* scr_settings() {
   lvx_sign_t about = {
       .title = "A",
       .text = scr_trans()->settings__about,
-      .align = LV_ALIGN_BOTTOM_RIGHT,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+      .offset = -25,
   };
   lvx_sign_t back = {
       .title = "B",
       .text = scr_trans()->back,
       .align = LV_ALIGN_BOTTOM_LEFT,
   };
-  lvx_sign_t config = {
-      .title = "<",
-      .text = scr_trans()->settings__off,
-      .align = LV_ALIGN_BOTTOM_LEFT,
-      .offset = -25,
-  };
   lvx_sign_t off = {
       .title = ">",
       .text = scr_trans()->settings__config,
       .align = LV_ALIGN_BOTTOM_RIGHT,
       .offset = -25,
+  };
+  lvx_sign_t config = {
+      .title = "↓",
+      .text = scr_trans()->settings__off,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
   };
   lvx_sign_create(&about, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
@@ -2093,7 +2093,7 @@ static void* scr_settings() {
   gui_cleanup(false);
 
   // handle power off
-  if (event.type == SIG_LEFT) {
+  if (event.type == SIG_DOWN) {
     // check recording
     if (rec_running()) {
       gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
