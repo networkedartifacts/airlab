@@ -410,7 +410,7 @@ bool gui_wheel(const char* title, int32_t* value, int32_t min, int32_t step, int
   }
 }
 
-void gui_cycle(const char** texts, const char* next, const char* back) {
+void gui_cycle(bool small, const char** texts, const char* next, const char* back) {
   // count texts
   int num = 0;
   while (texts[num] != NULL) {
@@ -428,7 +428,9 @@ void gui_cycle(const char** texts, const char* next, const char* back) {
   lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 10);
   lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   lv_obj_set_style_text_line_space(text, 6, LV_PART_MAIN);
-  lv_obj_set_style_text_font(text, &fnt_8, LV_PART_MAIN);
+  if (small) {
+    lv_obj_set_style_text_font(text, &fnt_8, LV_PART_MAIN);
+  }
 
   // add info
   lv_obj_t* info = lv_label_create(lv_scr_act());

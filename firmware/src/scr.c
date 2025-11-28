@@ -230,6 +230,7 @@ typedef struct {
   const char* settings__about;
   const char* settings__config;
   const char* settings__regulatory;
+  const char* settings__introduction;
   const char* settings__off;
   const char* about__device_name;
   const char* about__serial_number;
@@ -254,6 +255,8 @@ typedef struct {
   const char* intro__watch;
   const char* intro__correct;
   const char* intro__adjust;
+  const char* intro__test;
+  const char* intro__infos[10];
   const char* intro__end;
   const char* engine__empty;
   const char* engine__run;
@@ -307,6 +310,7 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__config = "Konfiguration",
             .settings__off = "Ausschalten",
             .settings__regulatory = "Regulatorisches",
+            .settings__introduction = "Einführung",
             .about__device_name = "Gerätename",
             .about__serial_number = "Seriennummer",
             .about__firmware_version = "FW Version",
@@ -330,7 +334,20 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__watch = "Meine Uhr zeigt %d:%02d\nam %d-%02d-%02d, richtig?",
             .intro__correct = "Richtig!",
             .intro__adjust = "<Anpassen>",
-            .intro__end = "Ach, Wie die Zeit vergeht...\nKomm, lass uns ins Labor gehen!",
+            .intro__test = "Danke! Brauchst du\neine kurze Auffrischung zu den\nLuftqualitätsparametern?",
+            .intro__infos =
+                {
+                    "- CO2 -\nKohlendioxid wird in Teilen\npro Million (PPM) gemessen.",
+                    "- CO2 -\nFür Innenräume solltest du\nversuchen, unter 1500 ppm\nzu bleiben, indem du oft lüftest.",
+                    "- VOC -\nFlüchtige organische\nVerbindungen werden von\nChemikalien abgegeben.",
+                    "- VOC -\n100 ist der 24h-Durchschnitt.\nAbweichungen zeigen\nVeränderungen im Raum an.",
+                    "- NOx -\nStickoxide sind Gase, die bei der\nVerbrennung von Kraftstoffen\n(z. B. in Autos) "
+                    "entstehen.",
+                    "- NOx -\n1 ist der 24h-Durchschnitt.\nAbweichungen zeigen\nVeränderungen im Raum an.",
+                    "Das ist alles für jetzt.\nHier erfährst du "
+                    "mehr:\nnetworkedartifacts.com\n/manuals/airlab/air-parameters",
+                },
+            .intro__end = "Okay, lass uns ins Labor gehen!",
             .engine__empty = "Keine Plugins installiert.",
             .engine__run = "Starten",
         },
@@ -381,6 +398,7 @@ static const scr_trans_t scr_trans_map[] = {
             .settings__config = "Configuration",
             .settings__off = "Power Off",
             .settings__regulatory = "Regulatory",
+            .settings__introduction = "Introduction",
             .about__device_name = "Device Name",
             .about__serial_number = "Serial Number",
             .about__firmware_version = "FW Version",
@@ -404,7 +422,20 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__watch = "My watch says its %d:%02d\non the %d-%02d-%02d, right?",
             .intro__correct = "Correct!",
             .intro__adjust = "<Adjust>",
-            .intro__end = "Oh, how time flies...\nLet's go to the lab!",
+            .intro__test = "Thanks! Now, do you need\na quick refresher on\nair quality parameters?",
+            .intro__infos =
+                {
+                    "- CO2 -\nCarbon dioxide is measured\nin parts per million (PPM).",
+                    "- CO2 -\nFor indoor spaces,\ntry to stay below 1500ppm\nby ventilating often.",
+                    "- VOC -\nVolatile Organic Compounds\nare emitted from chemicals\nlike paints or cleaning "
+                    "products.",
+                    "- VOC -\n100 is the average of the\npast 24h. Higher or lower values\nindicate changes in the "
+                    "room.",
+                    "- NOx -\nNitrogen oxides are gases\ncreated by the combustion\nof fuel (e.g. cars).",
+                    "- NOx -\n1 is the average of the\npast 24h. Higher values\nindicate changes in the room.",
+                    "That's all for now\nLearn more here:\nnetworkedartifacts.com\n/manuals/airlab/air-parameters",
+                },
+            .intro__end = "Alright, let's go to the lab!",
             .engine__empty = "No plugins installed.",
             .engine__run = "Run",
         },
@@ -2029,6 +2060,12 @@ static void* scr_settings() {
       .title = "↑",
       .text = scr_trans()->settings__regulatory,
       .align = LV_ALIGN_BOTTOM_RIGHT,
+      .offset = -75,
+  };
+  lvx_sign_t info = {
+      .title = "<",
+      .text = scr_trans()->settings__introduction,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
       .offset = -50,
   };
   lvx_sign_t off = {
@@ -2045,6 +2082,7 @@ static void* scr_settings() {
   lvx_sign_create(&about, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
   lvx_sign_create(&regulatory, lv_scr_act());
+  lvx_sign_create(&info, lv_scr_act());
   lvx_sign_create(&off, lv_scr_act());
   lvx_sign_create(&config, lv_scr_act());
 
@@ -2087,7 +2125,15 @@ static void* scr_settings() {
     };
 
     // show regulatory info
-    gui_cycle(texts, scr_trans()->next, scr_trans()->back);
+    gui_cycle(false, texts, scr_trans()->next, scr_trans()->back);
+
+    return scr_settings;
+  }
+
+  // handle introduction
+  if (event.type == SIG_LEFT) {
+    // show introduction info
+    gui_cycle(false, scr_trans()->intro__infos, scr_trans()->next, scr_trans()->back);
 
     return scr_settings;
   }
@@ -2788,6 +2834,11 @@ static void* scr_intro() {
     if (scr_date()) {
       scr_time();
     }
+  }
+
+  // test knowledge
+  if (gui_confirm(scr_trans()->intro__test, scr_trans()->yes, scr_trans()->no, false, SCR_ACTION_TIMEOUT)) {
+    gui_cycle(false, scr_trans()->intro__infos, scr_trans()->next, scr_trans()->back);
   }
 
   // show end
