@@ -2087,7 +2087,7 @@ static void* scr_settings() {
     };
 
     // show regulatory info
-    gui_cycle("Regulatory", texts, scr_trans()->next, scr_trans()->back);
+    gui_cycle(texts, scr_trans()->next, scr_trans()->back);
 
     return scr_settings;
   }

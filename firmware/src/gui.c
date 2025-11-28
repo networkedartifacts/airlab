@@ -410,7 +410,7 @@ bool gui_wheel(const char* title, int32_t* value, int32_t min, int32_t step, int
   }
 }
 
-void gui_cycle(const char* title, const char** texts, const char* next, const char* back) {
+void gui_cycle(const char** texts, const char* next, const char* back) {
   // count texts
   int num = 0;
   while (texts[num] != NULL) {
@@ -425,15 +425,14 @@ void gui_cycle(const char* title, const char** texts, const char* next, const ch
 
   // add text
   lv_obj_t* text = lv_label_create(lv_scr_act());
-  lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 20);
+  lv_obj_align(text, LV_ALIGN_TOP_MID, 0, 10);
   lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
   lv_obj_set_style_text_line_space(text, 6, LV_PART_MAIN);
   lv_obj_set_style_text_font(text, &fnt_8, LV_PART_MAIN);
 
   // add info
   lv_obj_t* info = lv_label_create(lv_scr_act());
-  lv_obj_align(info, LV_ALIGN_BOTTOM_MID, 0, -7);
-  lv_obj_set_style_text_font(info, &fnt_8, LV_PART_MAIN);
+  lv_obj_align(info, LV_ALIGN_BOTTOM_MID, 0, -5);
 
   // add signs
   lvx_sign_t sign_a = {
@@ -460,7 +459,7 @@ void gui_cycle(const char* title, const char** texts, const char* next, const ch
     lv_label_set_text(text, texts[pos]);
 
     // update info
-    lv_label_set_text(info, lvx_fmt("%s - %d/%d", title, pos + 1, num));
+    lv_label_set_text(info, lvx_fmt("%d/%d", pos + 1, num));
 
     // end draw
     gfx_end(false, false);
