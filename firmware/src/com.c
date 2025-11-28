@@ -13,6 +13,7 @@
 #include <al/sensor.h>
 #include <al/store.h>
 #include <al/storage.h>
+#include <al/clock.h>
 
 #include "com.h"
 #include "sig.h"
@@ -27,6 +28,7 @@ typedef enum {
   COM_CMD_ENGINE_KILL = 0x3,
   COM_CMD_ENGINE_LOG_START = 0x4,
   COM_CMD_ENGINE_LOG_STOP = 0x5,
+  COM_CMD_CONFIG_EPOCH = 0x6,
 } com_cmd_t;
 
 static bool com_mqtt_ha = false;
@@ -171,6 +173,25 @@ static naos_msg_reply_t com_cmd_engine_log_stop(naos_msg_t msg) {
   return NAOS_MSG_ERROR;
 }
 
+static naos_msg_reply_t com_cmd_config_epoch(naos_msg_t msg) {
+  // command structure:
+  // EPOCH (8)
+
+  // check length
+  if (msg.len != 8) {
+    return NAOS_MSG_INVALID;
+  }
+
+  // get epoch
+  int64_t epoch;
+  memcpy(&epoch, msg.data, sizeof(epoch));
+
+  // set epoch
+  al_clock_set_epoch(epoch);
+
+  return NAOS_MSG_ACK;
+}
+
 static naos_msg_reply_t com_handle(naos_msg_t msg) {
   // message structure:
   // CMD (1) | *
@@ -209,6 +230,9 @@ static naos_msg_reply_t com_handle(naos_msg_t msg) {
       break;
     case COM_CMD_ENGINE_LOG_STOP:
       reply = com_cmd_engine_log_stop(msg);
+      break;
+    case COM_CMD_CONFIG_EPOCH:
+      reply = com_cmd_config_epoch(msg);
       break;
     default:
       reply = NAOS_MSG_UNKNOWN;
