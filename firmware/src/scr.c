@@ -2125,7 +2125,7 @@ static void* scr_settings() {
     };
 
     // show regulatory info
-    gui_cycle(false, texts, scr_trans()->next, scr_trans()->back);
+    gui_cycle(true, texts, scr_trans()->next, scr_trans()->back);
 
     return scr_settings;
   }
