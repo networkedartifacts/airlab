@@ -1,6 +1,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include <al/clock.h>
+
 #include "internal.h"
 
 void al_clock_get_date(uint16_t *year, uint16_t *month, uint16_t *day) {

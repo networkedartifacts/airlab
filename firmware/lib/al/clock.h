@@ -49,4 +49,16 @@ void al_clock_epoch_time(int64_t ts, uint16_t *hour, uint16_t *minute, uint16_t 
  */
 void al_clock_epoch_date(int64_t ts, uint16_t *year, uint16_t *month, uint16_t *day);
 
+/* Low Level */
+
+/**
+ * Initialize the system time from the RTC clock.
+ */
+void al_clock_init();
+
+/**
+ * Update the RTC clock with the current system time.
+ */
+void al_clock_update();
+
 #endif  // AL_CLOCK_H

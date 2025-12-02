@@ -7,6 +7,7 @@
 #include <esp_sleep.h>
 
 #include <al/core.h>
+#include <al/clock.h>
 
 #include "internal.h"
 
