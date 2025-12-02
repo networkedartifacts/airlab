@@ -1884,12 +1884,22 @@ static void* scr_check() {
   al_clock_init();
   al_clock_get_date(&year, &month, NULL);
   if (year < 2025 || month < 12) {
-    gui_write("Date check failed!", 2000);
+    gui_message("Date check failed!", SCR_MSG_TIMEOUT);
+    return scr_develop;
+  }
+
+  // interrupt
+  int64_t start = naos_millis();
+  gui_write("Checking interrupts...", false);
+  al_sleep(false, 5 * 1000);
+  gui_cleanup(false);
+  if (naos_millis() - start < 4 * 1000) {
+    gui_message("Interrupt check failed!", SCR_MSG_TIMEOUT);
     return scr_develop;
   }
 
   // buttons
-  gui_write("Press all buttons once...", 0);
+  gui_write("Press all buttons once...", false);
   sig_type_t pressed = 0;
   while ((pressed & SIG_KEYS) != SIG_KEYS) {
     pressed |= sig_await(SIG_KEYS, 0).type;
@@ -1897,7 +1907,7 @@ static void* scr_check() {
 
   // accel
   gui_cleanup(false);
-  gui_write("Rotate the device...", 0);
+  gui_write("Rotate the device...", false);
   for (;;) {
     sig_await(SIG_MOTION, 0);
     al_accel_state_t state = al_accel_get();
@@ -1908,7 +1918,7 @@ static void* scr_check() {
 
   // touch
   gui_cleanup(false);
-  gui_write("Scroll the touch strip...", 0);
+  gui_write("Scroll the touch strip...", false);
   for (;;) {
     sig_event_t event = sig_await(SIG_SCROLL, 0);
     if (event.scroll.std >= 2 || event.scroll.std <= -2) {
@@ -1918,7 +1928,7 @@ static void* scr_check() {
 
   // power
   gui_cleanup(false);
-  gui_write("Plug in USB power...", 0);
+  gui_write("Plug in USB power...", false);
   for (;;) {
     sig_await(SIG_POWER, 0);
     if (al_power_get().has_usb) {
@@ -1928,7 +1938,7 @@ static void* scr_check() {
 
   // buzzer
   gui_cleanup(false);
-  gui_write("Listen for the buzzer...", 0);
+  gui_write("Listen for the buzzer...", false);
   al_buzzer_beep(4400, 200, true);
   naos_delay(1000);
   al_buzzer_beep(440, 200, true);
@@ -1936,7 +1946,7 @@ static void* scr_check() {
 
   // LED
   gui_cleanup(false);
-  gui_write("Check the LED colors...", 0);
+  gui_write("Check the LED colors...", false);
   hmi_set_flag(HMI_FLAG_IGNORE);
   naos_delay(250);
   al_led_set(255, 0, 0);
@@ -1948,18 +1958,6 @@ static void* scr_check() {
   al_led_set(0, 0, 0);
   hmi_clear_flag(HMI_FLAG_IGNORE);
 
-  // interrupt
-  int64_t start = naos_millis();
-  gui_cleanup(false);
-  gui_write("Checking interrupts...", 0);
-  al_sleep(false, 5 * 1000);
-  gui_cleanup(false);
-  if (naos_millis() - start < 4 * 1000) {
-    gui_write("Interrupt check failed!", 2000);
-    gui_cleanup(false);
-    return scr_develop;
-  }
-
   // sensors
   for (;;) {
     gui_cleanup(false);
@@ -1970,7 +1968,7 @@ static void* scr_check() {
     float voc = al_sample_read(sample, AL_SAMPLE_VOC);
     gui_write(
         lvx_fmt("Blow on the sensors...\nCO2: %.0f/2500, TMP: %.1f/26\nHUM: %.0f/60, VOC: %.0f/50", co2, tmp, hum, voc),
-        0);
+        false);
     sig_await(SIG_SENSOR, 0);
     al_sample_t state = al_store_last();
     if (state.co2 > 2500 && state.tmp > 25 && state.hum > 60 && state.voc > 50) {
@@ -2225,7 +2223,7 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info", "Sensor Data",   "Device Check", "Sleep Mode", "Power Reset",  "Power Off", "Shipping Mode",
+      "System Info", "Sensor Data",   "Self Check",   "Sleep Mode", "Power Reset",  "Power Off", "Shipping Mode",
       "Idle Screen", "Clear Display", "Test Bubbles", "Touch Info", "Compensation", "Buzzer",    NULL,
   };
 
