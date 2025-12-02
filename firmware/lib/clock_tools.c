@@ -11,9 +11,9 @@ void al_clock_get_date(uint16_t *year, uint16_t *month, uint16_t *day) {
   struct tm *cal = localtime(&t);
 
   // set day, month and year
-  *year = cal->tm_year + 1900;
-  *month = cal->tm_mon + 1;
-  *day = cal->tm_mday;
+  if (year != NULL) *year = cal->tm_year + 1900;
+  if (month != NULL) *month = cal->tm_mon + 1;
+  if (day != NULL) *day = cal->tm_mday;
 }
 
 void al_clock_set_date(uint16_t year, uint16_t month, uint16_t day) {
@@ -43,9 +43,9 @@ void al_clock_get_time(uint16_t *hour, uint16_t *minute, uint16_t *seconds) {
   struct tm *cal = localtime(&t);
 
   // set hour, minute and seconds
-  *hour = cal->tm_hour;
-  *minute = cal->tm_min;
-  *seconds = cal->tm_sec;
+  if (hour != NULL) *hour = cal->tm_hour;
+  if (minute != NULL) *minute = cal->tm_min;
+  if (seconds != NULL) *seconds = cal->tm_sec;
 }
 
 void al_clock_set_time(uint16_t hour, uint16_t minute, uint16_t seconds) {
