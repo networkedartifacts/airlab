@@ -102,7 +102,7 @@ al_trigger_t al_init() {
   al_buzzer_init();
   al_led_init(reset);
   al_accel_init(reset);
-  al_buttons_init(reset);
+  al_buttons_init();
   al_epd_init();
   al_clock_init();
   al_touch_init(reset);
