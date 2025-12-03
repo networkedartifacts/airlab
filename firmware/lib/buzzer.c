@@ -10,6 +10,7 @@
 static naos_signal_t al_buzzer_signal;
 static naos_queue_t al_buzzer_queue;
 static esp_timer_handle_t al_buzzer_timer;
+static bool al_buzzer_ready = false;
 static bool al_buzzer_wait = false;
 
 static void al_buzzer_done() {
@@ -25,6 +26,50 @@ static void al_buzzer_done() {
   }
 }
 
+static void al_buzzer_setup() {
+  // setup LEDC timer
+  ledc_timer_config_t ledc_timer = {
+      .freq_hz = 440,
+      .duty_resolution = LEDC_TIMER_12_BIT,
+      .speed_mode = LEDC_LOW_SPEED_MODE,
+      .timer_num = LEDC_TIMER_0,
+      .clk_cfg = LEDC_AUTO_CLK,
+  };
+  ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+  // setup LEDC channels
+  ledc_channel_config_t ch1 = {
+      .channel = LEDC_CHANNEL_0,
+      .duty = 0,
+      .gpio_num = GPIO_NUM_5,
+      .speed_mode = LEDC_LOW_SPEED_MODE,
+      .hpoint = 0,
+      .timer_sel = LEDC_TIMER_0,
+  };
+  ESP_ERROR_CHECK(ledc_channel_config(&ch1));
+  ledc_channel_config_t ch2 = {
+      .channel = LEDC_CHANNEL_1,
+      .duty = 0,
+      .gpio_num = GPIO_NUM_46,
+      .speed_mode = LEDC_LOW_SPEED_MODE,
+      .hpoint = 0,
+      .timer_sel = LEDC_TIMER_0,
+      .flags.output_invert = true,
+  };
+  ESP_ERROR_CHECK(ledc_channel_config(&ch2));
+
+  // stop LEDC channels
+  ESP_ERROR_CHECK(ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0));
+  ESP_ERROR_CHECK(ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 1));
+
+  // create high-res timer
+  esp_timer_create_args_t args = {
+      .callback = al_buzzer_done,
+      .dispatch_method = ESP_TIMER_TASK,
+  };
+  ESP_ERROR_CHECK(esp_timer_create(&args, &al_buzzer_timer));
+}
+
 static void al_buzzer_tone(int hz, int us, bool wait) {
   // check frequency
   if (hz < 20 || hz > 12000) {
@@ -37,6 +82,12 @@ static void al_buzzer_tone(int hz, int us, bool wait) {
       naos_log("al-bzr: busy");
     }
     return;
+  }
+
+  // setup if needed
+  if (!al_buzzer_ready) {
+    al_buzzer_setup();
+    al_buzzer_ready = true;
   }
 
   // log
@@ -83,48 +134,6 @@ void al_buzzer_init() {
 
   // add token
   naos_push(al_buzzer_queue, NULL, 0);
-
-  // setup LEDC timer
-  ledc_timer_config_t ledc_timer = {
-      .freq_hz = 440,
-      .duty_resolution = LEDC_TIMER_12_BIT,
-      .speed_mode = LEDC_LOW_SPEED_MODE,
-      .timer_num = LEDC_TIMER_0,
-      .clk_cfg = LEDC_AUTO_CLK,
-  };
-  ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
-
-  // setup LEDC channels
-  ledc_channel_config_t ch1 = {
-      .channel = LEDC_CHANNEL_0,
-      .duty = 0,
-      .gpio_num = GPIO_NUM_5,
-      .speed_mode = LEDC_LOW_SPEED_MODE,
-      .hpoint = 0,
-      .timer_sel = LEDC_TIMER_0,
-  };
-  ESP_ERROR_CHECK(ledc_channel_config(&ch1));
-  ledc_channel_config_t ch2 = {
-      .channel = LEDC_CHANNEL_1,
-      .duty = 0,
-      .gpio_num = GPIO_NUM_46,
-      .speed_mode = LEDC_LOW_SPEED_MODE,
-      .hpoint = 0,
-      .timer_sel = LEDC_TIMER_0,
-      .flags.output_invert = true,
-  };
-  ESP_ERROR_CHECK(ledc_channel_config(&ch2));
-
-  // stop LEDC channels
-  ESP_ERROR_CHECK(ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0));
-  ESP_ERROR_CHECK(ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 1));
-
-  // create high-res timer
-  esp_timer_create_args_t args = {
-      .callback = al_buzzer_done,
-      .dispatch_method = ESP_TIMER_TASK,
-  };
-  ESP_ERROR_CHECK(esp_timer_create(&args, &al_buzzer_timer));
 }
 
 void al_buzzer_click() {
