@@ -1860,7 +1860,8 @@ static void* scr_config() {
           naos_set_s("language", "de");
         }
 
-        break;
+        // reload screen
+        return scr_config;
       }
 
       case 1: {
