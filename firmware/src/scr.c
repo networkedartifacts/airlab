@@ -172,7 +172,14 @@ static bool scr_idle_sleep() {
 typedef enum {
   SCR_DE,
   SCR_EN,
+  SCR_ES,
 } scr_lang_t;
+
+static const char* scr_lang_str[] = {
+    [SCR_DE] = "Deutsch",
+    [SCR_EN] = "English",
+    [SCR_ES] = "Español",
+};
 
 scr_lang_t scr_lang() {
   // get language
@@ -181,6 +188,8 @@ scr_lang_t scr_lang() {
     return SCR_EN;
   } else if (strcmp(lang, "de") == 0) {
     return SCR_DE;
+  } else if (strcmp(lang, "es") == 0) {
+    return SCR_ES;
   }
   return SCR_EN;
 }
@@ -338,12 +347,16 @@ static const scr_trans_t scr_trans_map[] = {
             .intro__infos =
                 {
                     "- CO2 -\nEl dióxido de carbono se mide\nen partes por millón (PPM).",
-                    "- CO2 -\nEn interiores deberías intentar\nmantenerte por debajo de 1500 ppm\nventilando con frecuencia.",
-                    "- VOC -\nCompuestos orgánicos volátiles\nson emitidos por sustancias químicas.\ncomo pinturas o productos de limpieza.",
+                    "- CO2 -\nEn interiores deberías intentar\nmantenerte por debajo de 1500 ppm\nventilando con "
+                    "frecuencia.",
+                    "- VOC -\nCompuestos orgánicos volátiles\nson emitidos por sustancias químicas.\ncomo pinturas o "
+                    "productos de limpieza.",
                     "- VOC -\n100 es el promedio de 24 h.\nes el promedio de 24 h\ncambios en el ambiente.",
-                    "- NOx -\nLos óxidos de nitrógeno son gases\nVgenerados por la combustión\npor ejemplo de autos o estufas.",
+                    "- NOx -\nLos óxidos de nitrógeno son gases\nVgenerados por la combustión\npor ejemplo de autos o "
+                    "estufas.",
                     "- NOx -\n1 es el promedio de 24 h.\nes el promedio de 24 h\ncambios en el ambiente.",
-                    "Eso es todo por ahora.\nAquí puedes aprender más:\nnetworkedartifacts.com\n/manuals/airlab/air-parameters",
+                    "Eso es todo por ahora.\nAquí puedes aprender "
+                    "más:\nnetworkedartifacts.com\n/manuals/airlab/air-parameters",
                 },
             .intro__end = "Ahora si, vamos al laboratorio!",
             .engine__empty = "No hay plugins instalados.",
@@ -751,6 +764,8 @@ static void* scr_bubbles() {
       case SCR_EN:
         bubble.text = stm_get(index)->text_en;
         break;
+      case SCR_ES:
+        bubble.text = stm_get(index)->text_es;
     }
 
     // update bubble
@@ -1725,7 +1740,7 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     case 0: {
       return (gui_list_item_t){
           .title = t->config__language,
-          .info = strcmp(naos_get_s("language"), "en") == 0 ? "English" : "Deutsch",
+          .info = scr_lang_str[scr_lang()],
       };
     }
     case 1: {
@@ -1836,10 +1851,13 @@ static void* scr_config() {
     switch (choice) {
       case 0: {
         // toggle language between en and de
-        if (strcmp(naos_get_s("language"), "en") == 0) {
-          naos_set_s("language", "de");
-        } else {
+        scr_lang_t lang = scr_lang();
+        if (lang == SCR_DE) {
           naos_set_s("language", "en");
+        } else if (lang == SCR_EN) {
+          naos_set_s("language", "es");
+        } else {
+          naos_set_s("language", "de");
         }
 
         break;
@@ -2734,6 +2752,9 @@ static void* scr_menu() {
         break;
       case SCR_EN:
         bubble.text = statement ? statement->text_en : NULL;
+        break;
+      case SCR_ES:
+        bubble.text = statement ? statement->text_es : NULL;
         break;
     }
 
