@@ -11,7 +11,7 @@ stm_entry_t stm_entries[] = {
         .action = STM_FROM_INTRO,
         .text_de = "Willkommen im Air Lab! Sieh dich doch einmal um. Berühren ist erlaubt!",
         .text_en = "Welcome to the Air Lab! Please look around. Touching is allowed!",
-        .text_es = "Bienvenido al Air Lab! Puedes explorar en calma. Tocar es permitido!",
+        .text_es = "Bienvenido al Air Lab! Puedes mirar en calma. Tocar es permitido!",
         .mood = STM_HAPPY,
     },
     {
@@ -43,7 +43,7 @@ stm_entry_t stm_entries[] = {
         .action = STM_START_MEASUREMENT,
         .text_de = "Alles klar, Messung gestartet. Die Technik macht den Rest.",
         .text_en = "All set, measurement started. The tech will handle the rest.",
-        .text_es = "Todo en orden, registro iniciado. La tecnología hará el resto.",
+        .text_es = "Bravo, registro iniciado. La tecnología hará el resto.",
         .mood = STM_WORKING,
     },
     {
@@ -376,7 +376,7 @@ stm_entry_t stm_entries[] = {
     {
         .text_de = "Im Sommer fühlen sich 24°C oft angenehm an, im Winter eher kühl.",
         .text_en = "In summer, 24°C feels comfortable, but in winter it feels cool.",
-        .text_es = "En verano, 24°C se siente bien, pero en invierno se percibe frío.",
+        .text_es = "En verano, 24°C está bien, pero en invierno se percibe frío.",
         .mood = STM_POINTING,
     },
     {
@@ -400,13 +400,13 @@ stm_entry_t stm_entries[] = {
     {
         .text_de = "Stickoxide (NOx) stammen oft aus Verbrennung.",
         .text_en = "Nitrogen oxides (NOx) often come from combustion.",
-        .text_es = "Los óxidos de nitrógeno (NOx) a menudo provienen de la combustión.",
+        .text_es = "Los óxidos de nitrógeno (NOx) vienen de la combustión.",
         .mood = STM_POINTING,
     },
     {
         .text_de = "Der Luftdruck hier liegt bei etwa 1013 hPa auf Meereshöhe.",
         .text_en = "Air pressure is about 1013 hPa at sea level.",
-        .text_es = "La presión atmosférica es de aproximadamente 1013 hPa al nivel del mar.",
+        .text_es = "La presión del aire es de aprox. 1013 hPa al nivel del mar.",
         .mood = STM_POINTING,
     },
     {
@@ -418,7 +418,7 @@ stm_entry_t stm_entries[] = {
     {
         .text_de = "Neue Möbel können VOCs freisetzen, am besten gut lüften!",
         .text_en = "New furniture can emit VOCs, best to ventilate well!",
-        .text_es = "Nuevos muebles pueden emitir VOCs, ¡mejor ventilar bien!",
+        .text_es = "Nuevos muebles pueden emitir VOCs, mejor ventilar bien!",
         .mood = STM_POINTING,
     },
     /* Exercise Prompts */

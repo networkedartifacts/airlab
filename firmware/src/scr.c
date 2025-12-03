@@ -1604,8 +1604,8 @@ static void* scr_explore() {
   }
 
   // show list
-  int selected = gui_list((int)total + 1, start, &offset, scr_trans()->explore__select, scr_trans()->back, scr_explore_cb,
-                          NULL, SCR_ACTION_TIMEOUT);
+  int selected = gui_list((int)total + 1, start, &offset, scr_trans()->explore__select, scr_trans()->back,
+                          scr_explore_cb, NULL, SCR_ACTION_TIMEOUT);
   if (selected < 0) {
     return scr_menu;
   }
