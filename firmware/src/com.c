@@ -304,6 +304,15 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
   free(buf);
 }
 
+static void com_pub_sensor(al_sample_t sample, al_sample_field_t field, const char *topic, int res) {
+  // format value
+  char value[16] = {0};
+  snprintf(value, sizeof(value), "%.*f", res, al_sample_read(sample, field));
+
+  // publish value
+  naos_publish_s(topic, value, 0, false, NAOS_LOCAL);
+}
+
 static void com_task() {
   // wait some time
   naos_delay(2000);
@@ -330,12 +339,12 @@ static void com_task() {
     }
 
     // publish sample
-    naos_publish_d("co2", al_sample_read(sample, AL_SAMPLE_CO2), 0, false, NAOS_LOCAL);
-    naos_publish_d("tmp", al_sample_read(sample, AL_SAMPLE_TMP), 0, false, NAOS_LOCAL);
-    naos_publish_d("hum", al_sample_read(sample, AL_SAMPLE_HUM), 0, false, NAOS_LOCAL);
-    naos_publish_d("voc", al_sample_read(sample, AL_SAMPLE_VOC), 0, false, NAOS_LOCAL);
-    naos_publish_d("nox", al_sample_read(sample, AL_SAMPLE_NOX), 0, false, NAOS_LOCAL);
-    naos_publish_d("prs", al_sample_read(sample, AL_SAMPLE_PRS), 0, false, NAOS_LOCAL);
+    com_pub_sensor(sample, AL_SAMPLE_CO2, "co2", 0);
+    com_pub_sensor(sample, AL_SAMPLE_TMP, "tmp", 1);
+    com_pub_sensor(sample, AL_SAMPLE_HUM, "hum", 1);
+    com_pub_sensor(sample, AL_SAMPLE_VOC, "voc", 0);
+    com_pub_sensor(sample, AL_SAMPLE_NOX, "nox", 0);
+    com_pub_sensor(sample, AL_SAMPLE_PRS, "prs", 0);
   }
 }
 
