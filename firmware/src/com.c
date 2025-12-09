@@ -251,7 +251,7 @@ static void com_cleanup(uint16_t session) {
 }
 
 static void com_ha_config_sensor(const char *hat, const char *did, const char *fwv, const char *bt, const char *uid,
-                                 const char *t, const char *n, const char *uom, const char *dc) {
+                                 const char *t, const char *n, const char *uom, const char *dc, int sdp) {
   // allocate buffer
   void *buf = malloc(128 + 1024);
   if (!buf) {
@@ -274,25 +274,26 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
   }
 
   // calculate message
-#define SEN_TPL                           \
-  ("{"                                    \
-   "  \"name\": \"%s\","                  \
-   "  \"state_topic\": \"%s/%s\","        \
-   "  %s"                                 \
-   "  \"device_class\": \"%s\","          \
-   "  \"state_class\": \"measurement\","  \
-   "  \"unique_id\": \"%s-%s\","          \
-   "  \"device\": {"                      \
-   "    \"ids\": \"%s\","                 \
-   "    \"name\": \"Air Lab\","           \
-   "    \"mf\": \"Networked Artifacts\"," \
-   "    \"mdl\": \"NA-AL1\","             \
-   "    \"sw\": \"%s\","                  \
-   "    \"sn\": \"%s\","                  \
-   "    \"hw\": \"R4\""                   \
-   "  }"                                  \
+#define SEN_TPL                                 \
+  ("{"                                          \
+   "  \"name\": \"%s\","                        \
+   "  \"state_topic\": \"%s/%s\","              \
+   "  %s"                                       \
+   "  \"device_class\": \"%s\","                \
+   "  \"state_class\": \"measurement\","        \
+   "  \"unique_id\": \"%s-%s\","                \
+   "  \"suggested_display_precision\": \"%d\"," \
+   "  \"device\": {"                            \
+   "    \"ids\": \"%s\","                       \
+   "    \"name\": \"Air Lab\","                 \
+   "    \"mf\": \"Networked Artifacts\","       \
+   "    \"mdl\": \"NA-AL1\","                   \
+   "    \"sw\": \"%s\","                        \
+   "    \"sn\": \"%s\","                        \
+   "    \"hw\": \"R4\""                         \
+   "  }"                                        \
    "}")
-  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_field, dc, did, uid, did, fwv, did);
+  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_field, dc, did, uid, sdp, did, fwv, did);
   if (r < 0 || r >= 1024) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -398,12 +399,12 @@ void com_online() {
   const char *bt = naos_get_s("base-topic");
 
   // configure sensors
-  com_ha_config_sensor(hat, did, av, bt, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide");
-  com_ha_config_sensor(hat, did, av, bt, "al-tmp", "tmp", "Temperature", "°C", "temperature");
-  com_ha_config_sensor(hat, did, av, bt, "al-hum", "hum", "Humidity", "%", "humidity");
-  com_ha_config_sensor(hat, did, av, bt, "al-voc", "voc", "VOC", "", "aqi");
-  com_ha_config_sensor(hat, did, av, bt, "al-nox", "nox", "NOx", "", "aqi");
-  com_ha_config_sensor(hat, did, av, bt, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure");
+  com_ha_config_sensor(hat, did, av, bt, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide", 0);
+  com_ha_config_sensor(hat, did, av, bt, "al-tmp", "tmp", "Temperature", "°C", "temperature", 1);
+  com_ha_config_sensor(hat, did, av, bt, "al-hum", "hum", "Humidity", "%", "humidity", 1);
+  com_ha_config_sensor(hat, did, av, bt, "al-voc", "voc", "VOC", "", "aqi", 0);
+  com_ha_config_sensor(hat, did, av, bt, "al-nox", "nox", "NOx", "", "aqi", 0);
+  com_ha_config_sensor(hat, did, av, bt, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure", 0);
 }
 
 void com_log(const char *msg, size_t len) {
