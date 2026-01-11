@@ -6,6 +6,7 @@ int main() {
 
   // write text
   al_write(AL_W / 2, (AL_H - 16) / 2, 0, 16, 1, "Making Request...", AL_WRITE_ALIGN_CENTER);
+  al_yield(1, 0);
 
   // prepare buffer
   char *res = calloc(1024, 1);
