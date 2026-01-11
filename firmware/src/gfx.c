@@ -104,7 +104,7 @@ static naos_param_t gfx_params[] = {
 
 void gfx_init(bool reset) {
   // register params
-  for (size_t i = 0; i < sizeof(gfx_params) / sizeof(naos_param_t); i++) {
+  for (size_t i = 0; i < NAOS_COUNT(gfx_params); i++) {
     naos_register(gfx_params);
   }
 

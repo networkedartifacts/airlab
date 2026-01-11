@@ -35,7 +35,7 @@ static naos_param_t sig_params[] = {
 
 void sig_init() {
   // register params
-  for (size_t i = 0; i < sizeof(sig_params) / sizeof(naos_param_t); i++) {
+  for (size_t i = 0; i < NAOS_COUNT(sig_params); i++) {
     naos_register(sig_params);
   }
 

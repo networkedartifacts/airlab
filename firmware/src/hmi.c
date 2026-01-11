@@ -268,7 +268,7 @@ static naos_param_t hmi_params[] = {
 
 void hmi_init() {
   // register parameters
-  for (int i = 0; i < sizeof(hmi_params) / sizeof(naos_param_t); i++) {
+  for (int i = 0; i < NAOS_COUNT(hmi_params); i++) {
     naos_register(&hmi_params[i]);
   }
 
