@@ -7,6 +7,7 @@
 #include <naos/wifi.h>
 #include <naos/mqtt.h>
 #include <naos/auth.h>
+#include <naos/debug.h>
 #include <naos/sys.h>
 #include <esp_err.h>
 
@@ -375,6 +376,9 @@ void com_init() {
 
   // install authentication endpoint
   naos_auth_install();
+
+  // install debug endpoint
+  naos_debug_install();
 
   // run tasks
   naos_run("com", 4096, 1, com_task);
