@@ -2328,7 +2328,7 @@ static void* scr_develop() {
   // prepare labels
   const char* labels[] = {
       "System Info", "Sensor Data",   "Self Check",   "Sleep Mode", "Power Reset",  "Power Off", "Shipping Mode",
-      "Idle Screen", "Clear Display", "Test Bubbles", "Touch Info", "Compensation", "Buzzer",    NULL,
+      "Clear Display", "Test Bubbles", "Touch Info", "Compensation", "Buzzer",    NULL,
   };
 
   for (;;) {
@@ -2429,26 +2429,18 @@ static void* scr_develop() {
       gui_cleanup(false);
     }
 
-    // handle idle screen
-    if (selected == 7) {
-      // set return
-      scr_return_unlock = scr_develop;
-
-      return scr_idle;
-    }
-
     // handle clear display
-    if (selected == 8) {
+    if (selected == 7) {
       gui_cleanup(true);
     }
 
     // handle bubbles test
-    if (selected == 9) {
+    if (selected == 8) {
       return scr_bubbles;
     }
 
     // handle touch info
-    if (selected == 10) {
+    if (selected == 9) {
       // prepare data
       float position = NAN;
       float scroll = 0;
@@ -2477,7 +2469,7 @@ static void* scr_develop() {
     }
 
     // handle compensation
-    if (selected == 11) {
+    if (selected == 10) {
       // prepare variables
       al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
 
@@ -2510,7 +2502,7 @@ static void* scr_develop() {
     }
 
     // handle buzzer
-    if (selected == 12) {
+    if (selected == 11) {
       // begin draw
       gfx_begin(false, false);
 
