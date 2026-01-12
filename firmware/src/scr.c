@@ -1984,10 +1984,10 @@ static void* scr_config() {
 
 static void* scr_check() {
   // date
-  uint16_t year, month;
+  uint16_t year;
   al_clock_init();
-  al_clock_get_date(&year, &month, NULL);
-  if (year < 2025 || month < 12) {
+  al_clock_get_date(&year, NULL, NULL);
+  if (year < 2026) {
     gui_message("Date check failed!", SCR_MSG_TIMEOUT);
     return scr_develop;
   }
