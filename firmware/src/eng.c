@@ -129,6 +129,17 @@ eng_plugin_t *eng_get(size_t index) {
 }
 
 bool eng_run(const char *file, const char *binary) {
+  // determine permissions
+  eng_perm_t perms = 0;
+  if (strcmp(binary, "main") == 0) {
+    perms = ENG_PERM_ALL;
+  } else if (strcmp(binary, "screen") == 0) {
+    perms = ENG_PERM_GRAPHICS;
+  }
+  if (perms == 0) {
+    return false;
+  }
+
   // load bundle
   eng_bundle_t *bundle = eng_bundle_load(file);
   if (!bundle) {
@@ -136,7 +147,7 @@ bool eng_run(const char *file, const char *binary) {
   }
 
   // start execution
-  void *ref = eng_exec_start(bundle, binary);
+  void *ref = eng_exec_start(bundle, binary, perms);
   if (!ref) {
     eng_bundle_free(bundle);
     return false;

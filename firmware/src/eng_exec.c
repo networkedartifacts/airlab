@@ -28,6 +28,7 @@
 #include "sig.h"
 #include "eng_bundle.h"
 #include "eng_config.h"
+#include "eng_exec.h"
 #include "hmi.h"
 
 #define ENG_EXEC_DEBUG false
@@ -37,6 +38,7 @@ typedef struct {
   eng_bundle_t *config_schema;
   eng_bundle_t *config_values;
   const char *binary;
+  eng_perm_t perms;
   lv_obj_t *canvas;
   pthread_t thread;
   esp_http_client_config_t http_cfg;
@@ -120,6 +122,14 @@ static bool eng_valid_buf(wasm_exec_env_t env, void *ptr, size_t len, bool allow
   return wasm_runtime_validate_native_addr(inst, ptr, len);
 }
 
+static bool eng_has_perm(wasm_exec_env_t env, eng_perm_t perm) {
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
+  // check permission
+  return (ctx->perms & perm) != 0;
+}
+
 /* primary operations */
 
 enum {
@@ -191,10 +201,15 @@ enum {
   ENG_CONFIG_SCREEN_ROTATION,
 };
 
-static int eng_exec_op_config(wasm_exec_env_t _, int s, int a, int b, int c) {
+static int eng_exec_op_config(wasm_exec_env_t env, int s, int a, int b, int c) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_config: a=%d b=%d c=%d", a, b, c);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_INTERACTION)) {
+    return -1;
   }
 
   // handle configs
@@ -233,11 +248,20 @@ static int eng_exec_op_yield(wasm_exec_env_t env, int timeout, int flags) {
     naos_log("eng_exec_op_yield: timeout=%d flags=%d", timeout, flags);
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_BLOCK)) {
+    return ENG_YIELD_TIMEOUT;
+  }
+
+  // check permission (if no interaction, only listen for kill)
+  bool has_interaction = eng_has_perm(env, ENG_PERM_INTERACTION);
+  sig_type_t sig_mask = has_interaction ? (SIG_KEYS | SIG_KILL) : SIG_KILL;
+
   // unlock graphics
   gfx_end(flags & ENG_YIELD_SKIP_FRAME, flags & ENG_YIELD_WAIT_FRAME);
 
   // await event or deadline
-  sig_event_t event = sig_await(SIG_KEYS | SIG_KILL, timeout);
+  sig_event_t event = sig_await(sig_mask, timeout);
 
   // handle kill
   if (event.type == SIG_KILL) {
@@ -289,10 +313,15 @@ static int eng_exec_op_yield(wasm_exec_env_t env, int timeout, int flags) {
   return ret;
 }
 
-static void eng_exec_op_delay(wasm_exec_env_t _, int ms) {
+static void eng_exec_op_delay(wasm_exec_env_t env, int ms) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_delay: ms=%d", ms);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_BLOCK)) {
+    return;
   }
 
   // unlock graphics
@@ -323,6 +352,11 @@ static void eng_exec_op_clear(wasm_exec_env_t env, int c) {
     naos_log("eng_exec_op_clear: c=%d", c);
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
+  }
+
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
@@ -334,6 +368,11 @@ static void eng_exec_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_line: x1=%d y1=%d x2=%d y2=%d c=%d b=%d", x1, y1, x2, y2, c, b);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
   }
 
   // get context
@@ -356,6 +395,11 @@ static void eng_exec_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, in
     naos_log("eng_exec_op_rect: x=%d y=%d w=%d h=%d c=%d b=%d", x, y, w, h, c, b);
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
+  }
+
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
@@ -376,6 +420,11 @@ enum {
 
 static void eng_exec_op_write(wasm_exec_env_t env, int x, int y, int s, int f, int c, uint8_t *text, int text_len,
                               int flags) {
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
+  }
+
   // validate buffer
   if (!eng_valid_buf(env, text, text_len, false)) {
     return;
@@ -432,6 +481,11 @@ static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, in
     naos_log("eng_exec_op_draw: x=%d y=%d w=%d h=%d s=%d a=%d", x, y, w, h, s, a);
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
+  }
+
   // check dimensions
   if (w <= 0 || h <= 0 || s <= 0) {
     return;
@@ -473,10 +527,15 @@ enum {
   ENG_BEEP_WAIT = (1 << 0),
 };
 
-static void eng_exec_op_beep(wasm_exec_env_t _, float freq, int duration, int flags) {
+static void eng_exec_op_beep(wasm_exec_env_t env, float freq, int duration, int flags) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_beep: freq=%d duration=%d flags=%d", freq, duration, flags);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_AUDIO)) {
+    return;
   }
 
   // play beep
@@ -508,6 +567,11 @@ static int eng_exec_op_gpio(wasm_exec_env_t env, int cmd, int flags, int arg) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_gpio: cmd=%d flags=0x%X arg=%d", cmd, flags, arg);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_IO)) {
+    return -1;
   }
 
   // determine GPIO num, LEDC and ADC channels
@@ -646,6 +710,11 @@ static int eng_exec_op_i2c(wasm_exec_env_t env, int addr, uint8_t *tx, int tx_le
     naos_log("eng_exec_op_i2c: addr=%d tx=%d rx=%d timeout=%d", addr, tx_len, rx_len, timeout);
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_IO)) {
+    return -1;
+  }
+
   // validate buffers
   if (!eng_valid_buf(env, tx, tx_len, true) || !eng_valid_buf(env, rx, rx_len, true)) {
     return -1;
@@ -746,6 +815,11 @@ static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int n, int x, int y, in
     naos_log("eng_exec_op_sprite_draw: n=%d x=%d y=%d s=%d a=%d", n, x, y, s, a);
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
+  }
+
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
@@ -834,6 +908,11 @@ static int eng_exec_op_data_get(wasm_exec_env_t env, uint8_t *name, int name_len
     return -1;
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_STORAGE)) {
+    return -1;
+  }
+
   // validate buffers
   if (!eng_valid_buf(env, name, name_len, false) || !eng_valid_buf(env, buf, buf_len, true)) {
     return -1;
@@ -896,6 +975,11 @@ static int eng_exec_op_data_get(wasm_exec_env_t env, uint8_t *name, int name_len
 static int eng_exec_op_data_set(wasm_exec_env_t env, uint8_t *name, int name_len, uint8_t *buf, int buf_len) {
   // check lengths
   if (name_len <= 0 || buf_len <= 0) {
+    return -1;
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_STORAGE)) {
     return -1;
   }
 
@@ -1000,6 +1084,11 @@ static void eng_exec_op_http_new(wasm_exec_env_t env) {
     naos_log("eng_exec_op_http_new");
   }
 
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_NETWORK)) {
+    return;
+  }
+
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
@@ -1028,6 +1117,11 @@ static void eng_exec_op_http_new(wasm_exec_env_t env) {
 
 static int eng_exec_op_http_set(wasm_exec_env_t env, int field, int num, uint8_t *str, int str_len, uint8_t *str2,
                                 int str2_len) {
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_NETWORK)) {
+    return -1;
+  }
+
   // validate buffers
   if (!eng_valid_buf(env, str, str_len, true) || !eng_valid_buf(env, str2, str2_len, true)) {
     return -1;
@@ -1090,6 +1184,11 @@ static int eng_exec_op_http_set(wasm_exec_env_t env, int field, int num, uint8_t
 }
 
 static int eng_exec_op_http_run(wasm_exec_env_t env, uint8_t *req, int req_len, uint8_t *res, int res_len) {
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_NETWORK)) {
+    return -1;
+  }
+
   // validate buffers
   if (!eng_valid_buf(env, req, req_len, true) || !eng_valid_buf(env, res, res_len, true)) {
     return -1;
@@ -1126,6 +1225,11 @@ static int eng_exec_op_http_get(wasm_exec_env_t env, int field) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_http_get: field=%d", field);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_NETWORK)) {
+    return -1;
   }
 
   // get context
@@ -1466,7 +1570,7 @@ fail:
   return NULL;
 }
 
-void *eng_exec_start(eng_bundle_t *bundle, const char *binary) {
+void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms) {
   // check binary
   if (!eng_bundle_binary(bundle, binary, NULL)) {
     naos_log("eng_exec_start: binary '%s' not found", binary);
@@ -1483,9 +1587,10 @@ void *eng_exec_start(eng_bundle_t *bundle, const char *binary) {
   // clear context
   memset(ctx, 0, sizeof(eng_exec_context_t));
 
-  // set bundle and binary
+  // set bundle, binary and permissions
   ctx->bundle = bundle;
   ctx->binary = binary;
+  ctx->perms = perms;
 
   // clear screen
   gui_cleanup(false);
