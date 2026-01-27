@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pluginLaunchBinary string
+
 var pluginLaunchCmd = &cobra.Command{
 	Use:   "launch <name> [device]",
 	Short: "Launch a plugin on a device",
@@ -23,10 +25,17 @@ var pluginLaunchCmd = &cobra.Command{
 }
 
 func init() {
+	pluginLaunchCmd.Flags().StringVarP(&pluginLaunchBinary, "binary", "b", "", "Binary to launch with the plugin")
+
 	pluginCmd.AddCommand(pluginLaunchCmd)
 }
 
 func pluginLaunch(name, device string) error {
+	// check name
+	if name == "" {
+		panic("missing name")
+	}
+
 	// open device
 	var dev msg.Device
 	var err error
@@ -63,8 +72,15 @@ func pluginLaunch(name, device string) error {
 		return err
 	}
 
+	// prepare command
+	cmd := append([]byte{0x2}, []byte(name)...)
+	if pluginLaunchBinary != "" {
+		cmd = append(cmd, 0x0)
+		cmd = append(cmd, []byte(pluginLaunchBinary)...)
+	}
+
 	// launch plugin
-	err = sess.Send(0xA1, append([]byte{0x2}, []byte(name)...), 5*time.Second)
+	err = sess.Send(0xA1, cmd, 5*time.Second)
 	if err != nil {
 		return err
 	}
