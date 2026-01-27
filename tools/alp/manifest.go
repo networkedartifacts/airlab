@@ -67,15 +67,15 @@ func (m *Manifest) Validate() error {
 
 	// validate binary keys
 	for key := range m.Binary {
-		if key != "main" {
-			return fmt.Errorf("unsupported binary key: %q (only \"main\" is supported)", key)
+		if key != "main" && key != "screen" {
+			return fmt.Errorf("unsupported binary key: %q (only \"main\" and \"screen\" is supported)", key)
 		}
 	}
 
 	// validate config keys
 	for key := range m.Config {
-		if key != "main" {
-			return fmt.Errorf("unsupported config key: %q (only \"main\" is supported)", key)
+		if key != "main" && key != "screen" {
+			return fmt.Errorf("unsupported config key: %q (only \"main\" and \"screen\" is supported)", key)
 		}
 	}
 
