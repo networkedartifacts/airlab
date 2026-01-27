@@ -1415,7 +1415,7 @@ static void *eng_exec_task(void *arg) {
   bool ok = wasm_runtime_call_wasm(exec_env, func, 0, NULL);
 
   // unlock graphics
-  gfx_end(false, false);
+  gfx_end(false, true);
 
   // reset GPIOs
   gpio_reset_pin(AL_GPIO_A);
