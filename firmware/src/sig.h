@@ -39,7 +39,10 @@ typedef struct {
       float std;
       float fast;
     } scroll;
-    const char *file;  // launch
+    struct {
+      const char *file;
+      const char *binary;
+    } plugin;  // launch;
   };
 } sig_event_t;
 
