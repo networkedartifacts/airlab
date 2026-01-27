@@ -12,7 +12,16 @@ $1:
 	@if [ "$$(LAUNCH)" = "1" ]; then airlab plugin launch $1.alp; fi
 endef
 
-$(foreach t,adc config data gfx gpio hello http i2c info screen sen55 servo sprite weather,$(eval $(call build_task,$t)))
+define build_task_screen
+$1:
+	$$(COMPILE) -o ./$1/main.wasm ./$1/main.c
+	alpctl bundle ./$1 ./$1/$1.alp
+	@if [ "$$(UPLOAD)" = "1" ]; then alpctl upload ./$1/$1.alp; fi
+	@if [ "$$(LAUNCH)" = "1" ]; then alpctl -b screen launch $1.alp; fi
+endef
+
+$(foreach t,adc data config gfx gpio hello http i2c info sen55 servo sprite weather,$(eval $(call build_task,$t)))
+$(foreach t,screen,$(eval $(call build_task_screen,$t)))
 
 all: adc config data gfx gpio hello http i2c info screen sen55 servo sprite weather
 

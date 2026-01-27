@@ -17,7 +17,7 @@ int main() {
   // write text
   al_write(20, 20, 0, 16, 1, tmp_str, 0);
   al_write(AL_W - 20, 20, 0, 16, 1, hum_str, AL_WRITE_ALIGN_RIGHT);
-  al_write(AL_W / 2, AL_H/2-12, 0, 24, 1, co2_str, AL_WRITE_ALIGN_CENTER);
+  al_write(AL_W / 2, AL_H / 2 - 12, 0, 24, 1, co2_str, AL_WRITE_ALIGN_CENTER);
 
   return 0;
 }
