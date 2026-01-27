@@ -919,6 +919,35 @@ static void* scr_idle() {
   // set timeout return
   scr_return_timeout = scr_idle;
 
+  /* Custom Idle Screen */
+
+  for (;;) {
+    // get idle screen name
+    const char* name = naos_get_s("idle-screen");
+
+    // stop if no idle screen is set
+    if (name == NULL || strlen(name) == 0) {
+      break;
+    }
+
+    // draw idle screen
+    bool ok = eng_run(name, "screen");
+
+    // stop if screen failed to run
+    if (!ok) {
+      gui_cleanup(false);
+      break;
+    }
+
+    // sleep until woken
+    if (!scr_idle_sleep()) {
+      gui_cleanup(false);
+      return scr_return_unlock;
+    }
+  }
+
+  /* Default Screen */
+
   // begin draw
   gfx_begin(false, false);
 
