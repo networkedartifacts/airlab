@@ -40,6 +40,7 @@ typedef struct {
   const char *binary;
   eng_perm_t perms;
   lv_obj_t *canvas;
+  bool canvas_dirty;
   pthread_t thread;
   esp_http_client_config_t http_cfg;
   esp_http_client_handle_t http_client;
@@ -307,6 +308,10 @@ static int eng_exec_op_yield(wasm_exec_env_t env, int timeout, int flags) {
       break;
   }
 
+  // clear dirty flag
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+  ctx->canvas_dirty = 0;
+
   // lock graphics
   gfx_begin(flags & ENG_YIELD_REFRESH, flags & ENG_YIELD_INVERT);
 
@@ -329,6 +334,10 @@ static void eng_exec_op_delay(wasm_exec_env_t env, int ms) {
 
   // delay
   naos_delay(ms);
+
+  // clear dirty flag
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+  ctx->canvas_dirty = 0;
 
   // lock graphics
   gfx_begin(false, false);
@@ -362,6 +371,9 @@ static void eng_exec_op_clear(wasm_exec_env_t env, int c) {
 
   // clear canvas
   lv_canvas_fill_bg(ctx->canvas, eng_exec_color(c), LV_OPA_COVER);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
 }
 
 static void eng_exec_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2, int c, int b) {
@@ -387,6 +399,9 @@ static void eng_exec_op_line(wasm_exec_env_t env, int x1, int y1, int x2, int y2
   // draw line
   lv_point_t points[2] = {{x1, y1}, {x2, y2}};
   lv_canvas_draw_line(ctx->canvas, points, 2, &line_dsc);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
 }
 
 static void eng_exec_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, int c, int b) {
@@ -411,6 +426,9 @@ static void eng_exec_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, in
   rect_dsc.border_color = eng_exec_color(c);
   rect_dsc.border_width = b;
   lv_canvas_draw_rect(ctx->canvas, x, y, w, h, &rect_dsc);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
 }
 
 enum {
@@ -472,6 +490,9 @@ static void eng_exec_op_write(wasm_exec_env_t env, int x, int y, int s, int f, i
 
   // draw text
   lv_canvas_draw_text(ctx->canvas, x, y, w, &label_dsc, copy);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
 }
 
 static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, int s, int a, const uint8_t *i,
@@ -521,6 +542,9 @@ static void eng_exec_op_draw(wasm_exec_env_t env, int x, int y, int w, int h, in
 
   // draw image
   lv_canvas_draw_img(ctx->canvas, x, y, &img, &img_draw);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
 }
 
 enum {
@@ -855,6 +879,9 @@ static void eng_exec_op_sprite_draw(wasm_exec_env_t env, int n, int x, int y, in
 
   // draw image
   lv_canvas_draw_img(ctx->canvas, x, y, &img, &img_draw);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
 }
 
 static int eng_exec_op_sprite_read(wasm_exec_env_t env, int sprite, int x, int y) {
@@ -1519,7 +1546,7 @@ static void *eng_exec_task(void *arg) {
   bool ok = wasm_runtime_call_wasm(exec_env, func, 0, NULL);
 
   // unlock graphics
-  gfx_end(false, true);
+  gfx_end(false, ctx->canvas_dirty);
 
   // reset GPIOs
   gpio_reset_pin(AL_GPIO_A);
