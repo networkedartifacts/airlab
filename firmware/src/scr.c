@@ -257,6 +257,9 @@ typedef struct {
   const char* config__power_light;
   const char* config__wifi_network;
   const char* config__studio;
+  const char* config__ble_bonding;
+  const char* config__ble_clear;
+  const char* config__ble_cleared;
   const char* config__reset;
   const char* menu__no_data;
   const char* intro__hello1;
@@ -336,6 +339,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power_light = "Indicador de encendido",
             .config__wifi_network = "Red WiFi",
             .config__studio = "Usa Air Lab Console\npara cambiar este valor.",
+            .config__ble_bonding = "Bluetooth Bonding",
+            .config__ble_clear = "Borrar dispositivos BT",
+            .config__ble_cleared = "Dispositivos borrados!",
             .config__reset = "Resetear de fábrica",
             .menu__no_data = "Sin Datos",
             .intro__hello1 = "Hola! Yo soy el Profesor Robin,\ndirector científico en el Air Lab.",
@@ -425,6 +431,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power_light = "Betriebsanzeige",
             .config__wifi_network = "WiFi Netzwerk",
             .config__studio = "Verwende Air Lab Console\num diesen Wert zu ändern.",
+            .config__ble_bonding = "Bluetooth Bonding",
+            .config__ble_clear = "BT Geräte löschen",
+            .config__ble_cleared = "Geräte gelöscht!",
             .config__reset = "Zurücksetzen",
             .menu__no_data = "Keine Daten",
             .intro__hello1 = "Hi! Ich bin Professor Robin,\nWissenschaftsleiter am Air Lab.",
@@ -513,6 +522,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power_light = "Power Light",
             .config__wifi_network = "WiFi Network",
             .config__studio = "Use Air Lab Console\nto change this value.",
+            .config__ble_bonding = "Bluetooth Bonding",
+            .config__ble_clear = "Clear BT Devices",
+            .config__ble_cleared = "Devices cleared!",
             .config__reset = "Full Reset",
             .menu__no_data = "No Data",
             .intro__hello1 = "Hi! I'm Professor Robin,\nhead of sciences at Air Lab.",
@@ -1818,6 +1830,18 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 12: {
       return (gui_list_item_t){
+          .title = t->config__ble_bonding,
+          .info = naos_get_b("ble-bonding") ? t->on : t->off,
+      };
+    }
+    case 13: {
+      return (gui_list_item_t){
+          .title = t->config__ble_clear,
+          .info = t->execute,
+      };
+    }
+    case 14: {
+      return (gui_list_item_t){
           .title = t->config__reset,
           .info = t->execute,
       };
@@ -1838,7 +1862,7 @@ static void* scr_config() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(13, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(15, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_settings;
     }
@@ -1949,6 +1973,27 @@ static void* scr_config() {
       }
 
       case 12: {
+        // toggle BLE bonding
+        bool value = !naos_get_b("ble-bonding");
+        naos_set_b("ble-bonding", value);
+        if (gui_confirm(lvx_fmt("Bonding: %s\n\nRestart now?", value ? "ON" : "OFF"), scr_trans()->yes, scr_trans()->no,
+                        false, SCR_ACTION_TIMEOUT)) {
+          esp_restart();
+        }
+
+        break;
+      }
+
+      case 13: {
+        // clear BLE peers
+        naos_ble_peerlist_clear();
+        naos_ble_allowlist_clear();
+        gui_message(scr_trans()->config__ble_cleared, SCR_MSG_TIMEOUT);
+
+        break;
+      }
+
+      case 14: {
         // check recording
         if (rec_running()) {
           gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
@@ -1965,6 +2010,10 @@ static void* scr_config() {
 
         // reset settings
         naos_reset();
+
+        // reset BLE lists
+        naos_ble_peerlist_clear();
+        naos_ble_allowlist_clear();
 
         // show message
         gui_message(scr_trans()->reset__reset, SCR_MSG_TIMEOUT);

@@ -319,11 +319,10 @@ static void com_task() {
   // wait some time
   naos_delay(2000);
 
-  // TODO: Also require bonding for more security?
-
   // run network stack
   naos_ble_init((naos_ble_config_t){
       .pairing = true,
+      .bonding = naos_get_b("ble-bonding"),
   });
   naos_wifi_init();
   naos_mqtt_init(1);
@@ -353,6 +352,7 @@ static void com_task() {
 static naos_param_t com_params[] = {
     {.name = "mqtt-ha", .type = NAOS_BOOL, .sync_b = &com_mqtt_ha},
     {.name = "mqtt-ha-topic", .type = NAOS_STRING, .default_s = "homeassistant"},
+    {.name = "ble-bonding", .type = NAOS_BOOL},
 };
 
 void com_init() {
