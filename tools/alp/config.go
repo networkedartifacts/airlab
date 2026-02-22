@@ -148,7 +148,8 @@ const (
 	configFlagHint    byte = 1 << 5
 )
 
-func configTypeByte(typ ConfigType) byte {
+// ConfigValueTypeByte returns the type byte for a config type.
+func ConfigValueTypeByte(typ ConfigType) byte {
 	switch typ {
 	case ConfigTypeString:
 		return configTypeString
@@ -163,7 +164,8 @@ func configTypeByte(typ ConfigType) byte {
 	}
 }
 
-func configTypeFromByte(b byte) ConfigType {
+// ConfigTypeFromByte returns the config type for a type byte.
+func ConfigTypeFromByte(b byte) ConfigType {
 	switch b {
 	case configTypeString:
 		return ConfigTypeString
@@ -178,7 +180,8 @@ func configTypeFromByte(b byte) ConfigType {
 	}
 }
 
-func encodeConfigValue(typ ConfigType, value any) []byte {
+// EncodeConfigValue encodes a typed value into bytes.
+func EncodeConfigValue(typ ConfigType, value any) []byte {
 	switch typ {
 	case ConfigTypeString:
 		s := value.(string)
@@ -204,7 +207,8 @@ func encodeConfigValue(typ ConfigType, value any) []byte {
 	}
 }
 
-func decodeConfigValue(typ ConfigType, data []byte) (any, int) {
+// DecodeConfigValue decodes a typed value from bytes.
+func DecodeConfigValue(typ ConfigType, data []byte) (any, int) {
 	switch typ {
 	case ConfigTypeString:
 		n := bytes.IndexByte(data, 0)
@@ -271,7 +275,7 @@ func (s Config) Encode() (*Bundle, error) {
 		// encode items
 		for _, item := range section.Items {
 			// determine type byte
-			typ := configTypeByte(item.Type)
+			typ := ConfigValueTypeByte(item.Type)
 
 			// determine flags
 			var flags byte
@@ -310,21 +314,21 @@ func (s Config) Encode() (*Bundle, error) {
 
 			// write optional values
 			if item.Default != nil {
-				data = append(data, encodeConfigValue(item.Type, item.Default)...)
+				data = append(data, EncodeConfigValue(item.Type, item.Default)...)
 			}
 			if item.Min != nil {
-				data = append(data, encodeConfigValue(item.Type, item.Min)...)
+				data = append(data, EncodeConfigValue(item.Type, item.Min)...)
 			}
 			if item.Max != nil {
-				data = append(data, encodeConfigValue(item.Type, item.Max)...)
+				data = append(data, EncodeConfigValue(item.Type, item.Max)...)
 			}
 			if item.Step != nil {
-				data = append(data, encodeConfigValue(item.Type, item.Step)...)
+				data = append(data, EncodeConfigValue(item.Type, item.Step)...)
 			}
 			if len(item.Options) > 0 {
 				data = binary.LittleEndian.AppendUint16(data, uint16(len(item.Options)))
 				for _, opt := range item.Options {
-					data = append(data, encodeConfigValue(item.Type, opt.Value)...)
+					data = append(data, EncodeConfigValue(item.Type, opt.Value)...)
 					data = append(data, []byte(opt.Label)...)
 					data = append(data, 0)
 				}
@@ -422,7 +426,7 @@ func DecodeConfig(b *Bundle) (*Config, error) {
 		if idx > maxIdx {
 			return nil, fmt.Errorf("item %q: invalid section index %d", key, idx)
 		}
-		typ := configTypeFromByte(data[1])
+		typ := ConfigTypeFromByte(data[1])
 		if typ == "" {
 			return nil, fmt.Errorf("item %q: invalid type byte %d", key, data[1])
 		}
@@ -457,7 +461,7 @@ func DecodeConfig(b *Bundle) (*Config, error) {
 
 		// decode optional values
 		if flags&configFlagDefault != 0 {
-			val, n := decodeConfigValue(typ, data[off:])
+			val, n := DecodeConfigValue(typ, data[off:])
 			if n == 0 {
 				return nil, fmt.Errorf("item %q: failed to decode default", key)
 			}
@@ -465,7 +469,7 @@ func DecodeConfig(b *Bundle) (*Config, error) {
 			off += n
 		}
 		if flags&configFlagMin != 0 {
-			val, n := decodeConfigValue(typ, data[off:])
+			val, n := DecodeConfigValue(typ, data[off:])
 			if n == 0 {
 				return nil, fmt.Errorf("item %q: failed to decode min", key)
 			}
@@ -473,7 +477,7 @@ func DecodeConfig(b *Bundle) (*Config, error) {
 			off += n
 		}
 		if flags&configFlagMax != 0 {
-			val, n := decodeConfigValue(typ, data[off:])
+			val, n := DecodeConfigValue(typ, data[off:])
 			if n == 0 {
 				return nil, fmt.Errorf("item %q: failed to decode max", key)
 			}
@@ -481,7 +485,7 @@ func DecodeConfig(b *Bundle) (*Config, error) {
 			off += n
 		}
 		if flags&configFlagStep != 0 {
-			val, n := decodeConfigValue(typ, data[off:])
+			val, n := DecodeConfigValue(typ, data[off:])
 			if n == 0 {
 				return nil, fmt.Errorf("item %q: failed to decode step", key)
 			}
@@ -495,7 +499,7 @@ func DecodeConfig(b *Bundle) (*Config, error) {
 			count := int(binary.LittleEndian.Uint16(data[off:]))
 			off += 2
 			for i := 0; i < count; i++ {
-				val, n := decodeConfigValue(typ, data[off:])
+				val, n := DecodeConfigValue(typ, data[off:])
 				if n == 0 {
 					return nil, fmt.Errorf("item %q: failed to decode option %d value", key, i)
 				}
