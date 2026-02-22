@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var pluginLaunchBinary string
+var pluginLaunchMode string
 
 var pluginLaunchCmd = &cobra.Command{
 	Use:   "launch <name> [device]",
@@ -25,7 +25,7 @@ var pluginLaunchCmd = &cobra.Command{
 }
 
 func init() {
-	pluginLaunchCmd.Flags().StringVarP(&pluginLaunchBinary, "binary", "b", "", "Binary to launch with the plugin")
+	pluginLaunchCmd.Flags().StringVarP(&pluginLaunchMode, "mode", "b", "", "Mode to launch the plugin in.")
 
 	pluginCmd.AddCommand(pluginLaunchCmd)
 }
@@ -74,9 +74,9 @@ func pluginLaunch(name, device string) error {
 
 	// prepare command
 	cmd := append([]byte{0x2}, []byte(name)...)
-	if pluginLaunchBinary != "" {
+	if pluginLaunchMode != "" {
 		cmd = append(cmd, 0x0)
-		cmd = append(cmd, []byte(pluginLaunchBinary)...)
+		cmd = append(cmd, []byte(pluginLaunchMode)...)
 	}
 
 	// launch plugin
