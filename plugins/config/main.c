@@ -15,8 +15,8 @@ int main() {
   int ie = al_config_get_i("int-enum");
 
   // format string
-  char buf[32];
-  snprintf(buf, sizeof(buf), "%s / %d / %d / %f\n%s / %d", s, b, i, f, se, ie);
+  char buf[64];
+  snprintf(buf, sizeof(buf), "%s / %d / %d / %.2f\n%s / %d", s, b, i, f, se, ie);
 
   // write text
   al_write(AL_W / 2, (AL_H - 16) / 2, 0, 16, 1, buf, AL_WRITE_ALIGN_CENTER);
