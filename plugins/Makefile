@@ -15,7 +15,7 @@ endef
 define build_task_screen
 $1:
 	$$(COMPILE) -o ./$1/main.wasm ./$1/main.c
-	alpctl bundle ./$1 ./$1/$1.alp
+	airlab plugin  bundle ./$1 ./$1/$1.alp
 	@if [ "$$(UPLOAD)" = "1" ]; then alpctl upload ./$1/$1.alp; fi
 	@if [ "$$(LAUNCH)" = "1" ]; then alpctl -b screen launch $1.alp; fi
 endef

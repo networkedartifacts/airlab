@@ -1,4 +1,21 @@
 name: screen-example
 title: Screen Example
 version: v0.1.0
-screen: ./main.wasm
+binary:
+  screen: ./main.wasm
+config:
+  screen:
+    sections:
+      - title: Primary
+        items:
+          - key: string
+            title: Value
+            type: string
+            default: default
+            options:
+              - value: co2
+                label: CO2
+              - value: voc
+                label: VOC
+              - value: nox
+                label: NOX
