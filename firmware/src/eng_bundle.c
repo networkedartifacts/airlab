@@ -131,9 +131,9 @@ eng_bundle_t *eng_bundle_parse(void *buf, size_t len) {
   return b;
 }
 
-eng_bundle_t *eng_bundle_load(const char *name) {
+eng_bundle_t *eng_bundle_load(const char *file) {
   // get bundle size
-  int size = al_storage_stat(AL_STORAGE_INT, "engine", name);
+  int size = al_storage_stat(AL_STORAGE_INT, "engine", file);
   if (size < 0) {
     naos_log("eng_bundle_load: failed to get bundle size");
     return NULL;
@@ -147,7 +147,7 @@ eng_bundle_t *eng_bundle_load(const char *name) {
 
   // fill bundle buffer
   uint8_t *buffer = al_alloc(buffer_len);
-  if (!al_storage_read(AL_STORAGE_INT, "engine", name, buffer, 0, buffer_len)) {
+  if (!al_storage_read(AL_STORAGE_INT, "engine", file, buffer, 0, buffer_len)) {
     naos_log("eng_bundle_load: failed to fill bundle buffer");
     free(buffer);
     return NULL;
@@ -175,7 +175,7 @@ eng_bundle_t *eng_bundle_load(const char *name) {
     buffer = al_alloc(buffer_len);
 
     // read bundle header
-    if (!al_storage_read(AL_STORAGE_INT, "engine", name, buffer, 0, buffer_len)) {
+    if (!al_storage_read(AL_STORAGE_INT, "engine", file, buffer, 0, buffer_len)) {
       naos_log("eng_bundle_load: failed to read bundle header");
       free(buffer);
       return NULL;
@@ -196,7 +196,7 @@ eng_bundle_t *eng_bundle_load(const char *name) {
   }
 
   // set name
-  b->name = strdup(name);
+  b->file = strdup(file);
 
   return b;
 }
@@ -232,13 +232,13 @@ void *eng_bundle_read(eng_bundle_t *b, eng_bundle_section_t *s) {
   }
 
   // check file backing
-  if (!b->name) {
+  if (!b->file) {
     return NULL;
   }
 
   // read data
   void *data = al_alloc(s->len + 1);
-  if (!al_storage_read(AL_STORAGE_INT, "engine", b->name, data, s->off, s->len)) {
+  if (!al_storage_read(AL_STORAGE_INT, "engine", b->file, data, s->off, s->len)) {
     naos_log("eng_bundle_read: failed to read section '%s'", s->name);
     free(data);
     return NULL;
@@ -299,9 +299,9 @@ void eng_bundle_free(eng_bundle_t *b) {
     free(b->buffer);
   }
 
-  // free name
-  if (b->name) {
-    free(b->name);
+  // free file name
+  if (b->file) {
+    free(b->file);
   }
 
   // free bundle

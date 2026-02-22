@@ -1315,19 +1315,21 @@ static void *eng_exec_task(void *arg) {
   // get context
   eng_exec_context_t *ctx = arg;
 
-  // parse config defaults from plugin bundle
-  size_t defaults_len = 0;
-  void *defaults_data = eng_bundle_config(ctx->bundle, "main", &defaults_len);
+  // get plugin name
+  const char *name = eng_bundle_attr(ctx->bundle, "name", NULL);
+
+  // parse config schema from plugin bundle
+  size_t config_schema_len = 0;
+  void *defaults_data = eng_bundle_config(ctx->bundle, "main", &config_schema_len);
   if (defaults_data) {
-    ctx->config_schema = eng_bundle_parse(defaults_data, defaults_len);
+    ctx->config_schema = eng_bundle_parse(defaults_data, config_schema_len);
   }
 
   // load stored config bundle
-  const char *bundle_name = eng_bundle_attr(ctx->bundle, "name", NULL);
-  if (bundle_name) {
-    char config_file[96];
-    snprintf(config_file, sizeof(config_file), "%s.alc", bundle_name);
-    ctx->config_values = eng_bundle_load(config_file);
+  if (name) {
+    char values_file[96];
+    snprintf(values_file, sizeof(values_file), "%s.alc", name);
+    ctx->config_values = eng_bundle_load(values_file);
   }
 
   // prepare variables

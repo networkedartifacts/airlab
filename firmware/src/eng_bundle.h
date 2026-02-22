@@ -22,14 +22,14 @@ typedef struct {
 } eng_bundle_section_t;
 
 typedef struct {
-  char *name;
+  char *file;
   void *buffer;
   size_t buffer_len;
   eng_bundle_section_t *sections;
   uint16_t sections_num;
 } eng_bundle_t;
 
-eng_bundle_t *eng_bundle_load(const char *name);
+eng_bundle_t *eng_bundle_load(const char *file);
 eng_bundle_t *eng_bundle_parse(void *buf, size_t len);
 int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, eng_bundle_section_t **s);
 void *eng_bundle_read(eng_bundle_t *b, eng_bundle_section_t *s);
