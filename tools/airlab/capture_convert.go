@@ -17,7 +17,7 @@ import (
 const screenWidth = 296
 const screenHeight = 128
 
-var captureFormat string
+var captureConvertFormat string
 
 var captureConvertCmd = &cobra.Command{
 	Use:   "convert <glob>",
@@ -29,7 +29,7 @@ var captureConvertCmd = &cobra.Command{
 }
 
 func init() {
-	captureConvertCmd.Flags().StringVar(&captureFormat, "format", "png", "Set the output image format (png, bmp).")
+	captureConvertCmd.Flags().StringVar(&captureConvertFormat, "format", "png", "Set the output image format (png, bmp).")
 
 	captureCmd.AddCommand(captureConvertCmd)
 }
@@ -60,7 +60,7 @@ func captureConvert(glob string) error {
 
 		// encode image
 		var out bytes.Buffer
-		if captureFormat == "bmp" {
+		if captureConvertFormat == "bmp" {
 			err = bmp.Encode(&out, img)
 		} else {
 			err = png.Encode(&out, img)
@@ -70,7 +70,7 @@ func captureConvert(glob string) error {
 		}
 
 		// write file
-		err = os.WriteFile(strings.ReplaceAll(file, ".bin", "."+captureFormat), out.Bytes(), 0644)
+		err = os.WriteFile(strings.ReplaceAll(file, ".bin", "."+captureConvertFormat), out.Bytes(), 0644)
 		if err != nil {
 			return err
 		}

@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var captureFast bool
+var captureAnimateFast bool
 
 var captureAnimateCmd = &cobra.Command{
 	Use:   "animate <glob>",
@@ -24,7 +24,7 @@ var captureAnimateCmd = &cobra.Command{
 }
 
 func init() {
-	captureAnimateCmd.Flags().BoolVar(&captureFast, "fast", false, "Use a fixed frame delay for faster playback.")
+	captureAnimateCmd.Flags().BoolVar(&captureAnimateFast, "fast", false, "Use a fixed frame delay for faster playback.")
 
 	captureCmd.AddCommand(captureAnimateCmd)
 }
@@ -89,7 +89,7 @@ func captureAnimate(glob string) error {
 		delay := 100
 		if i < len(files)-1 {
 			delay = (files[i+1].millis - file.millis) / 10
-			if captureFast {
+			if captureAnimateFast {
 				delay = 5
 			}
 		}
