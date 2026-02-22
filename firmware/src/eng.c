@@ -154,6 +154,10 @@ bool eng_run_config(const char *file, const char *binary, eng_bundle_t *args) {
 
   // get plugin name
   const char *name = eng_bundle_attr(bundle, "name", NULL);
+  if (!name) {
+    eng_bundle_free(bundle);
+    return false;
+  }
 
   // parse config schema from plugin bundle
   eng_bundle_t *config_schema = NULL;
@@ -165,7 +169,7 @@ bool eng_run_config(const char *file, const char *binary, eng_bundle_t *args) {
 
   // load stored config bundle (if not already set externally)
   eng_bundle_t *config_values = args;
-  if (!config_values && name) {
+  if (!config_values) {
     char values_file[96];
     snprintf(values_file, sizeof(values_file), "%s.alc", name);
     config_values = eng_bundle_load(values_file);
