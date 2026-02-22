@@ -8,6 +8,8 @@
 #include <art32/numbers.h>
 #include <lvgl.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 #include <al/core.h>
 #include <al/accel.h>
@@ -32,6 +34,7 @@
 #include "hmi.h"
 #include "dat.h"
 #include "eng.h"
+#include "eng_bundle.h"
 
 #define SCR_MSG_TIMEOUT 2000
 #define SCR_IDLE_TIMEOUT 30000
@@ -43,6 +46,7 @@
 
 static stm_action_t scr_action = 0;
 DEV_KEEP static uint16_t scr_file = 0;
+DEV_KEEP static uint16_t scr_screen_index = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
 
@@ -947,31 +951,74 @@ static void* scr_idle() {
   // set timeout return
   scr_return_timeout = scr_idle;
 
-  /* Custom Idle Screen */
+  /* Multi-Screen Idle */
 
-  for (;;) {
-    // get idle screen name
-    const char* name = naos_get_s("idle-screen");
+  // load screen bundle
+  eng_bundle_t* screens = eng_bundle_load("config", "screens.alb");
 
-    // stop if no idle screen is set
-    if (name == NULL || strlen(name) == 0) {
-      break;
+  // check if present
+  if (screens) {
+    // count screens
+    uint16_t count = 0;
+    for (int i = 0; i < screens->sections_num; i++) {
+      if (screens->sections[i].type == ENG_BUNDLE_TYPE_ATTR) {
+        count++;
+      }
     }
 
-    // draw idle screen
-    bool ok = eng_run(name, "screen");
+    // check if there are screens
+    if (count > 0) {
+      for (;;) {
+        // wrap index
+        if (scr_screen_index >= count) {
+          scr_screen_index = 0;
+        }
 
-    // stop if screen failed to run
-    if (!ok) {
-      gui_cleanup(false);
-      break;
+        // prepare index
+        char idx[8] = {0};
+        snprintf(idx, sizeof(idx), "%d", scr_screen_index);
+
+        // get screen entry
+        const char* file = eng_bundle_attr(screens, idx, NULL);
+
+        // parse args from config section
+        size_t a_len = 0;
+        void* a_data = eng_bundle_config(screens, idx, &a_len);
+
+        // parse args bundle if present
+        eng_bundle_t* args = NULL;
+        if (a_data && a_len > 0) {
+          args = eng_bundle_parse(a_data, a_len);
+        }
+
+        // advance index for next wake
+        scr_screen_index++;
+
+        // run screen
+        bool ok = eng_run_config(file, "screen", args);
+
+        // free args bundle
+        if (args) {
+          eng_bundle_free(args);
+        }
+
+        // stop if screen failed to run
+        if (!ok) {
+          gui_cleanup(false);
+          break;
+        }
+
+        // sleep until woken
+        if (!scr_idle_sleep()) {
+          eng_bundle_free(screens);
+          gui_cleanup(false);
+          return scr_return_unlock;
+        }
+      }
     }
 
-    // sleep until woken
-    if (!scr_idle_sleep()) {
-      gui_cleanup(false);
-      return scr_return_unlock;
-    }
+    // free screens bundle
+    eng_bundle_free(screens);
   }
 
   /* Default Screen */

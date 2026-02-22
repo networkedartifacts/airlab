@@ -76,7 +76,6 @@ static naos_param_t params[] = {
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},
     {.name = "fahrenheit", .type = NAOS_BOOL, .default_b = false},
     {.name = "developer", .type = NAOS_BOOL, .default_b = true},
-    {.name = "idle-screen", .type = NAOS_STRING},
 };
 
 static naos_config_t config = {
