@@ -74,7 +74,7 @@ void eng_reload() {
     info->size = al_storage_stat(AL_STORAGE_INT, ENG_DIR, info->file);
 
     // peek bundle
-    eng_bundle_t *b = eng_bundle_load(info->file);
+    eng_bundle_t *b = eng_bundle_load(ENG_DIR, info->file);
     if (!b) {
       naos_log("eng_reload: failed to peek bundle '%s'", info->file);
       continue;
@@ -147,7 +147,7 @@ bool eng_run_config(const char *file, const char *mode, eng_bundle_t *args) {
   }
 
   // load bundle
-  eng_bundle_t *bundle = eng_bundle_load(file);
+  eng_bundle_t *bundle = eng_bundle_load(ENG_DIR, file);
   if (!bundle) {
     return false;
   }
@@ -159,12 +159,14 @@ bool eng_run_config(const char *file, const char *mode, eng_bundle_t *args) {
     return false;
   }
 
-  // parse config schema from plugin bundle
+  // load config schema from bundle
+  size_t cs_len = 0;
+  void *ca_data = eng_bundle_config(bundle, mode, &cs_len);
+
+  // parse config schema if present
   eng_bundle_t *config_schema = NULL;
-  size_t config_schema_len = 0;
-  void *defaults_data = eng_bundle_config(bundle, mode, &config_schema_len);
-  if (defaults_data) {
-    config_schema = eng_bundle_parse(defaults_data, config_schema_len);
+  if (ca_data) {
+    config_schema = eng_bundle_parse(ca_data, cs_len);
   }
 
   // load stored config bundle (if not already set externally)
@@ -172,7 +174,7 @@ bool eng_run_config(const char *file, const char *mode, eng_bundle_t *args) {
   if (!config_values) {
     char values_file[96];
     snprintf(values_file, sizeof(values_file), "%s.alc", name);
-    config_values = eng_bundle_load(values_file);
+    config_values = eng_bundle_load(ENG_DIR, values_file);
   }
 
   // start execution
