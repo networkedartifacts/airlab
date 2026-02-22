@@ -22,7 +22,7 @@ var screensShowCmd = &cobra.Command{
 }
 
 var screensSetCmd = &cobra.Command{
-	Use:   "set <index> <plugin> [key=value...]",
+	Use:   "set <id> <plugin> [key=value...]",
 	Short: "Set an idle screen entry",
 	Args:  cobra.MinimumNArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -31,7 +31,7 @@ var screensSetCmd = &cobra.Command{
 }
 
 var screensClearCmd = &cobra.Command{
-	Use:   "clear <index>",
+	Use:   "clear <id>",
 	Short: "Clear an idle screen entry",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -61,13 +61,10 @@ func screensShow() error {
 		return err
 	}
 
-	// collect entries
-	entries := map[string]string{}
+	// collect configs by id
 	configs := map[string]*alp.Bundle{}
 	for _, sec := range bundle.Sections {
-		if sec.Type == alp.BundleTypeAttr {
-			entries[sec.Name] = string(sec.Data)
-		} else if sec.Type == alp.BundleTypeConfig {
+		if sec.Type == alp.BundleTypeConfig {
 			cb, err := alp.DecodeBundle(sec.Data)
 			if err == nil {
 				configs[sec.Name] = cb
@@ -75,15 +72,27 @@ func screensShow() error {
 		}
 	}
 
+	// collect screens in order
+	type screen struct {
+		id     string
+		plugin string
+	}
+	var screens []screen
+	for _, sec := range bundle.Sections {
+		if sec.Type == alp.BundleTypeAttr {
+			screens = append(screens, screen{id: sec.Name, plugin: string(sec.Data)})
+		}
+	}
+
 	// print entries
-	if len(entries) == 0 {
+	if len(screens) == 0 {
 		fmt.Printf("==> No screens configured.\n")
 		return nil
 	}
-	fmt.Printf("==> Screens: %d\n", len(entries))
-	for index, plugin := range entries {
-		fmt.Printf("  %s: %s\n", index, plugin)
-		if cb, ok := configs[index]; ok {
+	fmt.Printf("==> Screens: %d\n", len(screens))
+	for i, s := range screens {
+		fmt.Printf("  %d: %s (%s)\n", i, s.id, s.plugin)
+		if cb, ok := configs[s.id]; ok {
 			for _, sec := range cb.Sections {
 				if sec.Type != alp.BundleTypeBinary || len(sec.Data) < 2 {
 					continue
@@ -104,7 +113,7 @@ func screensShow() error {
 	return nil
 }
 
-func screensSet(index, plugin string, pairs []string) error {
+func screensSet(id, plugin string, pairs []string) error {
 	// open device
 	man, err := filesOpenDevice(screensDevice)
 	if err != nil {
@@ -118,13 +127,13 @@ func screensSet(index, plugin string, pairs []string) error {
 		return err
 	}
 
-	// remove existing sections with matching index
-	screensRemoveSections(bundle, index)
+	// remove existing sections with matching id
+	screensRemoveSections(bundle, id)
 
 	// add attr section
 	bundle.Sections = append(bundle.Sections, alp.BundleSection{
 		Type: alp.BundleTypeAttr,
-		Name: index,
+		Name: id,
 		Data: []byte(plugin),
 	})
 
@@ -149,7 +158,7 @@ func screensSet(index, plugin string, pairs []string) error {
 		}
 		bundle.Sections = append(bundle.Sections, alp.BundleSection{
 			Type: alp.BundleTypeConfig,
-			Name: index,
+			Name: id,
 			Data: config.Encode(),
 		})
 	}
@@ -161,12 +170,12 @@ func screensSet(index, plugin string, pairs []string) error {
 	}
 
 	// log
-	fmt.Printf("==> Set: %s (%s)\n", index, plugin)
+	fmt.Printf("==> Set: %s (%s)\n", id, plugin)
 
 	return nil
 }
 
-func screensClear(index string) error {
+func screensClear(id string) error {
 	// open device
 	man, err := filesOpenDevice(screensDevice)
 	if err != nil {
@@ -180,8 +189,8 @@ func screensClear(index string) error {
 		return err
 	}
 
-	// remove sections with matching index
-	screensRemoveSections(bundle, index)
+	// remove sections with matching id
+	screensRemoveSections(bundle, id)
 
 	// upload bundle
 	err = screensUpload(man, bundle)
@@ -190,7 +199,7 @@ func screensClear(index string) error {
 	}
 
 	// log
-	fmt.Printf("==> Cleared: %s\n", index)
+	fmt.Printf("==> Cleared: %s\n", id)
 
 	return nil
 }
@@ -269,10 +278,10 @@ func screensInferValue(raw string) (alp.ConfigType, any) {
 	return alp.ConfigTypeString, raw
 }
 
-func screensRemoveSections(bundle *alp.Bundle, index string) {
+func screensRemoveSections(bundle *alp.Bundle, id string) {
 	var filtered []alp.BundleSection
 	for _, sec := range bundle.Sections {
-		if sec.Name == index && (sec.Type == alp.BundleTypeAttr || sec.Type == alp.BundleTypeConfig) {
+		if sec.Name == id && (sec.Type == alp.BundleTypeAttr || sec.Type == alp.BundleTypeConfig) {
 			continue
 		}
 		filtered = append(filtered, sec)
