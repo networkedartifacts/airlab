@@ -29,6 +29,7 @@ typedef struct {
 } eng_bundle_t;
 
 eng_bundle_t *eng_bundle_load(const char *name);
+eng_bundle_t *eng_bundle_parse(void *buf, size_t len);
 int eng_bundle_locate(eng_bundle_t *b, eng_bundle_type_t t, const char *name, eng_bundle_section_t **s);
 void *eng_bundle_read(eng_bundle_t *b, eng_bundle_section_t *s);
 void *eng_bundle_get(eng_bundle_t *b, eng_bundle_type_t t, const char *name, size_t *len);

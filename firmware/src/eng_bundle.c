@@ -90,6 +90,47 @@ static bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) 
   return true;
 }
 
+eng_bundle_t *eng_bundle_parse(void *buf, size_t len) {
+  // prepare bundle iterator
+  eng_bundle_iter_t iter;
+  if (!eng_bundle_iter_init(&iter, buf, len)) {
+    return NULL;
+  }
+
+  // allocate bundle
+  eng_bundle_t *b = al_alloc(sizeof(eng_bundle_t));
+
+  // prepare bundle
+  *b = (eng_bundle_t){
+      .buffer = buf,
+      .buffer_len = len,
+  };
+
+  // allocate sections
+  b->sections = al_calloc(iter.sections, sizeof(eng_bundle_section_t));
+  b->sections_num = iter.sections;
+
+  // parse sections
+  for (int i = 0; i < iter.sections; i++) {
+    eng_bundle_section_t *s = &b->sections[i];
+    if (!eng_bundle_iter_next(&iter, s)) {
+      eng_bundle_free(b);
+      return NULL;
+    }
+  }
+
+  // print sections
+  if (ENG_BUNDLE_DEBUG) {
+    naos_log("eng_bundle_parse: found %d sections", b->sections_num);
+    for (int i = 0; i < b->sections_num; i++) {
+      eng_bundle_section_t *section = &b->sections[i];
+      naos_log("[%d]: type=%d name='%s' len=%zu", i, section->type, section->name, section->len);
+    }
+  }
+
+  return b;
+}
+
 eng_bundle_t *eng_bundle_load(const char *name) {
   // get bundle size
   int size = al_storage_stat(AL_STORAGE_INT, "engine", name);
@@ -147,37 +188,15 @@ eng_bundle_t *eng_bundle_load(const char *name) {
     }
   }
 
-  // allocate bundle
-  eng_bundle_t *b = al_alloc(sizeof(eng_bundle_t));
-
-  // prepare bundle
-  *b = (eng_bundle_t){
-      .name = strdup(name),
-      .buffer = buffer,
-      .buffer_len = buffer_len,
-  };
-
-  // allocate sections
-  b->sections = al_calloc(iter.sections, sizeof(eng_bundle_section_t));
-  b->sections_num = iter.sections;
-
-  // parse sections
-  for (int i = 0; i < iter.sections; i++) {
-    eng_bundle_section_t *s = &b->sections[i];
-    if (!eng_bundle_iter_next(&iter, s)) {
-      eng_bundle_free(b);
-      return NULL;
-    }
+  // parse bundle
+  eng_bundle_t *b = eng_bundle_parse(buffer, buffer_len);
+  if (!b) {
+    free(buffer);
+    return NULL;
   }
 
-  // print sections
-  if (ENG_BUNDLE_DEBUG) {
-    naos_log("eng_bundle_load: found %d sections", b->sections_num);
-    for (int i = 0; i < b->sections_num; i++) {
-      eng_bundle_section_t *section = &b->sections[i];
-      naos_log("[%d]: type=%d name='%s' len=%zu", i, section->type, section->name, section->len);
-    }
-  }
+  // set name
+  b->name = strdup(name);
 
   return b;
 }
@@ -208,8 +227,13 @@ void *eng_bundle_read(eng_bundle_t *b, eng_bundle_section_t *s) {
   }
 
   // return data from buffer, if possible
-  if (s->off + s->len < b->buffer_len) {
+  if (s->off + s->len <= b->buffer_len) {
     return b->buffer + s->off;
+  }
+
+  // check file backing
+  if (!b->name) {
+    return NULL;
   }
 
   // read data
