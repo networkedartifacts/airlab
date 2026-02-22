@@ -135,14 +135,17 @@ bool eng_run(const char *file, const char *mode) {
 }
 
 bool eng_run_config(const char *file, const char *mode, eng_bundle_t *args) {
+  // determine modes
+  bool is_main = strcmp(mode, "main") == 0;
+  bool is_screen = strcmp(mode, "screen") == 0;
+
   // determine permissions
   eng_perm_t perms = 0;
-  if (strcmp(mode, "main") == 0) {
+  if (is_main) {
     perms = ENG_PERM_ALL;
-  } else if (strcmp(mode, "screen") == 0) {
+  } else if (is_screen) {
     perms = ENG_PERM_GRAPHICS;
-  }
-  if (perms == 0) {
+  } else {
     return false;
   }
 
@@ -169,12 +172,16 @@ bool eng_run_config(const char *file, const char *mode, eng_bundle_t *args) {
     config_schema = eng_bundle_parse(ca_data, cs_len);
   }
 
-  // load stored config bundle (if not already set externally)
-  eng_bundle_t *config_values = args;
-  if (!config_values) {
-    char values_file[96];
-    snprintf(values_file, sizeof(values_file), "%s.alc", name);
-    config_values = eng_bundle_load(ENG_DIR, values_file);
+  // load/assign config values, if schema present
+  eng_bundle_t *config_values = NULL;
+  if (config_schema) {
+    if (is_screen) {
+      config_values = args;
+    } else {
+      char values_file[96];
+      snprintf(values_file, sizeof(values_file), "%s.alc", name);
+      config_values = eng_bundle_load(ENG_DIR, values_file);
+    }
   }
 
   // start execution
