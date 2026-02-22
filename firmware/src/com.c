@@ -35,7 +35,7 @@ typedef enum {
 static bool com_mqtt_ha = false;
 static bool com_did_start = false;
 static char *com_plugin_file = NULL;
-static char *com_plugin_binary = NULL;
+static char *com_plugin_mode = NULL;
 static uint16_t com_log_sessions[16] = {0};
 
 static naos_msg_reply_t com_cmd_sensor_read(naos_msg_t msg) {
@@ -102,7 +102,7 @@ static naos_msg_reply_t com_cmd_sensor_read(naos_msg_t msg) {
 
 static naos_msg_reply_t com_cmd_signal_launch(naos_msg_t msg) {
   // command structure:
-  // FILE (*) [ | 0 | BINARY (*) ]
+  // FILE (*) [ | 0 | MODE (*) ]
 
   // check length
   if (msg.len == 0) {
@@ -121,29 +121,29 @@ static naos_msg_reply_t com_cmd_signal_launch(naos_msg_t msg) {
     return NAOS_MSG_INVALID;
   }
 
-  // free previous plugin file and binary
+  // free previous plugin file and mode
   if (com_plugin_file) {
     free(com_plugin_file);
   }
-  if (com_plugin_binary) {
-    free(com_plugin_binary);
+  if (com_plugin_mode) {
+    free(com_plugin_mode);
   }
 
   // copy plugin file
   com_plugin_file = strdup((const char *)msg.data);
 
-  // copy plugin binary
+  // copy plugin mo
   if (bin_len > 0 && msg.data[file_len + 1] != '\0') {
-    com_plugin_binary = strdup((const char *)&msg.data[file_len + 1]);
+    com_plugin_mode = strdup((const char *)&msg.data[file_len + 1]);
   } else {
-    com_plugin_binary = strdup("main");
+    com_plugin_mode = strdup("main");
   }
 
   // signal launch
   sig_dispatch((sig_event_t){
       .type = SIG_LAUNCH,
       .plugin.file = com_plugin_file,
-      .plugin.binary = com_plugin_binary,
+      .plugin.mode = com_plugin_mode,
   });
 
   return NAOS_MSG_ACK;

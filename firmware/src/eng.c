@@ -129,17 +129,17 @@ eng_plugin_t *eng_get(size_t index) {
   return &eng_list[index];
 }
 
-bool eng_run(const char *file, const char *binary) {
+bool eng_run(const char *file, const char *mode) {
   // run with no config
-  return eng_run_config(file, binary, NULL);
+  return eng_run_config(file, mode, NULL);
 }
 
-bool eng_run_config(const char *file, const char *binary, eng_bundle_t *args) {
+bool eng_run_config(const char *file, const char *mode, eng_bundle_t *args) {
   // determine permissions
   eng_perm_t perms = 0;
-  if (strcmp(binary, "main") == 0) {
+  if (strcmp(mode, "main") == 0) {
     perms = ENG_PERM_ALL;
-  } else if (strcmp(binary, "screen") == 0) {
+  } else if (strcmp(mode, "screen") == 0) {
     perms = ENG_PERM_GRAPHICS;
   }
   if (perms == 0) {
@@ -162,7 +162,7 @@ bool eng_run_config(const char *file, const char *binary, eng_bundle_t *args) {
   // parse config schema from plugin bundle
   eng_bundle_t *config_schema = NULL;
   size_t config_schema_len = 0;
-  void *defaults_data = eng_bundle_config(bundle, binary, &config_schema_len);
+  void *defaults_data = eng_bundle_config(bundle, mode, &config_schema_len);
   if (defaults_data) {
     config_schema = eng_bundle_parse(defaults_data, config_schema_len);
   }
@@ -176,7 +176,7 @@ bool eng_run_config(const char *file, const char *binary, eng_bundle_t *args) {
   }
 
   // start execution
-  void *ref = eng_exec_start(bundle, binary, perms, config_schema, config_values);
+  void *ref = eng_exec_start(bundle, mode, perms, config_schema, config_values);
   if (!ref) {
     if (config_values && config_values != args) {
       eng_bundle_free(config_values);

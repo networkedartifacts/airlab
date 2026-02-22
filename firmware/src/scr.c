@@ -102,7 +102,7 @@ static void scr_power_off(bool low_power, bool msg) {
   al_power_off();
 }
 
-static void scr_launch(const char* file, const char* binary) {
+static void scr_launch(const char* file, const char* mode) {
   // prepare flag
   bool updated = false;
 
@@ -116,10 +116,10 @@ static void scr_launch(const char* file, const char* binary) {
     }
 
     // determine if screen
-    bool screen = strcmp(binary, "screen") == 0;
+    bool screen = strcmp(mode, "screen") == 0;
 
     // run plugin
-    bool ok = eng_run(file, binary);
+    bool ok = eng_run(file, mode);
 
     // await button or re-launch for screens
     if (screen && ok) {
@@ -129,7 +129,7 @@ static void scr_launch(const char* file, const char* binary) {
       // handle launch
       if (event.type == SIG_LAUNCH) {
         file = event.plugin.file;
-        binary = event.plugin.binary;
+        mode = event.plugin.mode;
         updated = true;
         continue;
       }
@@ -164,7 +164,7 @@ static bool scr_idle_sleep() {
     // start engine on launch
     if (event.type == SIG_LAUNCH) {
       // run engine
-      scr_launch(event.plugin.file, event.plugin.binary);
+      scr_launch(event.plugin.file, event.plugin.mode);
 
       return false;
     }
@@ -2949,7 +2949,7 @@ static void* scr_menu() {
     // start engine on launch
     if (event.type == SIG_LAUNCH) {
       // run engine
-      scr_launch(event.plugin.file, event.plugin.binary);
+      scr_launch(event.plugin.file, event.plugin.mode);
 
       return scr_menu;
     }

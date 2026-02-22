@@ -18,7 +18,7 @@ void eng_reload();
 size_t eng_num();
 eng_plugin_t* eng_get(size_t index);
 
-bool eng_run(const char* file, const char* binary);
-bool eng_run_config(const char* file, const char* binary, eng_bundle_t* args);
+bool eng_run(const char* file, const char* mode);
+bool eng_run_config(const char* file, const char* mode, eng_bundle_t* args);
 
 #endif  // ENG_H

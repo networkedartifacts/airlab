@@ -41,7 +41,7 @@ typedef struct {
     } scroll;
     struct {
       const char *file;
-      const char *binary;
+      const char *mode;
     } plugin;  // launch;
   };
 } sig_event_t;
