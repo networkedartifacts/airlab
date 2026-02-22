@@ -85,9 +85,15 @@ func pluginConfig(dir string, pairs []string, device string, del bool) error {
 		return nil
 	}
 
+	// get main config
+	mainConfig, ok := manifest.Config["main"]
+	if !ok || len(mainConfig.Sections) == 0 {
+		return fmt.Errorf("no config defined in manifest")
+	}
+
 	// build type map from schema
 	typeMap := map[string]alp.ConfigType{}
-	for _, section := range manifest.Config.Sections {
+	for _, section := range mainConfig.Sections {
 		for _, item := range section.Items {
 			typeMap[item.Key] = item.Type
 		}

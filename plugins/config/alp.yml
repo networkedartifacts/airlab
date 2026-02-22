@@ -1,9 +1,11 @@
 name: config-example
 title: Config Example
 version: v0.1.0
-binary: ./main.wasm
+binary:
+  main: ./main.wasm
 config:
-  sections:
+  main:
+    sections:
     - title: General
       items:
         - key: string

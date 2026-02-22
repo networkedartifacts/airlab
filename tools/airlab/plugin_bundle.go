@@ -15,12 +15,12 @@ import (
 )
 
 type pluginManifest struct {
-	Name    string     `yaml:"name"`
-	Title   string     `yaml:"title"`
-	Version string     `yaml:"version"`
-	Binary  string     `yaml:"binary"`
-	Sprites []string   `yaml:"sprites"`
-	Config  alp.Config `yaml:"config"`
+	Name    string                `yaml:"name"`
+	Title   string                `yaml:"title"`
+	Version string                `yaml:"version"`
+	Binary  map[string]string     `yaml:"binary"`
+	Sprites []string              `yaml:"sprites"`
+	Config  map[string]alp.Config `yaml:"config"`
 }
 
 var pluginBundleCmd = &cobra.Command{
@@ -67,6 +67,20 @@ func pluginBundle(dir, out string) error {
 		return fmt.Errorf("invalid version")
 	}
 
+	// validate binary keys
+	for key := range manifest.Binary {
+		if key != "main" {
+			return fmt.Errorf("unsupported binary key: %q (only \"main\" is supported)", key)
+		}
+	}
+
+	// validate config keys
+	for key := range manifest.Config {
+		if key != "main" {
+			return fmt.Errorf("unsupported config key: %q (only \"main\" is supported)", key)
+		}
+	}
+
 	// resolves sprites
 	var sprites []string
 	for _, sprite := range manifest.Sprites {
@@ -81,7 +95,11 @@ func pluginBundle(dir, out string) error {
 	fmt.Printf("==> Name: %s\n", manifest.Name)
 	fmt.Printf("==> Title: %s\n", manifest.Title)
 	fmt.Printf("==> Version: %s\n", manifest.Version)
-	fmt.Printf("==> Binary: %s\n", manifest.Binary)
+
+	// print binaries
+	for key, bin := range manifest.Binary {
+		fmt.Printf("==> Binary: %s (%s)\n", bin, key)
+	}
 
 	// print sprites
 	if len(sprites) > 0 {
@@ -91,13 +109,15 @@ func pluginBundle(dir, out string) error {
 		}
 	}
 
-	// print config
-	if len(manifest.Config.Sections) > 0 {
-		fmt.Printf("Config:\n")
-		for _, section := range manifest.Config.Sections {
-			fmt.Printf(" - %s\n", section.Title)
-			for _, item := range section.Items {
-				fmt.Printf("   - %s (%s)\n", item.Key, item.Type)
+	// print configs
+	for key, cfg := range manifest.Config {
+		if len(cfg.Sections) > 0 {
+			fmt.Printf("Config (%s):\n", key)
+			for _, section := range cfg.Sections {
+				fmt.Printf(" - %s\n", section.Title)
+				for _, item := range section.Items {
+					fmt.Printf("   - %s (%s)\n", item.Key, item.Type)
+				}
 			}
 		}
 	}
@@ -112,17 +132,19 @@ func pluginBundle(dir, out string) error {
 	bundle.AddAttr("title", []byte(manifest.Title))
 	bundle.AddAttr("version", []byte(manifest.Version))
 
-	// add binary
-	binPath := filepath.Join(root, manifest.Binary)
-	binData, err := os.ReadFile(binPath)
-	if err != nil {
-		return err
+	// add binaries
+	for key, bin := range manifest.Binary {
+		binPath := filepath.Join(root, bin)
+		binData, err := os.ReadFile(binPath)
+		if err != nil {
+			return err
+		}
+		bundle.Sections = append(bundle.Sections, alp.BundleSection{
+			Type: alp.BundleTypeBinary,
+			Name: key,
+			Data: binData,
+		})
 	}
-	bundle.Sections = append(bundle.Sections, alp.BundleSection{
-		Type: alp.BundleTypeBinary,
-		Name: "main",
-		Data: binData,
-	})
 
 	// add sprites
 	for _, sprite := range sprites {
@@ -141,17 +163,19 @@ func pluginBundle(dir, out string) error {
 		})
 	}
 
-	// add config
-	if len(manifest.Config.Sections) > 0 {
-		configBundle, err := manifest.Config.Encode()
-		if err != nil {
-			return fmt.Errorf("config: %w", err)
+	// add configs
+	for key, cfg := range manifest.Config {
+		if len(cfg.Sections) > 0 {
+			configBundle, err := cfg.Encode()
+			if err != nil {
+				return fmt.Errorf("config %q: %w", key, err)
+			}
+			bundle.Sections = append(bundle.Sections, alp.BundleSection{
+				Type: alp.BundleTypeConfig,
+				Name: key,
+				Data: configBundle.Encode(),
+			})
 		}
-		bundle.Sections = append(bundle.Sections, alp.BundleSection{
-			Type: alp.BundleTypeConfig,
-			Name: "main",
-			Data: configBundle.Encode(),
-		})
 	}
 
 	// determine output file

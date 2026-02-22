@@ -1,4 +1,5 @@
 name: weather-example
 title: Weather Example
 version: v0.1.0
-binary: ./main.wasm
+binary:
+  main: ./main.wasm
