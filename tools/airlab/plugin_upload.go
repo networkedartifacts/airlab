@@ -8,18 +8,31 @@ import (
 
 	"github.com/256dpi/naos/pkg/msg"
 	"github.com/256dpi/naos/pkg/serial"
+	"github.com/spf13/cobra"
 )
 
-func upload(input, device string) {
-	// get params
-	if input == "" {
-		panic("missing input")
-	}
+var pluginUploadCmd = &cobra.Command{
+	Use:   "upload <input> [device]",
+	Short: "Upload a plugin bundle to a device",
+	Args:  cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		device := ""
+		if len(args) > 1 {
+			device = args[1]
+		}
+		return pluginUpload(args[0], device)
+	},
+}
 
+func init() {
+	pluginCmd.AddCommand(pluginUploadCmd)
+}
+
+func pluginUpload(input, device string) error {
 	// read file
 	data, err := os.ReadFile(input)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// get file name
@@ -36,7 +49,7 @@ func upload(input, device string) {
 		dev, err = serial.OpenBest()
 	}
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// log
@@ -47,7 +60,7 @@ func upload(input, device string) {
 	defer man.Deactivate()
 	err = man.Activate()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// get parameters
@@ -70,7 +83,7 @@ func upload(input, device string) {
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// print info
@@ -91,9 +104,11 @@ func upload(input, device string) {
 		}, time.Minute)
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// log
 	fmt.Printf("==> Done!\n")
+
+	return nil
 }

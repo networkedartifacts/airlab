@@ -6,14 +6,27 @@ import (
 
 	"github.com/256dpi/naos/pkg/msg"
 	"github.com/256dpi/naos/pkg/serial"
+	"github.com/spf13/cobra"
 )
 
-func launch(name, device string) {
-	// check name
-	if name == "" {
-		panic("missing name")
-	}
+var pluginLaunchCmd = &cobra.Command{
+	Use:   "launch <name> [device]",
+	Short: "Launch a plugin on a device",
+	Args:  cobra.RangeArgs(1, 2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		device := ""
+		if len(args) > 1 {
+			device = args[1]
+		}
+		return pluginLaunch(args[0], device)
+	},
+}
 
+func init() {
+	pluginCmd.AddCommand(pluginLaunchCmd)
+}
+
+func pluginLaunch(name, device string) error {
 	// open device
 	var dev msg.Device
 	var err error
@@ -23,7 +36,7 @@ func launch(name, device string) {
 		dev, err = serial.OpenBest()
 	}
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// log
@@ -34,26 +47,26 @@ func launch(name, device string) {
 	defer man.Deactivate()
 	err = man.Activate()
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// create session
 	sess, err := man.NewSession()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer sess.End(0)
 
 	// kill running plugin
 	err = sess.Send(0xA1, []byte{0x3}, 5*time.Second)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// launch plugin
 	err = sess.Send(0xA1, append([]byte{0x2}, []byte(name)...), 5*time.Second)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// log
@@ -62,7 +75,7 @@ func launch(name, device string) {
 	// start log streaming
 	err = sess.Send(0xA1, []byte{0x4}, 5*time.Second)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// TODO: Prevent session timeout.
@@ -71,7 +84,7 @@ func launch(name, device string) {
 	for {
 		log, err := sess.Receive(0xA1, false, time.Minute)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		fmt.Printf("==> Log: %s\n", string(log))
 	}

@@ -16,8 +16,8 @@ _Using its high-quality sensors, Air Lab measures CO2, temperature, relative hum
 
 The repository contains the official device firmware, the board support library, technical documentation, and handy tools to work with Air Lab devices.
 
-- [`alctl`](https://github.com/networkedartifacts/airlab/tree/main/alctt): A command-line helper utility for interfacing with the Air Lab.
 - [`firmware`](https://github.com/networkedartifacts/airlab/tree/main/firmware): The official device firmware.
+- [`tools`](https://github.com/networkedartifacts/airlab/tree/main/tools): The `airlab` CLI and helpful Go packages.
 
 Please consult the READMEs in the respective directories for further information.
 

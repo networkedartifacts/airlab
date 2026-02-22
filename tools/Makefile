@@ -1,3 +1,2 @@
 install:
-	go install ./alctl
-	go install ./alpctl
+	go install ./airlab

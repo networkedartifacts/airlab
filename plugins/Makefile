@@ -7,9 +7,9 @@ LAUNCH ?= 0
 define build_task
 $1:
 	$$(COMPILE) -o ./$1/main.wasm ./$1/main.c
-	alpctl bundle ./$1 ./$1/$1.alp
-	@if [ "$$(UPLOAD)" = "1" ]; then alpctl upload ./$1/$1.alp; fi
-	@if [ "$$(LAUNCH)" = "1" ]; then alpctl launch $1.alp; fi
+	airlab plugin bundle ./$1 ./$1/$1.alp
+	@if [ "$$(UPLOAD)" = "1" ]; then airlab plugin upload ./$1/$1.alp; fi
+	@if [ "$$(LAUNCH)" = "1" ]; then airlab plugin launch $1.alp; fi
 endef
 
 $(foreach t,adc data gfx gpio hello http i2c info sen55 servo sprite weather,$(eval $(call build_task,$t)))

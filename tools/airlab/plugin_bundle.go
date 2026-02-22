@@ -7,13 +7,14 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/spf13/cobra"
 	"golang.org/x/mod/semver"
 	"gopkg.in/yaml.v3"
 
 	"github.com/networkedartifacts/airlab/tools/alp"
 )
 
-type Manifest struct {
+type pluginManifest struct {
 	Name    string   `yaml:"name"`
 	Title   string   `yaml:"title"`
 	Version string   `yaml:"version"`
@@ -21,35 +22,48 @@ type Manifest struct {
 	Sprites []string `yaml:"sprites"`
 }
 
-func bundle(dir, out string) {
+var pluginBundleCmd = &cobra.Command{
+	Use:   "bundle <dir> <output>",
+	Short: "Bundle a plugin directory into a bundle file",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return pluginBundle(args[0], args[1])
+	},
+}
+
+func init() {
+	pluginCmd.AddCommand(pluginBundleCmd)
+}
+
+func pluginBundle(dir, out string) error {
 	// determine root
 	root, err := filepath.Abs(dir)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// load manifest
 	manifestRaw, err := os.ReadFile(filepath.Join(root, "alp.yml"))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// parse manifest
-	var manifest Manifest
+	var manifest pluginManifest
 	err = yaml.Unmarshal(manifestRaw, &manifest)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// check fields
 	if manifest.Name == "" {
-		panic("missing name")
+		return fmt.Errorf("missing name")
 	} else if manifest.Title == "" {
-		panic("missing title")
+		return fmt.Errorf("missing title")
 	} else if manifest.Version == "" {
-		panic("missing version")
+		return fmt.Errorf("missing version")
 	} else if !semver.IsValid(manifest.Version) {
-		panic("invalid version")
+		return fmt.Errorf("invalid version")
 	}
 
 	// resolves sprites
@@ -57,7 +71,7 @@ func bundle(dir, out string) {
 	for _, sprite := range manifest.Sprites {
 		matches, err := filepath.Glob(filepath.Join(root, sprite))
 		if err != nil {
-			panic(err)
+			return err
 		}
 		sprites = append(sprites, matches...)
 	}
@@ -90,7 +104,7 @@ func bundle(dir, out string) {
 	binPath := filepath.Join(root, manifest.Binary)
 	binData, err := os.ReadFile(binPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	bundle.Sections = append(bundle.Sections, alp.BundleSection{
 		Type: alp.BundleTypeBinary,
@@ -102,7 +116,7 @@ func bundle(dir, out string) {
 	for _, sprite := range sprites {
 		spriteData, err := os.ReadFile(sprite)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		if filepath.Ext(sprite) == ".png" {
 			spriteData = alp.SpriteFromPNG(spriteData, 1).Encode()
@@ -118,21 +132,23 @@ func bundle(dir, out string) {
 	// determine output file
 	file, err := filepath.Abs(out)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// create file
 	err = os.WriteFile(file, bundle.Encode(), 0644)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// print bundle info
 	fmt.Printf("==> Wrote: %s\n", file)
-	if *verbose {
+	if pluginVerbose {
 		fmt.Printf("==> Sections: %d\n", len(bundle.Sections))
 		for i, section := range bundle.Sections {
 			fmt.Printf("    Num=%d Type=%s Name=%q Size=%d\n", i, section.Type, section.Name, len(section.Data))
 		}
 	}
+
+	return nil
 }
