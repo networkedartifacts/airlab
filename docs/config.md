@@ -1,16 +1,16 @@
 # Config
 
-Plugin configuration is defined in `alp.yml` and encoded into the plugin bundle as a nested bundle with type `BundleTypeConfig` (0x03) and name `main`.
+Plugin configuration is defined in `alp.yml` and encoded into the plugin bundle as CONFIG sections.
 
 ## Schema Bundle
 
-The schema bundle encodes config sections and items as `BundleTypeBinary` entries. Each entry starts with a common header:
+The schema bundle encodes config sections and items as BINARY sections. Each section's data starts with a common header:
 
 ```
-[section: 1 byte]              - section index
-[type: 1 byte]                 - 0=section, 1=string, 2=bool, 3=int, 4=float
-[flags: 1 byte]                - bit0=default, bit1=min, bit2=max,
-                                 bit3=step, bit4=options, bit5=hint
+[section: 1 byte]  - section index
+[type: 1 byte]     - 0=section, 1=string, 2=bool, 3=int, 4=float
+[flags: 1 byte]    - bit0=default, bit1=min, bit2=max,
+                     bit3=step, bit4=options, bit5=hint
 ```
 
 ### Sections
@@ -41,7 +41,7 @@ Named by key (e.g. `"name"`) with type `1`-`4`:
 
 ## Stored Values
 
-User-modified config values are stored as a separate bundle (loaded from `{plugin}.alc`). Each entry is a `BundleTypeBinary` section named by key:
+User-modified config values are stored as a separate bundle (loaded from `{plugin}.alc`). Each entry is a BINARY section named by key:
 
 ```
 [type: 1 byte]  - 1=string, 2=bool, 3=int, 4=float
