@@ -974,16 +974,27 @@ static void* scr_idle() {
           scr_screen_index = 0;
         }
 
-        // prepare index
-        char idx[8] = {0};
-        snprintf(idx, sizeof(idx), "%d", scr_screen_index);
-
-        // get screen entry
-        const char* file = eng_bundle_attr(screens, idx, NULL);
+        // find nth ATTR section
+        const char* file = NULL;
+        const char* key = NULL;
+        uint16_t n = 0;
+        for (int i = 0; i < screens->sections_num; i++) {
+          if (screens->sections[i].type == ENG_BUNDLE_TYPE_ATTR) {
+            if (n == scr_screen_index) {
+              key = screens->sections[i].name;
+              file = eng_bundle_read(screens, &screens->sections[i]);
+              break;
+            }
+            n++;
+          }
+        }
 
         // parse args from config section
         size_t a_len = 0;
-        void* a_data = eng_bundle_config(screens, idx, &a_len);
+        void* a_data = NULL;
+        if (key) {
+          a_data = eng_bundle_config(screens, key, &a_len);
+        }
 
         // parse args bundle if present
         eng_bundle_t* args = NULL;
