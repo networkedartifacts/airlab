@@ -15,11 +15,12 @@ import (
 )
 
 type pluginManifest struct {
-	Name    string   `yaml:"name"`
-	Title   string   `yaml:"title"`
-	Version string   `yaml:"version"`
-	Binary  string   `yaml:"binary"`
-	Sprites []string `yaml:"sprites"`
+	Name     string       `yaml:"name"`
+	Title    string       `yaml:"title"`
+	Version  string       `yaml:"version"`
+	Binary   string       `yaml:"binary"`
+	Sprites  []string     `yaml:"sprites"`
+	Settings alp.Settings `yaml:"settings"`
 }
 
 var pluginBundleCmd = &cobra.Command{
@@ -90,6 +91,17 @@ func pluginBundle(dir, out string) error {
 		}
 	}
 
+	// print settings
+	if len(manifest.Settings.Sections) > 0 {
+		fmt.Printf("Settings:\n")
+		for _, section := range manifest.Settings.Sections {
+			fmt.Printf(" - %s\n", section.Title)
+			for _, item := range section.Items {
+				fmt.Printf("   - %s (%s)\n", item.Key, item.Type)
+			}
+		}
+	}
+
 	/* create bundle */
 
 	// prepare bundle
@@ -126,6 +138,19 @@ func pluginBundle(dir, out string) error {
 			Type: alp.BundleTypeSprite,
 			Name: lo.Must(filepath.Rel(root, sprite)),
 			Data: spriteData,
+		})
+	}
+
+	// add settings
+	if len(manifest.Settings.Sections) > 0 {
+		settingsBundle, err := manifest.Settings.Encode()
+		if err != nil {
+			return fmt.Errorf("settings: %w", err)
+		}
+		bundle.Sections = append(bundle.Sections, alp.BundleSection{
+			Type: alp.BundleTypeBinary,
+			Name: "settings",
+			Data: settingsBundle.Encode(),
 		})
 	}
 
