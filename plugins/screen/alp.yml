@@ -6,12 +6,12 @@ binary:
 config:
   screen:
     sections:
-      - title: Primary
+      - title: Settings
         items:
-          - key: string
+          - key: primary
             title: Value
             type: string
-            default: default
+            default: co2
             options:
               - value: co2
                 label: CO2
