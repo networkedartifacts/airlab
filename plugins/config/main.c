@@ -4,15 +4,15 @@ int main() {
   // clear screen
   al_clear(0);
 
-  // get settings
+  // get config
   char s[32];
-  int sl = al_settings_get_s("string", s, sizeof(s));
-  bool b = al_settings_get_b("bool");
-  int i = al_settings_get_i("int");
-  float f = al_settings_get_f("float");
+  int sl = al_config_get_s("string", s, sizeof(s));
+  bool b = al_config_get_b("bool");
+  int i = al_config_get_i("int");
+  float f = al_config_get_f("float");
   char se[32];
-  int sel = al_settings_get_s("string-enum", se, sizeof(se));
-  int ie = al_settings_get_i("int-enum");
+  int sel = al_config_get_s("string-enum", se, sizeof(se));
+  int ie = al_config_get_i("int-enum");
 
   // format string
   char buf[32];

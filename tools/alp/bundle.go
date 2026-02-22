@@ -12,9 +12,10 @@ var enc = binary.LittleEndian
 type BundleType byte
 
 const (
-	BundleTypeAttr   BundleType = 0
-	BundleTypeBinary BundleType = 1
-	BundleTypeSprite BundleType = 2
+	BundleTypeAttr     BundleType = 0
+	BundleTypeBinary   BundleType = 1
+	BundleTypeSprite   BundleType = 2
+	BundleTypeConfig BundleType = 3
 )
 
 func (bt BundleType) String() string {
@@ -25,6 +26,8 @@ func (bt BundleType) String() string {
 		return "B"
 	case BundleTypeSprite:
 		return "S"
+	case BundleTypeConfig:
+		return "C"
 	default:
 		return "?"
 	}

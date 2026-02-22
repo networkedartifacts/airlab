@@ -9,6 +9,7 @@ typedef enum {
   ENG_BUNDLE_TYPE_ATTR = 0x00,
   ENG_BUNDLE_TYPE_BINARY = 0x01,
   ENG_BUNDLE_TYPE_SPRITE = 0x02,
+  ENG_BUNDLE_TYPE_CONFIG = 0x03,
 } eng_bundle_type_t;
 
 typedef struct {
@@ -37,6 +38,7 @@ void eng_bundle_free(eng_bundle_t *b);
 
 void *eng_bundle_attr(eng_bundle_t *b, const char *name, size_t *len);
 void *eng_bundle_binary(eng_bundle_t *b, const char *name, size_t *len);
+void *eng_bundle_config(eng_bundle_t *b, const char *name, size_t *len);
 
 typedef struct {
   uint16_t width;

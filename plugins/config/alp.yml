@@ -1,8 +1,8 @@
-name: settings-example
-title: Settings Example
+name: config-example
+title: Config Example
 version: v0.1.0
 binary: ./main.wasm
-settings:
+config:
   sections:
     - title: General
       items:

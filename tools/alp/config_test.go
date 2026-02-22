@@ -6,16 +6,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func validSettings() Settings {
-	return Settings{
-		Sections: []SettingSection{
+func validConfig() Config {
+	return Config{
+		Sections: []ConfigSection{
 			{
 				Title: "General",
-				Items: []SettingsItem{
+				Items: []ConfigItem{
 					{
 						Key:     "name",
 						Title:   "Name",
-						Type:    SettingsTypeString,
+						Type:    ConfigTypeString,
 						Default: "default",
 					},
 				},
@@ -24,43 +24,43 @@ func validSettings() Settings {
 	}
 }
 
-func TestSettingsValidate(t *testing.T) {
+func TestConfigValidate(t *testing.T) {
 	// valid
-	assert.NoError(t, validSettings().Validate())
+	assert.NoError(t, validConfig().Validate())
 
 	// valid with all types
-	assert.NoError(t, Settings{
-		Sections: []SettingSection{
+	assert.NoError(t, Config{
+		Sections: []ConfigSection{
 			{
 				Title: "General",
-				Items: []SettingsItem{
-					{Key: "s", Title: "String", Type: SettingsTypeString, Default: "foo"},
-					{Key: "b", Title: "Bool", Type: SettingsTypeBool, Default: true},
-					{Key: "i", Title: "Int", Type: SettingsTypeInt, Default: 42, Min: 0, Max: 100},
-					{Key: "f", Title: "Float", Type: SettingsTypeFloat, Default: 3.14, Min: 0.0, Max: 10.0, Step: 0.5},
+				Items: []ConfigItem{
+					{Key: "s", Title: "String", Type: ConfigTypeString, Default: "foo"},
+					{Key: "b", Title: "Bool", Type: ConfigTypeBool, Default: true},
+					{Key: "i", Title: "Int", Type: ConfigTypeInt, Default: 42, Min: 0, Max: 100},
+					{Key: "f", Title: "Float", Type: ConfigTypeFloat, Default: 3.14, Min: 0.0, Max: 10.0, Step: 0.5},
 				},
 			},
 		},
 	}.Validate())
 
 	// valid with options
-	assert.NoError(t, Settings{
-		Sections: []SettingSection{
+	assert.NoError(t, Config{
+		Sections: []ConfigSection{
 			{
 				Title: "General",
-				Items: []SettingsItem{
+				Items: []ConfigItem{
 					{
-						Key: "color", Title: "Color", Type: SettingsTypeString,
+						Key: "color", Title: "Color", Type: ConfigTypeString,
 						Default: "red",
-						Options: []SettingsOption{
+						Options: []ConfigOption{
 							{Value: "red", Label: "Red"},
 							{Value: "blue", Label: "Blue"},
 						},
 					},
 					{
-						Key: "level", Title: "Level", Type: SettingsTypeInt,
+						Key: "level", Title: "Level", Type: ConfigTypeInt,
 						Default: 1,
-						Options: []SettingsOption{
+						Options: []ConfigOption{
 							{Value: 1, Label: "Low"},
 							{Value: 5, Label: "High"},
 						},
@@ -71,179 +71,179 @@ func TestSettingsValidate(t *testing.T) {
 	}.Validate())
 
 	// valid with float int coercion
-	assert.NoError(t, Settings{
-		Sections: []SettingSection{
+	assert.NoError(t, Config{
+		Sections: []ConfigSection{
 			{
 				Title: "General",
-				Items: []SettingsItem{
-					{Key: "f", Title: "Float", Type: SettingsTypeFloat, Default: 1, Min: 0, Max: 10},
+				Items: []ConfigItem{
+					{Key: "f", Title: "Float", Type: ConfigTypeFloat, Default: 1, Min: 0, Max: 10},
 				},
 			},
 		},
 	}.Validate())
 }
 
-func TestSettingsValidateSections(t *testing.T) {
+func TestConfigValidateSections(t *testing.T) {
 	// missing section title
-	s := validSettings()
+	s := validConfig()
 	s.Sections[0].Title = ""
 	assert.EqualError(t, s.Validate(), `section 0: missing title`)
 
 	// empty items
-	s = validSettings()
+	s = validConfig()
 	s.Sections[0].Items = nil
 	assert.EqualError(t, s.Validate(), `section "General": no items defined`)
 }
 
-func TestSettingsValidateItems(t *testing.T) {
+func TestConfigValidateItems(t *testing.T) {
 	// missing key
-	s := validSettings()
+	s := validConfig()
 	s.Sections[0].Items[0].Key = ""
 	assert.EqualError(t, s.Validate(), `section "General", item 0: missing key`)
 
 	// duplicate key
-	s = validSettings()
+	s = validConfig()
 	s.Sections[0].Items = append(s.Sections[0].Items, s.Sections[0].Items[0])
 	assert.EqualError(t, s.Validate(), `section "General", item 1: duplicate key "name"`)
 
 	// missing title
-	s = validSettings()
+	s = validConfig()
 	s.Sections[0].Items[0].Title = ""
 	assert.EqualError(t, s.Validate(), `item "name": missing title`)
 
 	// invalid type
-	s = validSettings()
+	s = validConfig()
 	s.Sections[0].Items[0].Type = "unknown"
 	assert.EqualError(t, s.Validate(), `item "name": invalid type "unknown"`)
 
 	// empty type
-	s = validSettings()
+	s = validConfig()
 	s.Sections[0].Items[0].Type = ""
 	assert.EqualError(t, s.Validate(), `item "name": invalid type ""`)
 }
 
-func TestSettingsValidateDefault(t *testing.T) {
+func TestConfigValidateDefault(t *testing.T) {
 	// wrong default for string
-	s := validSettings()
+	s := validConfig()
 	s.Sections[0].Items[0].Default = 42
 	assert.EqualError(t, s.Validate(), `item "name": default value has wrong type`)
 
 	// wrong default for bool
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeBool
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeBool
 	s.Sections[0].Items[0].Default = "yes"
 	assert.EqualError(t, s.Validate(), `item "name": default value has wrong type`)
 
 	// wrong default for int
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeInt
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeInt
 	s.Sections[0].Items[0].Default = 3.14
 	assert.EqualError(t, s.Validate(), `item "name": default value has wrong type`)
 
 	// wrong default for float
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeFloat
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeFloat
 	s.Sections[0].Items[0].Default = "nope"
 	assert.EqualError(t, s.Validate(), `item "name": default value has wrong type`)
 
 	// nil default is ok
-	s = validSettings()
+	s = validConfig()
 	s.Sections[0].Items[0].Default = nil
 	assert.NoError(t, s.Validate())
 }
 
-func TestSettingsValidateMinMaxStep(t *testing.T) {
+func TestConfigValidateMinMaxStep(t *testing.T) {
 	// not allowed for string
-	s := validSettings()
+	s := validConfig()
 	s.Sections[0].Items[0].Min = "a"
 	assert.EqualError(t, s.Validate(), `item "name": min/max/step not allowed for type "string"`)
 
 	// not allowed for bool
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeBool
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeBool
 	s.Sections[0].Items[0].Default = true
 	s.Sections[0].Items[0].Max = 1
 	assert.EqualError(t, s.Validate(), `item "name": min/max/step not allowed for type "bool"`)
 
 	// wrong type for int min
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeInt
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeInt
 	s.Sections[0].Items[0].Default = 5
 	s.Sections[0].Items[0].Min = "zero"
 	assert.EqualError(t, s.Validate(), `item "name": min value has wrong type`)
 
 	// wrong type for float max
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeFloat
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeFloat
 	s.Sections[0].Items[0].Default = 1.0
 	s.Sections[0].Items[0].Max = "ten"
 	assert.EqualError(t, s.Validate(), `item "name": max value has wrong type`)
 }
 
-func TestSettingsValidateOptions(t *testing.T) {
+func TestConfigValidateOptions(t *testing.T) {
 	// not allowed for bool
-	s := validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeBool
+	s := validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeBool
 	s.Sections[0].Items[0].Default = true
-	s.Sections[0].Items[0].Options = []SettingsOption{{Value: true, Label: "Yes"}}
+	s.Sections[0].Items[0].Options = []ConfigOption{{Value: true, Label: "Yes"}}
 	assert.EqualError(t, s.Validate(), `item "name": options not allowed for type "bool"`)
 
 	// not allowed for float
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeFloat
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeFloat
 	s.Sections[0].Items[0].Default = 1.0
-	s.Sections[0].Items[0].Options = []SettingsOption{{Value: 1.0, Label: "One"}}
+	s.Sections[0].Items[0].Options = []ConfigOption{{Value: 1.0, Label: "One"}}
 	assert.EqualError(t, s.Validate(), `item "name": options not allowed for type "float"`)
 
 	// not allowed with min/max/step
-	s = validSettings()
-	s.Sections[0].Items[0].Type = SettingsTypeInt
+	s = validConfig()
+	s.Sections[0].Items[0].Type = ConfigTypeInt
 	s.Sections[0].Items[0].Default = 1
 	s.Sections[0].Items[0].Min = 0
-	s.Sections[0].Items[0].Options = []SettingsOption{{Value: 1, Label: "One"}}
+	s.Sections[0].Items[0].Options = []ConfigOption{{Value: 1, Label: "One"}}
 	assert.EqualError(t, s.Validate(), `item "name": min/max/step not allowed with options`)
 
 	// missing label
-	s = validSettings()
-	s.Sections[0].Items[0].Options = []SettingsOption{{Value: "a", Label: ""}}
+	s = validConfig()
+	s.Sections[0].Items[0].Options = []ConfigOption{{Value: "a", Label: ""}}
 	assert.EqualError(t, s.Validate(), `item "name": option 0: missing label`)
 
 	// missing value
-	s = validSettings()
-	s.Sections[0].Items[0].Options = []SettingsOption{{Value: nil, Label: "A"}}
+	s = validConfig()
+	s.Sections[0].Items[0].Options = []ConfigOption{{Value: nil, Label: "A"}}
 	assert.EqualError(t, s.Validate(), `item "name": option "A": missing value`)
 
 	// wrong value type
-	s = validSettings()
-	s.Sections[0].Items[0].Options = []SettingsOption{{Value: 42, Label: "Bad"}}
+	s = validConfig()
+	s.Sections[0].Items[0].Options = []ConfigOption{{Value: 42, Label: "Bad"}}
 	assert.EqualError(t, s.Validate(), `item "name": option "Bad": wrong value type`)
 }
 
-func TestSettingsEncodeDecode(t *testing.T) {
-	input := Settings{
-		Sections: []SettingSection{
+func TestConfigEncodeDecode(t *testing.T) {
+	input := Config{
+		Sections: []ConfigSection{
 			{
 				Title: "General",
 				Hint:  "Basic configuration options",
-				Items: []SettingsItem{
+				Items: []ConfigItem{
 					{
 						Key:     "name",
 						Title:   "Name",
 						Hint:    "The display name",
-						Type:    SettingsTypeString,
+						Type:    ConfigTypeString,
 						Default: "hello",
 					},
 					{
 						Key:     "enabled",
 						Title:   "Enabled",
-						Type:    SettingsTypeBool,
+						Type:    ConfigTypeBool,
 						Default: true,
 					},
 					{
 						Key:     "count",
 						Title:   "Count",
 						Hint:    "Number of items",
-						Type:    SettingsTypeInt,
+						Type:    ConfigTypeInt,
 						Default: 42,
 						Min:     0,
 						Max:     100,
@@ -252,7 +252,7 @@ func TestSettingsEncodeDecode(t *testing.T) {
 					{
 						Key:     "ratio",
 						Title:   "Ratio",
-						Type:    SettingsTypeFloat,
+						Type:    ConfigTypeFloat,
 						Default: 3.14,
 						Min:     0.0,
 						Max:     10.0,
@@ -262,13 +262,13 @@ func TestSettingsEncodeDecode(t *testing.T) {
 			},
 			{
 				Title: "Options",
-				Items: []SettingsItem{
+				Items: []ConfigItem{
 					{
 						Key:     "color",
 						Title:   "Color",
-						Type:    SettingsTypeString,
+						Type:    ConfigTypeString,
 						Default: "red",
-						Options: []SettingsOption{
+						Options: []ConfigOption{
 							{Value: "red", Label: "Red"},
 							{Value: "blue", Label: "Blue"},
 						},
@@ -276,9 +276,9 @@ func TestSettingsEncodeDecode(t *testing.T) {
 					{
 						Key:     "level",
 						Title:   "Level",
-						Type:    SettingsTypeInt,
+						Type:    ConfigTypeInt,
 						Default: 1,
-						Options: []SettingsOption{
+						Options: []ConfigOption{
 							{Value: 1, Label: "Low"},
 							{Value: 5, Label: "High"},
 						},
@@ -298,8 +298,8 @@ func TestSettingsEncodeDecode(t *testing.T) {
 	bundle2, err := DecodeBundle(raw)
 	assert.NoError(t, err)
 
-	// decode settings
-	output, err := DecodeSettings(bundle2)
+	// decode config
+	output, err := DecodeConfig(bundle2)
 	assert.NoError(t, err)
 
 	// compare sections
@@ -316,7 +316,7 @@ func TestSettingsEncodeDecode(t *testing.T) {
 			assert.Equal(t, item.Type, out.Type)
 
 			// float values decode as float64
-			if item.Type == SettingsTypeFloat {
+			if item.Type == ConfigTypeFloat {
 				if item.Default != nil {
 					assert.InDelta(t, item.Default, out.Default, 0.001)
 				}

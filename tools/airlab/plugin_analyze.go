@@ -42,18 +42,18 @@ func pluginAnalyze(file string) error {
 		switch {
 		case sec.Type == alp.BundleTypeAttr:
 			fmt.Printf("       %s\n", string(sec.Data))
-		case sec.Type == alp.BundleTypeBinary && sec.Name == "settings":
+		case sec.Type == alp.BundleTypeConfig:
 			sub, err := alp.DecodeBundle(sec.Data)
 			if err != nil {
 				fmt.Printf("       (failed to decode: %v)\n", err)
 				continue
 			}
-			settings, err := alp.DecodeSettings(sub)
+			config, err := alp.DecodeConfig(sub)
 			if err != nil {
 				fmt.Printf("       (failed to decode: %v)\n", err)
 				continue
 			}
-			for _, section := range settings.Sections {
+			for _, section := range config.Sections {
 				fmt.Printf("       - %s\n", section.Title)
 				for _, item := range section.Items {
 					fmt.Printf("         - %s (%s)\n", item.Key, item.Type)

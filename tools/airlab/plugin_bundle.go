@@ -15,12 +15,12 @@ import (
 )
 
 type pluginManifest struct {
-	Name     string       `yaml:"name"`
-	Title    string       `yaml:"title"`
-	Version  string       `yaml:"version"`
-	Binary   string       `yaml:"binary"`
-	Sprites  []string     `yaml:"sprites"`
-	Settings alp.Settings `yaml:"settings"`
+	Name    string     `yaml:"name"`
+	Title   string     `yaml:"title"`
+	Version string     `yaml:"version"`
+	Binary  string     `yaml:"binary"`
+	Sprites []string   `yaml:"sprites"`
+	Config  alp.Config `yaml:"config"`
 }
 
 var pluginBundleCmd = &cobra.Command{
@@ -91,10 +91,10 @@ func pluginBundle(dir, out string) error {
 		}
 	}
 
-	// print settings
-	if len(manifest.Settings.Sections) > 0 {
-		fmt.Printf("Settings:\n")
-		for _, section := range manifest.Settings.Sections {
+	// print config
+	if len(manifest.Config.Sections) > 0 {
+		fmt.Printf("Config:\n")
+		for _, section := range manifest.Config.Sections {
 			fmt.Printf(" - %s\n", section.Title)
 			for _, item := range section.Items {
 				fmt.Printf("   - %s (%s)\n", item.Key, item.Type)
@@ -141,16 +141,16 @@ func pluginBundle(dir, out string) error {
 		})
 	}
 
-	// add settings
-	if len(manifest.Settings.Sections) > 0 {
-		settingsBundle, err := manifest.Settings.Encode()
+	// add config
+	if len(manifest.Config.Sections) > 0 {
+		configBundle, err := manifest.Config.Encode()
 		if err != nil {
-			return fmt.Errorf("settings: %w", err)
+			return fmt.Errorf("config: %w", err)
 		}
 		bundle.Sections = append(bundle.Sections, alp.BundleSection{
-			Type: alp.BundleTypeBinary,
-			Name: "settings",
-			Data: settingsBundle.Encode(),
+			Type: alp.BundleTypeConfig,
+			Name: "main",
+			Data: configBundle.Encode(),
 		})
 	}
 

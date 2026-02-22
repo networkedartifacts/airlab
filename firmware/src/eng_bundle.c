@@ -318,6 +318,11 @@ void *eng_bundle_binary(eng_bundle_t *b, const char *name, size_t *len) {
   return eng_bundle_get(b, ENG_BUNDLE_TYPE_BINARY, name, len);
 }
 
+void *eng_bundle_config(eng_bundle_t *b, const char *name, size_t *len) {
+  // get config section
+  return eng_bundle_get(b, ENG_BUNDLE_TYPE_CONFIG, name, len);
+}
+
 bool eng_bundle_parse_sprite(eng_bundle_sprite_t *sp, eng_bundle_t *b, eng_bundle_section_t *sc) {
   // read section
   void *data = eng_bundle_read(b, sc);

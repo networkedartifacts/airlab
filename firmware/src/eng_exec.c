@@ -27,15 +27,15 @@
 #include "lvx.h"
 #include "sig.h"
 #include "eng_bundle.h"
-#include "eng_settings.h"
+#include "eng_config.h"
 #include "hmi.h"
 
 #define ENG_EXEC_DEBUG false
 
 typedef struct {
   eng_bundle_t *bundle;
-  eng_bundle_t *settings_schema;
-  eng_bundle_t *settings_values;
+  eng_bundle_t *config_schema;
+  eng_bundle_t *config_values;
   const char *binary;
   lv_obj_t *canvas;
   pthread_t thread;
@@ -1147,9 +1147,9 @@ static int eng_exec_op_http_get(wasm_exec_env_t env, int field) {
   }
 }
 
-/* settings operations */
+/* config operations */
 
-static int eng_exec_op_settings_get_s(wasm_exec_env_t env, uint8_t *key, int key_len, uint8_t *value, int value_len) {
+static int eng_exec_op_config_get_s(wasm_exec_env_t env, uint8_t *key, int key_len, uint8_t *value, int value_len) {
   // validate buffers
   if (!eng_valid_buf(env, key, key_len, false) || !eng_valid_buf(env, value, value_len, true)) {
     return -1;
@@ -1160,14 +1160,14 @@ static int eng_exec_op_settings_get_s(wasm_exec_env_t env, uint8_t *key, int key
 
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_settings_get_s: key='%s' value_len=%d", key_copy, value_len);
+    naos_log("eng_exec_op_config_get_s: key='%s' value_len=%d", key_copy, value_len);
   }
 
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
-  // get setting
-  int ret = eng_settings_get_s(ctx->settings_values, ctx->settings_values_schema, key_copy, (char *)value, value_len);
+  // get config value
+  int ret = eng_config_get_s(ctx->config_values, ctx->config_schema, key_copy, (char *)value, value_len);
 
   // free key
   eng_exec_free(key_copy);
@@ -1175,7 +1175,7 @@ static int eng_exec_op_settings_get_s(wasm_exec_env_t env, uint8_t *key, int key
   return ret;
 }
 
-static int eng_exec_op_settings_get_b(wasm_exec_env_t env, uint8_t *key, int key_len) {
+static int eng_exec_op_config_get_b(wasm_exec_env_t env, uint8_t *key, int key_len) {
   // validate buffers
   if (!eng_valid_buf(env, key, key_len, false)) {
     return 0;
@@ -1186,14 +1186,14 @@ static int eng_exec_op_settings_get_b(wasm_exec_env_t env, uint8_t *key, int key
 
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_settings_get_b: key='%s'", key_copy);
+    naos_log("eng_exec_op_config_get_b: key='%s'", key_copy);
   }
 
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
-  // get setting
-  bool ret = eng_settings_get_b(ctx->settings_values, ctx->settings_values_schema, key_copy);
+  // get config value
+  bool ret = eng_config_get_b(ctx->config_values, ctx->config_schema, key_copy);
 
   // free key
   eng_exec_free(key_copy);
@@ -1201,7 +1201,7 @@ static int eng_exec_op_settings_get_b(wasm_exec_env_t env, uint8_t *key, int key
   return ret ? 1 : 0;
 }
 
-static int eng_exec_op_settings_get_i(wasm_exec_env_t env, uint8_t *key, int key_len) {
+static int eng_exec_op_config_get_i(wasm_exec_env_t env, uint8_t *key, int key_len) {
   // validate buffers
   if (!eng_valid_buf(env, key, key_len, false)) {
     return 0;
@@ -1212,14 +1212,14 @@ static int eng_exec_op_settings_get_i(wasm_exec_env_t env, uint8_t *key, int key
 
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_settings_get_i: key='%s'", key_copy);
+    naos_log("eng_exec_op_config_get_i: key='%s'", key_copy);
   }
 
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
-  // get setting
-  int ret = eng_settings_get_i(ctx->settings_values, ctx->settings_values_schema, key_copy);
+  // get config value
+  int ret = eng_config_get_i(ctx->config_values, ctx->config_schema, key_copy);
 
   // free key
   eng_exec_free(key_copy);
@@ -1227,7 +1227,7 @@ static int eng_exec_op_settings_get_i(wasm_exec_env_t env, uint8_t *key, int key
   return ret;
 }
 
-static float eng_exec_op_settings_get_f(wasm_exec_env_t env, uint8_t *key, int key_len) {
+static float eng_exec_op_config_get_f(wasm_exec_env_t env, uint8_t *key, int key_len) {
   // validate buffers
   if (!eng_valid_buf(env, key, key_len, false)) {
     return 0;
@@ -1238,14 +1238,14 @@ static float eng_exec_op_settings_get_f(wasm_exec_env_t env, uint8_t *key, int k
 
   // log
   if (ENG_EXEC_DEBUG) {
-    naos_log("eng_exec_op_settings_get_f: key='%s'", key_copy);
+    naos_log("eng_exec_op_config_get_f: key='%s'", key_copy);
   }
 
   // get context
   eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
-  // get setting
-  float ret = eng_settings_get_f(ctx->settings_values, ctx->settings_values_schema, key_copy);
+  // get config value
+  float ret = eng_config_get_f(ctx->config_values, ctx->config_schema, key_copy);
 
   // free key
   eng_exec_free(key_copy);
@@ -1304,10 +1304,10 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_http_set", eng_exec_op_http_set, "(ii*~*~)i", NULL},
     {"al_http_run", eng_exec_op_http_run, "(*~*~)i", NULL},
     {"al_http_get", eng_exec_op_http_get, "(i)i", NULL},
-    {"al_settings_get_s", eng_exec_op_settings_get_s, "(*~*~)i", NULL},
-    {"al_settings_get_b", eng_exec_op_settings_get_b, "(*~)i", NULL},
-    {"al_settings_get_i", eng_exec_op_settings_get_i, "(*~)i", NULL},
-    {"al_settings_get_f", eng_exec_op_settings_get_f, "(*~)f", NULL},
+    {"al_config_get_s", eng_exec_op_config_get_s, "(*~*~)i", NULL},
+    {"al_config_get_b", eng_exec_op_config_get_b, "(*~)i", NULL},
+    {"al_config_get_i", eng_exec_op_config_get_i, "(*~)i", NULL},
+    {"al_config_get_f", eng_exec_op_config_get_f, "(*~)f", NULL},
     {"al_log", eng_exec_op_log, "(*~)", NULL},
 };
 
@@ -1315,19 +1315,19 @@ static void *eng_exec_task(void *arg) {
   // get context
   eng_exec_context_t *ctx = arg;
 
-  // parse settings defaults from plugin bundle
+  // parse config defaults from plugin bundle
   size_t defaults_len = 0;
-  void *defaults_data = eng_bundle_binary(ctx->bundle, "settings", &defaults_len);
+  void *defaults_data = eng_bundle_config(ctx->bundle, "main", &defaults_len);
   if (defaults_data) {
-    ctx->settings_values_schema = eng_bundle_parse(defaults_data, defaults_len);
+    ctx->config_schema = eng_bundle_parse(defaults_data, defaults_len);
   }
 
-  // load stored settings bundle
+  // load stored config bundle
   const char *bundle_name = eng_bundle_attr(ctx->bundle, "name", NULL);
   if (bundle_name) {
-    char settings_file[96];
-    snprintf(settings_file, sizeof(settings_file), "%s.als", bundle_name);
-    ctx->settings_values = eng_bundle_load(settings_file);
+    char config_file[96];
+    snprintf(config_file, sizeof(config_file), "%s.alc", bundle_name);
+    ctx->config_values = eng_bundle_load(config_file);
   }
 
   // prepare variables
@@ -1424,16 +1424,16 @@ static void *eng_exec_task(void *arg) {
     esp_http_client_cleanup(ctx->http_client);
   }
 
-  // free settings
-  if (ctx->settings_values) {
-    eng_bundle_free(ctx->settings_values);
+  // free config
+  if (ctx->config_values) {
+    eng_bundle_free(ctx->config_values);
   }
 
   // free defaults (buffer is owned by plugin bundle)
-  if (ctx->settings_values_schema) {
-    ctx->settings_values_schema->buffer = NULL;
-    ctx->settings_values_schema->buffer_len = 0;
-    eng_bundle_free(ctx->settings_values_schema);
+  if (ctx->config_schema) {
+    ctx->config_schema->buffer = NULL;
+    ctx->config_schema->buffer_len = 0;
+    eng_bundle_free(ctx->config_schema);
   }
 
   // check result
