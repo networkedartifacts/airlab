@@ -968,6 +968,9 @@ static void* scr_idle() {
 
     // check if there are screens
     if (count > 0) {
+      // track screen start time
+      int64_t screen_start = naos_millis();
+
       for (;;) {
         // wrap index
         if (scr_screen_index >= count) {
@@ -1002,8 +1005,11 @@ static void* scr_idle() {
           args = eng_bundle_parse(a_data, a_len);
         }
 
-        // advance index for next wake
-        scr_screen_index++;
+        // advance index if 60s have elapsed
+        if (naos_millis() - screen_start >= 60 * 1000) {
+          scr_screen_index++;
+          screen_start = naos_millis();
+        }
 
         // run screen
         bool ok = eng_run_config(file, "screen", args);
