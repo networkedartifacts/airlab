@@ -1446,23 +1446,6 @@ static void *eng_exec_task(void *arg) {
   // get context
   eng_exec_context_t *ctx = arg;
 
-  // get plugin name
-  const char *name = eng_bundle_attr(ctx->bundle, "name", NULL);
-
-  // parse config schema from plugin bundle
-  size_t config_schema_len = 0;
-  void *defaults_data = eng_bundle_config(ctx->bundle, "main", &config_schema_len);
-  if (defaults_data) {
-    ctx->config_schema = eng_bundle_parse(defaults_data, config_schema_len);
-  }
-
-  // load stored config bundle
-  if (name) {
-    char values_file[96];
-    snprintf(values_file, sizeof(values_file), "%s.alc", name);
-    ctx->config_values = eng_bundle_load(values_file);
-  }
-
   // prepare variables
   char error_buf[128];
   uint32_t stack_size = 8 * 1024, heap_size = 32 * 1024;
@@ -1557,16 +1540,6 @@ static void *eng_exec_task(void *arg) {
     esp_http_client_cleanup(ctx->http_client);
   }
 
-  // free config
-  if (ctx->config_values) {
-    eng_bundle_free(ctx->config_values);
-  }
-
-  // free defaults (buffer is owned by plugin bundle)
-  if (ctx->config_schema) {
-    eng_bundle_free(ctx->config_schema);
-  }
-
   // check result
   if (!ok) {
     naos_log("eng_exec_task: calling _start function failed: %s", wasm_runtime_get_exception(module_inst));
@@ -1595,7 +1568,8 @@ fail:
   return NULL;
 }
 
-void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms) {
+void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms, eng_bundle_t *config_schema,
+                     eng_bundle_t *config_values) {
   // check binary
   if (!eng_bundle_binary(bundle, binary, NULL)) {
     naos_log("eng_exec_start: binary '%s' not found", binary);
@@ -1612,10 +1586,12 @@ void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms)
   // clear context
   memset(ctx, 0, sizeof(eng_exec_context_t));
 
-  // set bundle, binary and permissions
+  // set bundle, binary, permissions and args
   ctx->bundle = bundle;
   ctx->binary = binary;
   ctx->perms = perms;
+  ctx->config_schema = config_schema;
+  ctx->config_values = config_values;
 
   // clear screen
   gui_cleanup(false);

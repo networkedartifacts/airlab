@@ -2,6 +2,7 @@
 #include <naos/sys.h>
 #include <dirent.h>
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <al/core.h>
@@ -129,6 +130,11 @@ eng_plugin_t *eng_get(size_t index) {
 }
 
 bool eng_run(const char *file, const char *binary) {
+  // run with no config
+  return eng_run_config(file, binary, NULL);
+}
+
+bool eng_run_config(const char *file, const char *binary, eng_bundle_t *args) {
   // determine permissions
   eng_perm_t perms = 0;
   if (strcmp(binary, "main") == 0) {
@@ -146,15 +152,50 @@ bool eng_run(const char *file, const char *binary) {
     return false;
   }
 
+  // get plugin name
+  const char *name = eng_bundle_attr(bundle, "name", NULL);
+
+  // parse config schema from plugin bundle
+  eng_bundle_t *config_schema = NULL;
+  size_t config_schema_len = 0;
+  void *defaults_data = eng_bundle_config(bundle, binary, &config_schema_len);
+  if (defaults_data) {
+    config_schema = eng_bundle_parse(defaults_data, config_schema_len);
+  }
+
+  // load stored config bundle (if not already set externally)
+  eng_bundle_t *config_values = args;
+  if (!config_values && name) {
+    char values_file[96];
+    snprintf(values_file, sizeof(values_file), "%s.alc", name);
+    config_values = eng_bundle_load(values_file);
+  }
+
   // start execution
-  void *ref = eng_exec_start(bundle, binary, perms);
+  void *ref = eng_exec_start(bundle, binary, perms, config_schema, config_values);
   if (!ref) {
+    if (config_values && config_values != args) {
+      eng_bundle_free(config_values);
+    }
+    if (config_schema) {
+      eng_bundle_free(config_schema);
+    }
     eng_bundle_free(bundle);
     return false;
   }
 
   // wait for completion
   eng_exec_wait(ref);
+
+  // free config
+  if (config_values && config_values != args) {
+    eng_bundle_free(config_values);
+  }
+
+  // free defaults
+  if (config_schema) {
+    eng_bundle_free(config_schema);
+  }
 
   // free bundle
   eng_bundle_free(bundle);

@@ -1,6 +1,8 @@
 #ifndef ENG_EXEC_H
 #define ENG_EXEC_H
 
+#include "eng_bundle.h"
+
 typedef enum {
   ENG_PERM_NETWORK = (1 << 0),      // HTTP operations
   ENG_PERM_INTERACTION = (1 << 1),  // yield (button input) and related config
@@ -12,7 +14,8 @@ typedef enum {
   ENG_PERM_ALL = 0xFFFFFFFF,        // all permissions
 } eng_perm_t;
 
-void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms);
+void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms, eng_bundle_t *config_schema,
+                     eng_bundle_t *config_values);
 void eng_exec_wait(void *ref);
 
 #endif  // ENG_EXEC_H

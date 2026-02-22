@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "eng_bundle.h"
+
 typedef struct {
   char file[64];
   char name[64];
@@ -17,5 +19,6 @@ size_t eng_num();
 eng_plugin_t* eng_get(size_t index);
 
 bool eng_run(const char* file, const char* binary);
+bool eng_run_config(const char* file, const char* binary, eng_bundle_t* args);
 
 #endif  // ENG_H
