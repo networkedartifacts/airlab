@@ -8,20 +8,9 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
-	"golang.org/x/mod/semver"
-	"gopkg.in/yaml.v3"
 
 	"github.com/networkedartifacts/airlab/tools/alp"
 )
-
-type pluginManifest struct {
-	Name    string                `yaml:"name"`
-	Title   string                `yaml:"title"`
-	Version string                `yaml:"version"`
-	Binary  map[string]string     `yaml:"binary"`
-	Sprites []string              `yaml:"sprites"`
-	Config  map[string]alp.Config `yaml:"config"`
-}
 
 var pluginBundleCmd = &cobra.Command{
 	Use:   "bundle <dir> <output>",
@@ -44,41 +33,9 @@ func pluginBundle(dir, out string) error {
 	}
 
 	// load manifest
-	manifestRaw, err := os.ReadFile(filepath.Join(root, "alp.yml"))
+	manifest, err := alp.LoadManifest(dir)
 	if err != nil {
 		return err
-	}
-
-	// parse manifest
-	var manifest pluginManifest
-	err = yaml.Unmarshal(manifestRaw, &manifest)
-	if err != nil {
-		return err
-	}
-
-	// check fields
-	if manifest.Name == "" {
-		return fmt.Errorf("missing name")
-	} else if manifest.Title == "" {
-		return fmt.Errorf("missing title")
-	} else if manifest.Version == "" {
-		return fmt.Errorf("missing version")
-	} else if !semver.IsValid(manifest.Version) {
-		return fmt.Errorf("invalid version")
-	}
-
-	// validate binary keys
-	for key := range manifest.Binary {
-		if key != "main" {
-			return fmt.Errorf("unsupported binary key: %q (only \"main\" is supported)", key)
-		}
-	}
-
-	// validate config keys
-	for key := range manifest.Config {
-		if key != "main" {
-			return fmt.Errorf("unsupported config key: %q (only \"main\" is supported)", key)
-		}
 	}
 
 	// resolves sprites

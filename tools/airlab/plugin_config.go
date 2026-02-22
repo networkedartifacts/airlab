@@ -2,15 +2,12 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/256dpi/naos/pkg/msg"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
 	"github.com/networkedartifacts/airlab/tools/alp"
 )
@@ -35,28 +32,10 @@ func init() {
 }
 
 func pluginConfig(dir string, pairs []string, device string, del bool) error {
-	// determine root
-	root, err := filepath.Abs(dir)
-	if err != nil {
-		return err
-	}
-
 	// load manifest
-	manifestRaw, err := os.ReadFile(filepath.Join(root, "alp.yml"))
+	manifest, err := alp.LoadManifest(dir)
 	if err != nil {
 		return err
-	}
-
-	// parse manifest
-	var manifest pluginManifest
-	err = yaml.Unmarshal(manifestRaw, &manifest)
-	if err != nil {
-		return err
-	}
-
-	// check name
-	if manifest.Name == "" {
-		return fmt.Errorf("missing name in manifest")
 	}
 
 	// print info
