@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -167,6 +168,22 @@ IMPORT("al_http_run")
 extern int al_http_run(void *req, int req_len, void *res, int res_len);
 
 IMPORT("al_http_get") extern int al_http_get(int field);
+
+/* settings */
+
+IMPORT("al_settings_get_s") extern int _al_settings_get_s(const void *key, int key_len, void *value, int value_len);
+extern int al_settings_get_s(const char *key, char *value, int value_len) {
+  return _al_settings_get_s((const void *)key, strlen(key), value, value_len);
+}
+
+IMPORT("al_settings_get_b") extern bool _al_settings_get_b(const void *key, int key_len);
+extern bool al_settings_get_b(const char *key) { return _al_settings_get_b((const void *)key, strlen(key)); }
+
+IMPORT("al_settings_get_i") extern int _al_settings_set_i(const void *key, int key_len);
+extern int al_settings_get_i(const char *key) { return _al_settings_set_i((const void *)key, strlen(key)); }
+
+IMPORT("al_settings_get_f") extern float _al_settings_get_f(const void *key, int key_len);
+extern float al_settings_get_f(const char *key) { return _al_settings_get_f((const void *)key, strlen(key)); }
 
 /* utils */
 

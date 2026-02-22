@@ -1,0 +1,50 @@
+name: settings-example
+title: Settings Example
+version: v0.1.0
+binary: ./main.wasm
+settings:
+  sections:
+    - title: General
+      items:
+        - key: string
+          title: String
+          type: string
+          default: default
+        - key: bool
+          title: Boolean
+          type: bool
+        - key: int
+          title: Integer
+          type: int
+          default: 42
+          min: 1
+          max: 99
+        - key: float
+          title: Float
+          type: float
+          default: 4.25
+          min: 0.0
+          max: 10.0
+          step: 0.25
+        - key: string-enum
+          title: String Enum
+          type: string
+          options:
+            - value: option1
+              label: Option 1
+            - value: option2
+              label: Option 2
+            - value: option3
+              label: Option 3
+          default: option2
+        - key: int-enum
+          title: Integer Enum
+          type: int
+          options:
+            - value: 1
+              label: Option 1
+            - value: 5
+              label: Option 5
+            - value: 10
+              label: Option 10
+          default: 1
