@@ -1564,8 +1564,6 @@ static void *eng_exec_task(void *arg) {
 
   // free defaults (buffer is owned by plugin bundle)
   if (ctx->config_schema) {
-    ctx->config_schema->buffer = NULL;
-    ctx->config_schema->buffer_len = 0;
     eng_bundle_free(ctx->config_schema);
   }
 

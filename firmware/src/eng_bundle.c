@@ -195,8 +195,9 @@ eng_bundle_t *eng_bundle_load(const char *file) {
     return NULL;
   }
 
-  // set name
+  // set name and ownership
   b->file = strdup(file);
+  b->buffer_int = true;
 
   return b;
 }
@@ -294,8 +295,8 @@ void eng_bundle_free(eng_bundle_t *b) {
     free(b->sections);
   }
 
-  // free buffer
-  if (b->buffer) {
+  // free internal buffer
+  if (b->buffer && b->buffer_int) {
     free(b->buffer);
   }
 

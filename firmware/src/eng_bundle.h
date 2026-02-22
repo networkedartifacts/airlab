@@ -25,6 +25,7 @@ typedef struct {
   char *file;
   void *buffer;
   size_t buffer_len;
+  bool buffer_int;
   eng_bundle_section_t *sections;
   uint16_t sections_num;
 } eng_bundle_t;
