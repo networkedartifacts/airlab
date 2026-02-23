@@ -36,7 +36,8 @@ static int8_t hmi_button_counts[8] = {0};
 static uint8_t hmi_flags[HMI_FLAG_MAX] = {0};
 
 static sig_type_t hmi_map[] = {
-    SIG_ENTER, SIG_ESCAPE, SIG_UP, SIG_RIGHT, SIG_DOWN, SIG_LEFT,
+    [AL_BUTTON_ENTER] = SIG_ENTER, [AL_BUTTON_ESCAPE] = SIG_ESCAPE, [AL_BUTTON_UP] = SIG_UP,
+    [AL_BUTTON_RIGHT] = SIG_RIGHT, [AL_BUTTON_DOWN] = SIG_DOWN,     [AL_BUTTON_LEFT] = SIG_LEFT,
 };
 
 static void hmi_power_hook(al_power_state_t state) {

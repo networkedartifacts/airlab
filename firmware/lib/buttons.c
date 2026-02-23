@@ -1,4 +1,5 @@
 #include <driver/gpio.h>
+#include <esp_sleep.h>
 
 #include <al/buttons.h>
 
@@ -33,5 +34,25 @@ uint8_t al_buttons_get() {
   uint8_t f = gpio_get_level(AL_BUTTONS_F) == 0;
 
   // set state
+  return (a << 0) | (b << 1) | (c << 2) | (d << 3) | (e << 4) | (f << 5);
+}
+
+uint8_t al_buttons_wakeup() {
+  // check if woken by button
+  if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_EXT1) {
+    return 0;
+  }
+
+  // get wakeup status
+  uint64_t status = esp_sleep_get_ext1_wakeup_status();
+
+  // build bitfield
+  uint8_t a = (status & BIT64(AL_BUTTONS_A)) != 0;
+  uint8_t b = (status & BIT64(AL_BUTTONS_B)) != 0;
+  uint8_t c = (status & BIT64(AL_BUTTONS_C)) != 0;
+  uint8_t d = (status & BIT64(AL_BUTTONS_D)) != 0;
+  uint8_t e = (status & BIT64(AL_BUTTONS_E)) != 0;
+  uint8_t f = (status & BIT64(AL_BUTTONS_F)) != 0;
+
   return (a << 0) | (b << 1) | (c << 2) | (d << 3) | (e << 4) | (f << 5);
 }
