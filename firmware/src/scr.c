@@ -47,7 +47,6 @@
 
 static stm_action_t scr_action = 0;
 DEV_KEEP static uint16_t scr_file = 0;
-DEV_KEEP static uint16_t scr_screen_index = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
 
@@ -946,15 +945,16 @@ static void* scr_idle() {
   // local state
   static bool wakeup_handled = false;
   DEV_KEEP static void* return_idle = NULL;
+  DEV_KEEP static int16_t screen_index = 0;
 
   // handle button wake from deep sleep (once)
   if (!wakeup_handled) {
     wakeup_handled = true;
     uint8_t wakeup = al_buttons_wakeup();
     if (wakeup & (1 << AL_BUTTON_LEFT)) {
-      scr_screen_index--;
+      screen_index--;
     } else if (wakeup & (1 << AL_BUTTON_RIGHT)) {
-      scr_screen_index++;
+      screen_index++;
     } else if (wakeup && return_idle) {
       return return_idle;
     }
@@ -989,8 +989,10 @@ static void* scr_idle() {
 
       for (;;) {
         // wrap index
-        if (scr_screen_index >= count) {
-          scr_screen_index = 0;
+        if (screen_index < 0) {
+          screen_index = count - 1;
+        } else if (screen_index >= count) {
+          screen_index = 0;
         }
 
         // find nth ATTR section
@@ -999,7 +1001,7 @@ static void* scr_idle() {
         uint16_t n = 0;
         for (int i = 0; i < screens->sections_num; i++) {
           if (screens->sections[i].type == ENG_BUNDLE_TYPE_ATTR) {
-            if (n == scr_screen_index) {
+            if (n == screen_index) {
               key = screens->sections[i].name;
               file = eng_bundle_read(screens, &screens->sections[i]);
               break;
@@ -1023,7 +1025,7 @@ static void* scr_idle() {
 
         // advance index if 60s have elapsed
         if (naos_millis() - screen_start >= 60 * 1000) {
-          scr_screen_index++;
+          screen_index++;
           screen_start = naos_millis();
         }
 
@@ -1046,11 +1048,11 @@ static void* scr_idle() {
 
         // handle left/right
         if (event.type == SIG_LEFT) {
-          scr_screen_index = (scr_screen_index == 0) ? count - 1 : scr_screen_index - 1;
+          screen_index--;
           screen_start = naos_millis();
           continue;
         } else if (event.type == SIG_RIGHT) {
-          scr_screen_index++;
+          screen_index++;
           screen_start = naos_millis();
           continue;
         }
