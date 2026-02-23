@@ -8,7 +8,6 @@
 #include <art32/numbers.h>
 #include <lvgl.h>
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
 
 #include <al/core.h>
@@ -49,6 +48,7 @@ static stm_action_t scr_action = 0;
 DEV_KEEP static uint16_t scr_file = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
+DEV_KEEP static int scr_return_unlock_mask = 0;
 
 static const char* scr_field_fmt[] = {
     [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
@@ -101,6 +101,7 @@ static void scr_power_off(bool low_power, bool msg) {
   // clear returns
   scr_return_timeout = NULL;
   scr_return_unlock = NULL;
+  scr_return_unlock_mask = 0;
 
   // power off
   al_power_off();
@@ -944,28 +945,25 @@ static void* scr_sensor() {
 static void* scr_idle() {
   // local state
   static bool wakeup_handled = false;
-  DEV_KEEP static void* return_idle = NULL;
   DEV_KEEP static int16_t screen_index = 0;
 
   // handle button wake from deep sleep (once)
-  if (!wakeup_handled) {
+  if (!wakeup_handled && naos_millis() < 3000) {
     wakeup_handled = true;
     uint8_t wakeup = al_buttons_wakeup();
     if (wakeup & (1 << AL_BUTTON_LEFT)) {
       screen_index--;
     } else if (wakeup & (1 << AL_BUTTON_RIGHT)) {
       screen_index++;
-    } else if (wakeup && return_idle) {
-      return return_idle;
     }
   }
 
-  // capture unlock return
-  return_idle = scr_return_unlock;
-
-  // set return handlers
+  // set return handler
   scr_return_timeout = scr_idle;
-  scr_return_unlock = scr_idle;
+
+  // only unlock on a subset of buttons
+  scr_return_unlock_mask =
+      (1 << AL_BUTTON_ENTER) | (1 << AL_BUTTON_ESCAPE) | (1 << AL_BUTTON_UP) | (1 << AL_BUTTON_DOWN);
 
   /* Multi-Screen Idle */
 
@@ -1061,7 +1059,7 @@ static void* scr_idle() {
         if (event.type & SIG_KEYS) {
           eng_bundle_free(screens);
           gui_cleanup(false);
-          return return_idle;
+          return scr_return_unlock;
         }
       }
     }
@@ -1188,7 +1186,7 @@ static void* scr_idle() {
   // cleanup
   gui_cleanup(false);
 
-  return return_idle;
+  return scr_return_unlock;
 }
 
 static void* scr_view() {
@@ -3194,14 +3192,18 @@ void scr_run(al_trigger_t trigger) {
   if (trigger == AL_RESET) {
     scr_handler = scr_intro;
   } else if (trigger == AL_BUTTON && scr_return_unlock != NULL) {
-    scr_handler = scr_return_unlock;
+    if (scr_return_unlock_mask != 0 && (al_buttons_wakeup() & scr_return_unlock_mask) != 0) {
+      scr_handler = scr_return_unlock;
+      scr_return_unlock = NULL;
+      scr_return_unlock_mask = 0;
+    } else {
+      scr_handler = scr_return_timeout;
+      scr_return_timeout = NULL;
+    }
   } else if ((trigger == AL_TIMEOUT || trigger == AL_INTERRUPT) && scr_return_timeout != NULL) {
     scr_handler = scr_return_timeout;
+    scr_return_timeout = NULL;
   }
-
-  // clear return handlers
-  scr_return_unlock = NULL;
-  scr_return_timeout = NULL;
 
   // run screen task
   naos_run("scr", 8192, 1, scr_task);
