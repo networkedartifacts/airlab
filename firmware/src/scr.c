@@ -13,6 +13,7 @@
 
 #include <al/core.h>
 #include <al/accel.h>
+#include <al/buttons.h>
 #include <al/power.h>
 #include <al/clock.h>
 #include <al/sensor.h>
@@ -151,7 +152,7 @@ static void scr_launch(const char* file, const char* mode) {
   }
 }
 
-static bool scr_idle_sleep() {
+static sig_event_t scr_idle_sleep() {
   // read power state
   al_power_state_t power = al_power_get();
 
@@ -167,18 +168,10 @@ static bool scr_idle_sleep() {
 
     // start engine on launch
     if (event.type == SIG_LAUNCH) {
-      // run engine
       scr_launch(event.plugin.file, event.plugin.mode);
-
-      return false;
     }
 
-    // handle unlock
-    if (event.type & SIG_KEYS) {
-      return false;
-    }
-
-    return true;
+    return event;
   }
 
   // determine rate
@@ -196,7 +189,9 @@ static bool scr_idle_sleep() {
   // sleep for one minute (no return)
   al_sleep(true, 60 * 1000);
 
-  return true;
+  return (sig_event_t){
+      .type = SIG_TIMEOUT,
+  };
 }
 
 /* Translations */
@@ -948,8 +943,29 @@ static void* scr_sensor() {
 }
 
 static void* scr_idle() {
-  // set timeout return
+  // local state
+  static bool wakeup_handled = false;
+  DEV_KEEP static void* return_idle = NULL;
+
+  // handle button wake from deep sleep (once)
+  if (!wakeup_handled) {
+    wakeup_handled = true;
+    uint8_t wakeup = al_buttons_wakeup();
+    if (wakeup & (1 << AL_BUTTON_LEFT)) {
+      scr_screen_index--;
+    } else if (wakeup & (1 << AL_BUTTON_RIGHT)) {
+      scr_screen_index++;
+    } else if (wakeup && return_idle) {
+      return return_idle;
+    }
+  }
+
+  // capture unlock return
+  return_idle = scr_return_unlock;
+
+  // set return handlers
   scr_return_timeout = scr_idle;
+  scr_return_unlock = scr_idle;
 
   /* Multi-Screen Idle */
 
@@ -1026,10 +1042,24 @@ static void* scr_idle() {
         }
 
         // sleep until woken
-        if (!scr_idle_sleep()) {
+        sig_event_t event = scr_idle_sleep();
+
+        // handle left/right
+        if (event.type == SIG_LEFT) {
+          scr_screen_index = (scr_screen_index == 0) ? count - 1 : scr_screen_index - 1;
+          screen_start = naos_millis();
+          continue;
+        } else if (event.type == SIG_RIGHT) {
+          scr_screen_index++;
+          screen_start = naos_millis();
+          continue;
+        }
+
+        // exit on other keys
+        if (event.type & SIG_KEYS) {
           eng_bundle_free(screens);
           gui_cleanup(false);
-          return scr_return_unlock;
+          return return_idle;
         }
       }
     }
@@ -1145,7 +1175,10 @@ static void* scr_idle() {
     gfx_end(false, true);
 
     // sleep until next update
-    if (!scr_idle_sleep()) {
+    sig_event_t event = scr_idle_sleep();
+
+    // exit on keys
+    if (event.type & SIG_KEYS) {
       break;
     }
   }
@@ -1153,7 +1186,7 @@ static void* scr_idle() {
   // cleanup
   gui_cleanup(false);
 
-  return scr_return_unlock;
+  return return_idle;
 }
 
 static void* scr_view() {
