@@ -9,7 +9,7 @@ config:
       - title: Settings
         items:
           - key: primary
-            title: Value
+            title: Primary Value
             type: string
             default: co2
             options:
