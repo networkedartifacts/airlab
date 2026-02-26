@@ -1,6 +1,8 @@
 # Firmware
 
-The Air Lab firmware runs on the [NAOS](https://github.com/256dpi/naos) framework, which provides the `naos` CLI tool for managing the firmware project and the NAOS ESP-IDF component to ease development. 
+The Air Lab firmware runs on the [NAOS](https://github.com/256dpi/naos) framework, which provides the `naos` CLI tool for managing the firmware project and the NAOS ESP-IDF component to ease development.
+
+> **Note:** The firmware is best modified directly in this tree. Creating a standalone firmware project and linking the board support library separately is not supported at the moment.
 
 **Target hardware:** ESP32-S3 with 16 MB flash, octal SPIRAM, 296x128 e-paper display, SCD41 (CO2), SGP41 (VOC/NOx), LPS22 (pressure) sensors, capacitive touch (CY8CMBR3108), accelerometer (FXLS8974CF), RTC (BQ32000), 1500 mAh LiPo with charger (BQ25601), USB-C.
 

@@ -2,6 +2,15 @@
 
 Air Lab supports WASM-based plugins that run on-device via [WAMR](https://github.com/bytecodealliance/wasm-micro-runtime) (WebAssembly Micro Runtime). Plugins are written in C, compiled to `wasm32-wasi` with Zig, and bundled into `.alp` files that can be uploaded and launched over USB.
 
+> **Note:** The plugins in this repo are primarily intended to test the plugin system. If you want to write your own plugins, check out the [Script Editor](https://studio.networkedartifacts.com/airlab/editor) first — it provides its own Go API and a faster feedback loop.
+
+## Adding a Plugin
+
+1. Create a new directory (e.g. `myplugin/`) with a `main.c` source file and an `alp.yml` manifest.
+2. Add the directory name to `.PHONY` (line 1) and the `foreach` list (line 15) in the [`Makefile`](Makefile).
+
+After that you can build, upload, and launch the plugin using `make myplugin`.
+
 ## Prerequisites
 
 - [Zig](https://ziglang.org) compiler

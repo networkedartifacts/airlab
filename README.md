@@ -8,6 +8,8 @@ _Using its high-quality sensors, Air Lab measures CO2, temperature, relative hum
 
 **Welcome to the Air Lab open-source repository!** At Networked Artifacts, we firmly believe that open-source software is essential to delivering a product that remains accessible and customizable forever. We encourage you to join the development, report bugs, or fork the repository and customize it to your needs. And when you do, make sure to post your project using GitHub discussions!
 
+This repository is meant to be cloned or forked by anyone wanting to collaborate on the firmware, plugins, or tools. All components live in a single tree, so they can be built and tested together.
+
 ## Structure
 
 - [`firmware`](firmware) — The official device firmware and board support library.
