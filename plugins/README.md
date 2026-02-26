@@ -7,15 +7,15 @@ Air Lab supports WASM-based plugins that run on-device via [WAMR](https://github
 ## Adding a Plugin
 
 1. Create a new directory (e.g. `myplugin/`) with a `main.c` source file and an `alp.yml` manifest.
-2. Add the directory name to `.PHONY` (line 1) and the `foreach` list (line 15) in the [`Makefile`](Makefile).
+2. Add the directory name to `.PHONY`, the `foreach` list, and the `all:` target in the [`Makefile`](Makefile).
 
-After that you can build, upload, and launch the plugin using `make myplugin`.
+After that, you can build the plugin using `make myplugin`.
 
 ## Prerequisites
 
 - [Zig](https://ziglang.org) compiler
-- [Go](https://go.dev) 1.23+ (for the `airlab` CLI — see [`../tools/`](../tools/))
-- Air Lab device connected via USB
+- `airlab` CLI — requires [Go](https://go.dev) 1.23+, install with `make install` in the [`tools`](../tools/) directory
+- Air Lab device connected via USB (for upload/launch)
 
 ## Writing a Plugin
 

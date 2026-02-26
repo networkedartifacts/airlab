@@ -14,7 +14,7 @@ make install # go install ./airlab
 
 ### `airlab plugin bundle <dir> <output>`
 
-Bundle a plugin directory into an `.alp` file. Reads the `alp.yml` manifest, compiles the WASM binary reference, and packages any declared sprites.
+Bundle a plugin directory into an `.alp` file. Reads the `alp.yml` manifest, includes the compiled WASM binary, and packages any declared sprites.
 
 ```bash
 airlab plugin bundle ./hello ./hello/hello.alp

@@ -8,11 +8,13 @@ The Air Lab firmware runs on the [NAOS](https://github.com/256dpi/naos) framewor
 
 ## Prerequisites
 
-- **NAOS** — Install the [NAOS CLI](https://github.com/256dpi/naos). It bundles ESP-IDF and the Xtensa/RISC-V toolchains. The required NAOS version is pinned in [`naos.json`](naos.json).
+- **NAOS** — Install the [NAOS CLI](https://github.com/256dpi/naos) by downloading the latest binary from the [releases page](https://github.com/256dpi/naos/releases) and placing it in your `$PATH`. It manages ESP-IDF and the Xtensa/RISC-V toolchains. The SDK version is pinned in [`naos.json`](naos.json).
 
 ## Build & Flash
 
-First, install the ESP-IDF toolchain (only needed once):
+All commands below assume you are in the `firmware/` directory.
+
+First, install the SDK and toolchain (only needed once):
 
 ```bash
 naos install
@@ -36,7 +38,7 @@ To attach to the device after flashing:
 naos attach
 ```
 
-Build, flash, and monitor can be combined:
+Build, flash, and attach can be combined:
 
 ```bash
 naos run
