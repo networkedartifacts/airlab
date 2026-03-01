@@ -129,8 +129,8 @@ static bool scr_idle_sleep() {
   }
 
   // check if powered, connected via BLE, or networked via MQTT
-  if (power.has_usb || (naos_get_b("sleep-defer-ble") && naos_ble_connections() > 0) ||
-      (naos_get_b("sleep-defer-mqtt") && naos_status() == NAOS_NETWORKED)) {
+  if (power.has_usb || (naos_get_b("ble-no-sleep") && naos_ble_connections() > 0) ||
+      (naos_get_b("mqtt-no-sleep") && naos_status() == NAOS_NETWORKED)) {
     // wait some time
     sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH, 60 * 1000);
 
@@ -258,8 +258,8 @@ typedef struct {
   const char* config__power_light;
   const char* config__wifi_network;
   const char* config__studio;
-  const char* config__sleep_defer_ble;
-  const char* config__sleep_defer_mqtt;
+  const char* config__ble_no_sleep;
+  const char* config__mqtt_no_sleep;
   const char* config__ble_pairing;
   const char* config__ble_bonding;
   const char* config__ble_clear;
@@ -343,8 +343,8 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power_light = "Indicador de encendido",
             .config__wifi_network = "Red WiFi",
             .config__studio = "Usa Air Lab Console\npara cambiar este valor.",
-            .config__sleep_defer_ble = "Sleep Defer BLE",
-            .config__sleep_defer_mqtt = "Sleep Defer MQTT",
+            .config__ble_no_sleep = "BLE Defer Sleep",
+            .config__mqtt_no_sleep = "MQTT Defer Sleep",
             .config__ble_pairing = "Bluetooth Pairing",
             .config__ble_bonding = "Bluetooth Bonding",
             .config__ble_clear = "Borrar dispositivos BT",
@@ -438,8 +438,8 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power_light = "Betriebsanzeige",
             .config__wifi_network = "WiFi Netzwerk",
             .config__studio = "Verwende Air Lab Console\num diesen Wert zu ändern.",
-            .config__sleep_defer_ble = "Sleep Defer BLE",
-            .config__sleep_defer_mqtt = "Sleep Defer MQTT",
+            .config__ble_no_sleep = "BLE Defer Sleep",
+            .config__mqtt_no_sleep = "MQTT Defer Sleep",
             .config__ble_pairing = "Bluetooth Pairing",
             .config__ble_bonding = "Bluetooth Bonding",
             .config__ble_clear = "BT Geräte löschen",
@@ -532,8 +532,8 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power_light = "Power Light",
             .config__wifi_network = "WiFi Network",
             .config__studio = "Use Air Lab Console\nto change this value.",
-            .config__sleep_defer_ble = "Sleep Defer BLE",
-            .config__sleep_defer_mqtt = "Sleep Defer MQTT",
+            .config__ble_no_sleep = "BLE Defer Sleep",
+            .config__mqtt_no_sleep = "MQTT Defer Sleep",
             .config__ble_pairing = "Bluetooth Pairing",
             .config__ble_bonding = "Bluetooth Bonding",
             .config__ble_clear = "Clear BT Devices",
@@ -1843,14 +1843,14 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 12: {
       return (gui_list_item_t){
-          .title = t->config__sleep_defer_ble,
-          .info = naos_get_b("sleep-defer-ble") ? t->on : t->off,
+          .title = t->config__ble_no_sleep,
+          .info = naos_get_b("ble-no-sleep") ? t->on : t->off,
       };
     }
     case 13: {
       return (gui_list_item_t){
-          .title = t->config__sleep_defer_mqtt,
-          .info = naos_get_b("sleep-defer-mqtt") ? t->on : t->off,
+          .title = t->config__mqtt_no_sleep,
+          .info = naos_get_b("mqtt-no-sleep") ? t->on : t->off,
       };
     }
     case 14: {
@@ -2004,15 +2004,15 @@ static void* scr_config() {
       }
 
       case 12: {
-        // toggle sleep defer BLE
-        naos_set_b("sleep-defer-ble", !naos_get_b("sleep-defer-ble"));
+        // toggle BLE no sleep
+        naos_set_b("ble-no-sleep", !naos_get_b("ble-no-sleep"));
 
         break;
       }
 
       case 13: {
-        // toggle sleep defer MQTT
-        naos_set_b("sleep-defer-mqtt", !naos_get_b("sleep-defer-mqtt"));
+        // toggle MQTT no sleep
+        naos_set_b("mqtt-no-sleep", !naos_get_b("mqtt-no-sleep"));
 
         break;
       }
