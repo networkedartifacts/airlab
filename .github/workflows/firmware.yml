@@ -1,6 +1,9 @@
 name: Firmware
 
-on: [push]
+on:
+  push:
+    branches: ["**"]
+    tags: ["firmware/v*"]
 
 jobs:
   build:
@@ -23,3 +26,13 @@ jobs:
         run: naos install
       - name: Build
         run: naos build
+      - name: Bundle
+        if: startsWith(github.ref, 'refs/tags/firmware/v')
+        run: naos bundle na-airlab.zip
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/firmware/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: na-airlab.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
