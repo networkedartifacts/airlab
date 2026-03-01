@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install naos
         run: |
-          curl -L -o /usr/local/bin/naos https://github.com/256dpi/naos/releases/download/v0.14.1/naos-linux-amd64
+          curl -L -o /usr/local/bin/naos https://github.com/256dpi/naos/releases/download/v0.14.2/naos-linux-amd64
           chmod +x /usr/local/bin/naos
       - name: Cache SDK
         uses: actions/cache@v4
