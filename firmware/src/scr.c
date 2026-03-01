@@ -128,9 +128,12 @@ static bool scr_idle_sleep() {
     scr_power_off(true, true);
   }
 
-  // check if powered, connected via BLE, or networked via MQTT
-  if (power.has_usb || (naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0) ||
-      (naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED)) {
+  // check BLE and MQTT
+  bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
+  bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
+
+  // check if powered or connected via BLE/MQTT
+  if (power.has_usb || has_ble || has_mqtt) {
     // wait some time
     sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH, 60 * 1000);
 
