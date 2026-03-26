@@ -7,25 +7,22 @@ typedef struct {
 } sensor_t;
 
 static sensor_t sensors[] = {
-    {AL_INFO_SENSOR_CO2, "ppm", "%.0f"},
-    {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f"},
-    {AL_INFO_SENSOR_HUMIDITY, "%", "%.0f"},
-    {AL_INFO_SENSOR_VOC, "VOC", "%.0f"},
-    {AL_INFO_SENSOR_NOX, "NOx", "%.0f"},
-    {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f"},
+    {AL_INFO_SENSOR_CO2, "ppm", "%.0f"},    {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f"},
+    {AL_INFO_SENSOR_HUMIDITY, "% RH", "%.1f"}, {AL_INFO_SENSOR_VOC, "VOC", "%.0f"},
+    {AL_INFO_SENSOR_NOX, "NOx", "%.0f"},    {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f"},
 };
 
-static int find_sensor(const char *key, const char *name) {
+static int find_sensor(const char *key, const char *def) {
   char value[32] = {0};
   al_config_get_s(key, value, sizeof(value));
-  const char *lookup = strlen(value) > 0 ? value : name;
-  if (strlen(lookup) == 0) return -1;
-  if (strcmp(lookup, "co2") == 0) return 0;
-  if (strcmp(lookup, "tmp") == 0) return 1;
-  if (strcmp(lookup, "hum") == 0) return 2;
-  if (strcmp(lookup, "voc") == 0) return 3;
-  if (strcmp(lookup, "nox") == 0) return 4;
-  if (strcmp(lookup, "prs") == 0) return 5;
+  const char *v = strlen(value) > 0 ? value : def;
+  if (strlen(v) == 0) return -1;
+  if (strcmp(v, "co2") == 0) return 0;
+  if (strcmp(v, "tmp") == 0) return 1;
+  if (strcmp(v, "hum") == 0) return 2;
+  if (strcmp(v, "voc") == 0) return 3;
+  if (strcmp(v, "nox") == 0) return 4;
+  if (strcmp(v, "prs") == 0) return 5;
   return -1;
 }
 
@@ -42,6 +39,9 @@ int main() {
   int left = find_sensor("left", "");
   int center = find_sensor("center", "");
   int right = find_sensor("right", "");
+
+  // clear screen
+  al_clear(0);
 
   // draw primary value
   if (primary >= 0) {

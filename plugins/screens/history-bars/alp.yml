@@ -1,0 +1,27 @@
+name: na.history-bars
+title: History Bars
+version: v0.1.0
+binary:
+  screen: ./main.wasm
+config:
+  screen:
+    sections:
+      - title: Values
+        items:
+          - key: sensor
+            title: Sensor
+            type: string
+            default: co2
+            options:
+              - value: co2
+                label: CO2
+              - value: tmp
+                label: Temperature
+              - value: hum
+                label: Humidity
+              - value: voc
+                label: VOC
+              - value: nox
+                label: NOx
+              - value: prs
+                label: Pressure

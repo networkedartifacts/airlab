@@ -1,0 +1,5 @@
+name: na.striped-columns
+title: Striped Columns
+version: v0.1.0
+binary:
+  screen: ./main.wasm

@@ -1,4 +1,4 @@
-.PHONY: basic
+.PHONY: basic big-type history-bars striped-columns simple-scale gauge-dials mini-sparklines dieters-ruler black-white
 
 COMPILE := zig cc -mcpu=mvp -target wasm32-wasi -Wl,-z,stack-size=65536 -Wl,--initial-memory=262144 -Wl,--max-memory=262144 -Os
 UPLOAD ?= 0
@@ -12,9 +12,9 @@ $1:
 	@if [ "$$(LAUNCH)" = "1" ]; then airlab plugin launch -b screen na.$1.alp; fi
 endef
 
-all: basic
+all: basic big-type history-bars striped-columns simple-scale gauge-dials mini-sparklines dieters-ruler black-white
 
-$(foreach t,basic,$(eval $(call build_task,$t)))
+$(foreach t,basic big-type history-bars striped-columns simple-scale gauge-dials mini-sparklines dieters-ruler black-white,$(eval $(call build_task,$t)))
 
 upload:
 	$(MAKE) UPLOAD=1 all

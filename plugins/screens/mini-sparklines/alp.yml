@@ -1,0 +1,5 @@
+name: na.mini-sparklines
+title: Mini Sparklines
+version: v0.1.0
+binary:
+  screen: ./main.wasm

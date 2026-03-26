@@ -1,0 +1,19 @@
+name: na.dieters-ruler
+title: Dieter's Ruler
+version: v0.1.0
+binary:
+  screen: ./main.wasm
+config:
+  screen:
+    sections:
+      - title: Display
+        items:
+          - key: group
+            title: Group
+            type: string
+            default: a
+            options:
+              - value: a
+                label: CO2 / VOC / Temperature
+              - value: b
+                label: NOx / Humidity / Pressure

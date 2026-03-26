@@ -1,0 +1,46 @@
+name: na.big-type
+title: Big Type
+version: v0.1.0
+binary:
+  screen: ./main.wasm
+sprites:
+  - comic/*.png
+  - papyrus/*.png
+  - courier/*.png
+config:
+  screen:
+    sections:
+      - title: Settings
+        items:
+          - key: font
+            title: Font
+            type: string
+            default: comic
+            options:
+              - value: comic
+                label: Comic Sans
+              - value: papyrus
+                label: Papyrus
+              - value: courier
+                label: Courier
+          - key: sensor
+            title: Sensor
+            type: string
+            default: co2
+            options:
+              - value: co2
+                label: CO2
+              - value: tmp
+                label: Temperature
+              - value: hum
+                label: Humidity
+              - value: voc
+                label: VOC
+              - value: nox
+                label: NOx
+              - value: prs
+                label: Pressure
+          - key: unit
+            title: Show Unit
+            type: bool
+            default: true
