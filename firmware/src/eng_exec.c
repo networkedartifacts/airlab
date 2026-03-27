@@ -1450,10 +1450,6 @@ static void *eng_exec_task(void *arg) {
   // get context
   eng_exec_context_t *ctx = arg;
 
-  // prepare variables
-  char error_buf[128];
-  uint32_t stack_size = 8 * 1024, heap_size = 32 * 1024;
-
   // prepare runtime init args
   RuntimeInitArgs init_args = {0};
 
@@ -1485,16 +1481,21 @@ static void *eng_exec_task(void *arg) {
     return NULL;
   }
 
+  // prepare WASM state
+  char error_buf[128];
+  wasm_module_t module = NULL;
+  wasm_module_inst_t module_inst = NULL;
+  wasm_exec_env_t exec_env = NULL;
+  uint32_t stack_size = 8 * 1024, heap_size = 32 * 1024;
+
   // load application
-  wasm_module_t module = wasm_runtime_load(main, main_len, error_buf, sizeof(error_buf));
+  module = wasm_runtime_load(main, main_len, error_buf, sizeof(error_buf));
   if (!module) {
     naos_log("eng_exec_task: loading WASM module failed: %s", error_buf);
     goto fail;
   }
 
   // instantiate module
-  wasm_module_inst_t module_inst;
-  memset(&module_inst, 0, sizeof(wasm_module_inst_t));
   module_inst = wasm_runtime_instantiate(module, stack_size, heap_size, error_buf, sizeof(error_buf));
   if (!module_inst) {
     naos_log("eng_exec_task: instantiating WASM module failed: %s", error_buf);
@@ -1502,8 +1503,6 @@ static void *eng_exec_task(void *arg) {
   }
 
   // create execution environment
-  wasm_exec_env_t exec_env;
-  memset(&exec_env, 0, sizeof(wasm_exec_env_t));
   exec_env = wasm_runtime_create_exec_env(module_inst, stack_size);
   if (!exec_env) {
     naos_log("eng_exec_task: creating WASM execution environment failed");
