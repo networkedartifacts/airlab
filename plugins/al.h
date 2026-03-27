@@ -64,6 +64,18 @@ IMPORT("al_delay") extern void al_delay(int ms);
 
 IMPORT("al_millis") extern int64_t al_millis();
 
+typedef enum {
+  AL_CLOCK_YEAR,
+  AL_CLOCK_MONTH,
+  AL_CLOCK_DAY,
+  AL_CLOCK_HOUR,
+  AL_CLOCK_MINUTE,
+  AL_CLOCK_SECOND,
+} al_clock_field_t;
+
+IMPORT("al_clock") extern int _al_clock(int64_t epoch, int field);
+int al_clock(int64_t epoch, al_clock_field_t field) { return _al_clock(epoch, (int)field); }
+
 /* interface operations */
 
 IMPORT("al_clear") extern void al_clear(int c);

@@ -18,6 +18,7 @@
 #include <al/buzzer.h>
 #include <al/accel.h>
 #include <al/power.h>
+#include <al/clock.h>
 #include <al/store.h>
 
 #include "com.h"
@@ -355,6 +356,51 @@ static int64_t eng_exec_op_millis(wasm_exec_env_t _) {
 
   // return time
   return naos_millis();
+}
+
+enum {
+  ENG_CLOCK_YEAR,
+  ENG_CLOCK_MONTH,
+  ENG_CLOCK_DAY,
+  ENG_CLOCK_HOUR,
+  ENG_CLOCK_MINUTE,
+  ENG_CLOCK_SECOND,
+};
+
+static int eng_exec_op_clock(wasm_exec_env_t _, int64_t epoch, int field) {
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_clock: epoch=%lld field=%d", epoch, field);
+  }
+
+  // use current epoch if zero
+  if (epoch == 0) {
+    epoch = al_clock_get_epoch();
+  }
+
+  // handle field
+  switch (field) {
+    case ENG_CLOCK_YEAR:
+    case ENG_CLOCK_MONTH:
+    case ENG_CLOCK_DAY: {
+      uint16_t year, month, day;
+      al_clock_epoch_date(epoch, &year, &month, &day);
+      if (field == ENG_CLOCK_YEAR) return year;
+      if (field == ENG_CLOCK_MONTH) return month;
+      return day;
+    }
+    case ENG_CLOCK_HOUR:
+    case ENG_CLOCK_MINUTE:
+    case ENG_CLOCK_SECOND: {
+      uint16_t hour, minute, second;
+      al_clock_epoch_time(epoch, &hour, &minute, &second);
+      if (field == ENG_CLOCK_HOUR) return hour;
+      if (field == ENG_CLOCK_MINUTE) return minute;
+      return second;
+    }
+    default:
+      return -1;
+  }
 }
 
 /* interface operations */
@@ -1420,6 +1466,7 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_yield", eng_exec_op_yield, "(ii)i", NULL},
     {"al_delay", eng_exec_op_delay, "(i)", NULL},
     {"al_millis", eng_exec_op_millis, "()I", NULL},
+    {"al_clock", eng_exec_op_clock, "(Ii)i", NULL},
     {"al_clear", eng_exec_op_clear, "(i)", NULL},
     {"al_line", eng_exec_op_line, "(iiiiii)", NULL},
     {"al_rect", eng_exec_op_rect, "(iiiiii)", NULL},
