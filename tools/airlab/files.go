@@ -57,6 +57,19 @@ var filesListCmd = &cobra.Command{
 	},
 }
 
+var filesTreeCmd = &cobra.Command{
+	Use:   "tree [device]",
+	Short: "Show file tree on a device",
+	Args:  cobra.MaximumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		device := ""
+		if len(args) > 0 {
+			device = args[0]
+		}
+		return filesTree(device)
+	},
+}
+
 var filesRemoveCmd = &cobra.Command{
 	Use:   "remove <remote-path> [device]",
 	Short: "Remove a file or directory from a device",
@@ -76,6 +89,7 @@ func init() {
 	filesCmd.AddCommand(filesUploadCmd)
 	filesCmd.AddCommand(filesDownloadCmd)
 	filesCmd.AddCommand(filesListCmd)
+	filesCmd.AddCommand(filesTreeCmd)
 	filesCmd.AddCommand(filesRemoveCmd)
 
 	rootCmd.AddCommand(filesCmd)
@@ -218,6 +232,60 @@ func filesList(remotePath, device string) error {
 			fmt.Printf("  [dir]  %s\n", e.Name)
 		} else {
 			fmt.Printf("  %6d %s\n", e.Size, e.Name)
+		}
+	}
+
+	return nil
+}
+
+func filesTree(device string) error {
+	// open device
+	man, err := filesOpenDevice(device)
+	if err != nil {
+		return err
+	}
+	defer man.Deactivate()
+
+	// print tree
+	root := filesPrefix()
+	fmt.Println(root)
+	err = man.UseSession(func(s *msg.Session) error {
+		return filesTreeWalk(s, root, "")
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func filesTreeWalk(s *msg.Session, path, prefix string) error {
+	// list directory
+	entries, err := msg.ListDir(s, path, time.Second*5)
+	if err != nil {
+		return err
+	}
+
+	for i, e := range entries {
+		last := i == len(entries)-1
+
+		// select connector
+		connector := "├── "
+		childPrefix := "│   "
+		if last {
+			connector = "└── "
+			childPrefix = "    "
+		}
+
+		// print entry
+		if e.IsDir {
+			fmt.Printf("%s%s%s (DIR)\n", prefix, connector, e.Name)
+			err := filesTreeWalk(s, path+"/"+e.Name, prefix+childPrefix)
+			if err != nil {
+				return err
+			}
+		} else {
+			fmt.Printf("%s%s%s (%d)\n", prefix, connector, e.Name, e.Size)
 		}
 	}
 
