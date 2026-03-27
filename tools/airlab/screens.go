@@ -250,11 +250,7 @@ func screensUpload(man *msg.ManagedDevice, bundle *alb.Bundle) error {
 
 	// upload bundle
 	err := man.UseSession(func(s *msg.Session) error {
-		err := msg.MakePath(s, "/int/config", time.Second)
-		if err != nil {
-			return err
-		}
-		return msg.WriteFile(s, screensFile, data, nil, time.Minute)
+		return stagedUpload(s, screensFile, data, nil, time.Minute)
 	})
 	if err != nil {
 		return err

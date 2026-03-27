@@ -137,15 +137,7 @@ func filesUpload(localFile, remotePath, device string) error {
 	// upload file
 	fmt.Printf("==> Uploading: 0%%\n")
 	err = man.UseSession(func(s *msg.Session) error {
-		// ensure parent directory
-		dir := filepath.Dir(remotePath)
-		if dir != "" && dir != "/" {
-			err := msg.MakePath(s, dir, time.Second)
-			if err != nil {
-				return err
-			}
-		}
-		return msg.WriteFile(s, remotePath, data, func(u uint32) {
+		return stagedUpload(s, remotePath, data, func(u uint32) {
 			fmt.Printf("\033[A\033[2K\r")
 			fmt.Printf("==> Uploading: %.0f%%\n", float64(u)/float64(len(data))*100)
 		}, time.Minute)

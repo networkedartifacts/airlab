@@ -94,11 +94,7 @@ func pluginUpload(input, device string) error {
 	// upload file
 	fmt.Printf("==> Uploading: 0%%\n")
 	err = man.UseSession(func(s *msg.Session) error {
-		err = msg.MakePath(s, "/int/engine", time.Second)
-		if err != nil {
-			return err
-		}
-		return msg.WriteFile(s, "/int/engine/"+name, data, func(u uint32) {
+		return stagedUpload(s, "/int/engine/"+name, data, func(u uint32) {
 			fmt.Printf("\033[A\033[2K\r")
 			fmt.Printf("==> Uploading: %.0f%%\n", float64(u)/float64(len(data))*100)
 		}, time.Minute)

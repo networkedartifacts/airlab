@@ -213,7 +213,7 @@ func pluginConfigSet(man *msg.ManagedDevice, fileName string, typeMap map[string
 	// upload config
 	fmt.Printf("==> Uploading: %s\n", fileName)
 	err = man.UseSession(func(s *msg.Session) error {
-		return msg.WriteFile(s, fileName, bundleData, func(u uint32) {}, time.Minute)
+		return stagedUpload(s, fileName, bundleData, nil, time.Minute)
 	})
 	if err != nil {
 		return err
