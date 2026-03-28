@@ -31,9 +31,9 @@ func pluginMonitor(device string) error {
 	var dev msg.Device
 	var err error
 	if device != "" {
-		dev, err = serial.Open(device)
+		dev, err = serial.NewDevice(device)
 	} else {
-		dev, err = serial.OpenBest()
+		dev, err = serial.BestDevice()
 	}
 	if err != nil {
 		return err

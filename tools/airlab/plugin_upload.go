@@ -44,9 +44,9 @@ func pluginUpload(input, device string) error {
 	// open device
 	var dev msg.Device
 	if device != "" {
-		dev, err = serial.Open(device)
+		dev, err = serial.NewDevice(device)
 	} else {
-		dev, err = serial.OpenBest()
+		dev, err = serial.BestDevice()
 	}
 	if err != nil {
 		return err

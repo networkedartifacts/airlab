@@ -114,8 +114,7 @@ void app_main() {
   // run naos
   naos_init(&config);
   naos_cpu_init();
-  naos_serial_init_stdio();
-  naos_serial_init_secio();
+  naos_serial_init_secio_usj();
   naos_start();
 
   // derive device name from ID if not set
