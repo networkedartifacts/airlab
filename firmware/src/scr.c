@@ -110,15 +110,13 @@ static void scr_power_off(bool low_power, bool msg) {
 
 static void scr_launch(const char* file, const char* mode) {
   // prepare flag
-  bool updated = false;
+  bool loading = true;
 
   for (;;) {
-    // write message
-    gui_cleanup(false);
-    if (!updated) {
+    // write message on first load or re-launch
+    if (loading) {
+      gui_cleanup(false);
       gui_write("Loading plugin...", false);
-    } else {
-      gui_write("Reloading plugin...", false);
     }
 
     // determine if screen
@@ -127,16 +125,22 @@ static void scr_launch(const char* file, const char* mode) {
     // run plugin
     bool ok = eng_run(file, mode);
 
-    // await button or re-launch for screens
+    // await button, sensor, interrupt, or re-launch for screens
     if (screen && ok) {
       // await event
-      sig_event_t event = sig_await(SIG_KEYS | SIG_LAUNCH, 0);
+      sig_event_t event = sig_await(SIG_KEYS | SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH, 0);
 
       // handle launch
       if (event.type == SIG_LAUNCH) {
         file = event.plugin.file;
         mode = event.plugin.mode;
-        updated = true;
+        loading = true;
+        continue;
+      }
+
+      // handle sensor data and interrupts
+      if (event.type & (SIG_SENSOR | SIG_INTERRUPT)) {
+        loading = false;
         continue;
       }
     }
