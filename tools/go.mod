@@ -3,7 +3,7 @@ module github.com/networkedartifacts/airlab/tools
 go 1.24.7
 
 require (
-	github.com/256dpi/naos v0.14.5
+	github.com/256dpi/naos v0.14.7
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/image v0.20.0
