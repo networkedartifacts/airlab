@@ -451,8 +451,10 @@ void com_init() {
   });
 
   // install filesystem endpoint
+  static const char *root_entries[] = {"int", "ext", NULL};
   naos_fs_install((naos_fs_config_t){
       .root = AL_STORAGE_ROOT,
+      .root_entries = root_entries,
   });
 
   // install authentication endpoint
