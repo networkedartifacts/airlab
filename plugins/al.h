@@ -33,6 +33,7 @@ typedef enum {
   AL_INFO_TOUCH_POS,
   AL_INFO_SCROLL_STD,
   AL_INFO_SCROLL_FAST,
+  AL_INFO_CONNECTED,
 } al_info_t;
 
 IMPORT("al_info") extern float al_info(al_info_t i);

@@ -158,6 +158,7 @@ enum {
   ENG_INFO_TOUCH_POS,
   ENG_INFO_SCROLL_STD,
   ENG_INFO_SCROLL_FAST,
+  ENG_INFO_CONNECTED,
 };
 
 static float eng_exec_op_info(wasm_exec_env_t env, int i) {
@@ -211,6 +212,8 @@ static float eng_exec_op_info(wasm_exec_env_t env, int i) {
       return ctx->scroll_std;
     case ENG_INFO_SCROLL_FAST:
       return ctx->scroll_fast;
+    case ENG_INFO_CONNECTED:
+      return naos_status() >= NAOS_CONNECTED ? 1.0f : 0.0f;
     default:
       return -1;
   }
