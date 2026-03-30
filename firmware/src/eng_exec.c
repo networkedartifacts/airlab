@@ -365,9 +365,10 @@ enum {
   ENG_CLOCK_HOUR,
   ENG_CLOCK_MINUTE,
   ENG_CLOCK_SECOND,
+  ENG_CLOCK_EPOCH,
 };
 
-static int eng_exec_op_clock(wasm_exec_env_t _, int64_t epoch, int field) {
+static int64_t eng_exec_op_clock(wasm_exec_env_t _, int64_t epoch, int field) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_clock: epoch=%lld field=%d", epoch, field);
@@ -398,6 +399,8 @@ static int eng_exec_op_clock(wasm_exec_env_t _, int64_t epoch, int field) {
       if (field == ENG_CLOCK_MINUTE) return minute;
       return second;
     }
+    case ENG_CLOCK_EPOCH:
+      return epoch;
     default:
       return -1;
   }
@@ -1616,7 +1619,7 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_yield", eng_exec_op_yield, "(ii)i", NULL},
     {"al_delay", eng_exec_op_delay, "(i)", NULL},
     {"al_millis", eng_exec_op_millis, "()I", NULL},
-    {"al_clock", eng_exec_op_clock, "(Ii)i", NULL},
+    {"al_clock", eng_exec_op_clock, "(Ii)I", NULL},
     {"al_clear", eng_exec_op_clear, "(i)", NULL},
     {"al_line", eng_exec_op_line, "(iiiiii)", NULL},
     {"al_rect", eng_exec_op_rect, "(iiiiii)", NULL},

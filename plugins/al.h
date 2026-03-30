@@ -71,10 +71,11 @@ typedef enum {
   AL_CLOCK_HOUR,
   AL_CLOCK_MINUTE,
   AL_CLOCK_SECOND,
+  AL_CLOCK_EPOCH,
 } al_clock_field_t;
 
-IMPORT("al_clock") extern int _al_clock(int64_t epoch, int field);
-int al_clock(int64_t epoch, al_clock_field_t field) { return _al_clock(epoch, (int)field); }
+IMPORT("al_clock") extern int64_t _al_clock(int64_t epoch, int field);
+int64_t al_clock(int64_t epoch, al_clock_field_t field) { return _al_clock(epoch, (int)field); }
 
 /* interface operations */
 
