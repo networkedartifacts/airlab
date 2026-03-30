@@ -1,0 +1,5 @@
+name: example.events
+title: "Example: Events"
+version: v0.1.0
+binary:
+  main: ./main.wasm
