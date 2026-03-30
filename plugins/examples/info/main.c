@@ -14,7 +14,7 @@ int main() {
         float battery_level = al_info(AL_INFO_BATTERY_LEVEL);
         float battery_voltage = al_info(AL_INFO_BATTERY_VOLTAGE);
         float power_usb = al_info(AL_INFO_POWER_USB);
-        float powr_chaging = al_info(AL_INGO_POWER_CHARGING);
+        float powr_chaging = al_info(AL_INFO_POWER_CHARGING);
         snprintf(buf, sizeof(buf), "Battery: %.2f (%.2f)\nUSB Power: %.0f\nCharging: %.0f", battery_level,
                  battery_voltage, power_usb, powr_chaging);
         break;
@@ -31,8 +31,8 @@ int main() {
         break;
       }
       case 2: {
-        float store_short = al_info(AL_INGO_STORE_SHORT);
-        float store_long = al_info(AL_INGO_STORE_LONG);
+        float store_short = al_info(AL_INFO_STORE_SHORT);
+        float store_long = al_info(AL_INFO_STORE_LONG);
         snprintf(buf, sizeof(buf), "Short Store: %.0f\nLong Store: %.0f", store_short, store_long);
         break;
       }

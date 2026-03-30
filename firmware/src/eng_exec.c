@@ -138,15 +138,15 @@ enum {
   ENG_INFO_BATTERY_LEVEL,
   ENG_INFO_BATTERY_VOLTAGE,
   ENG_INFO_POWER_USB,
-  ENG_INGO_POWER_CHARGING,
+  ENG_INFO_POWER_CHARGING,
   ENG_INFO_SENSOR_TEMPERATURE,
   ENG_INFO_SENSOR_HUMIDITY,
   ENG_INFO_SENSOR_CO2,
   ENG_INFO_SENSOR_VOC,
   ENG_INFO_SENSOR_NOX,
   ENG_INFO_SENSOR_PRESSURE,
-  ENG_INGO_STORE_SHORT,
-  ENG_INGO_STORE_LONG,
+  ENG_INFO_STORE_SHORT,
+  ENG_INFO_STORE_LONG,
   ENG_INFO_ACCEL_FRONT,
   ENG_INFO_ACCEL_ROTATION,
   ENG_INFO_STORAGE_INT,
@@ -167,7 +167,7 @@ static float eng_exec_op_info(wasm_exec_env_t _, int i) {
       return al_power_get().bat_voltage;
     case ENG_INFO_POWER_USB:
       return al_power_get().has_usb ? al_power_get().can_fast ? 2.0f : 1.0f : 0.0f;
-    case ENG_INGO_POWER_CHARGING:
+    case ENG_INFO_POWER_CHARGING:
       return al_power_get().charging ? 1.0f : 0.0f;
     case ENG_INFO_SENSOR_TEMPERATURE:
       return (float)al_store_last().tmp / 100.f;
@@ -181,9 +181,9 @@ static float eng_exec_op_info(wasm_exec_env_t _, int i) {
       return al_store_last().nox;
     case ENG_INFO_SENSOR_PRESSURE:
       return al_store_last().prs;
-    case ENG_INGO_STORE_SHORT:
+    case ENG_INFO_STORE_SHORT:
       return (float)al_store_count(AL_STORE_SHORT);
-    case ENG_INGO_STORE_LONG:
+    case ENG_INFO_STORE_LONG:
       return (float)al_store_count(AL_STORE_LONG);
     case ENG_INFO_ACCEL_FRONT:
       return al_accel_get().front ? 1.0f : 0.0f;
