@@ -14,9 +14,10 @@ int main() {
         float battery_level = al_info(AL_INFO_BATTERY_LEVEL);
         float battery_voltage = al_info(AL_INFO_BATTERY_VOLTAGE);
         float power_usb = al_info(AL_INFO_POWER_USB);
-        float powr_chaging = al_info(AL_INFO_POWER_CHARGING);
-        snprintf(buf, sizeof(buf), "Battery: %.2f (%.2f)\nUSB Power: %.0f\nCharging: %.0f", battery_level,
-                 battery_voltage, power_usb, powr_chaging);
+        float power_charging = al_info(AL_INFO_POWER_CHARGING);
+        float connected = al_info(AL_INFO_CONNECTED);
+        snprintf(buf, sizeof(buf), "Battery: %.2f (%.2f)\nUSB Power: %.0f\nCharging: %.0f\nConnected: %.0f",
+                 battery_level, battery_voltage, power_usb, power_charging, connected);
         break;
       }
       case 1: {
@@ -26,14 +27,19 @@ int main() {
         float voc = al_info(AL_INFO_SENSOR_VOC);
         float nox = al_info(AL_INFO_SENSOR_NOX);
         float pressure = al_info(AL_INFO_SENSOR_PRESSURE);
-        snprintf(buf, sizeof(buf), "Temp: %.1f\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f\nNOx: %.0f\nPressure: %.0f",
-                 temperature, humidity, co2, voc, nox, pressure);
+        float fahrenheit = al_info(AL_INFO_FAHRENHEIT);
+        snprintf(buf, sizeof(buf),
+                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f\nNOx: %.0f\nPressure: %.0f",
+                 temperature, fahrenheit, humidity, co2, voc, nox, pressure);
         break;
       }
       case 2: {
-        float store_short = al_info(AL_INFO_STORE_SHORT);
-        float store_long = al_info(AL_INFO_STORE_LONG);
-        snprintf(buf, sizeof(buf), "Short Store: %.0f\nLong Store: %.0f", store_short, store_long);
+        int64_t store_start = al_store_info(AL_STORE_INFO_START);
+        int64_t store_count_all = al_store_info(AL_STORE_INFO_COUNT_ALL);
+        int64_t store_count_short = al_store_info(AL_STORE_INFO_COUNT_SHORT);
+        int64_t store_count_long = al_store_info(AL_STORE_INFO_COUNT_LONG);
+        snprintf(buf, sizeof(buf), "Start: %lld\nAll: %lld\nShort: %lld\nLong: %lld", store_start, store_count_all,
+                 store_count_short, store_count_long);
         break;
       }
       case 3: {
