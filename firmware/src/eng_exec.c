@@ -48,6 +48,9 @@ typedef struct {
   void *http_buf;
   size_t http_buf_len;
   size_t http_res_len;
+  float touch_pos;
+  float scroll_std;
+  float scroll_fast;
 } eng_exec_context_t;
 
 static lv_color_t *eng_exec_buffer = NULL;
@@ -152,13 +155,19 @@ enum {
   ENG_INFO_STORAGE_INT,
   ENG_INFO_STORAGE_EXT,
   ENG_INFO_FAHRENHEIT,
+  ENG_INFO_TOUCH_POS,
+  ENG_INFO_SCROLL_STD,
+  ENG_INFO_SCROLL_FAST,
 };
 
-static float eng_exec_op_info(wasm_exec_env_t _, int i) {
+static float eng_exec_op_info(wasm_exec_env_t env, int i) {
   // log
   if (ENG_EXEC_DEBUG) {
     naos_log("eng_exec_op_info: i=%d", i);
   }
+
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
 
   // handle info
   switch (i) {
@@ -196,6 +205,12 @@ static float eng_exec_op_info(wasm_exec_env_t _, int i) {
       return al_storage_info(AL_STORAGE_EXT).usage;
     case ENG_INFO_FAHRENHEIT:
       return naos_get_b("fahrenheit") ? 1.0f : 0.0f;
+    case ENG_INFO_TOUCH_POS:
+      return ctx->touch_pos;
+    case ENG_INFO_SCROLL_STD:
+      return ctx->scroll_std;
+    case ENG_INFO_SCROLL_FAST:
+      return ctx->scroll_fast;
     default:
       return -1;
   }
@@ -235,6 +250,11 @@ enum {
   ENG_YIELD_WAIT_FRAME = (1 << 1),
   ENG_YIELD_INVERT = (1 << 2),
   ENG_YIELD_REFRESH = (1 << 3),
+  ENG_YIELD_SUB_TOUCH = (1 << 4),
+  ENG_YIELD_SUB_SCROLL = (1 << 5),
+  ENG_YIELD_SUB_MOTION = (1 << 6),
+  ENG_YIELD_SUB_SENSOR = (1 << 7),
+  ENG_YIELD_SUB_POWER = (1 << 8),
 };
 
 enum {
@@ -245,6 +265,11 @@ enum {
   ENG_YIELD_DOWN = 4,
   ENG_YIELD_LEFT = 5,
   ENG_YIELD_RIGHT = 6,
+  ENG_YIELD_TOUCH = 7,
+  ENG_YIELD_SCROLL = 8,
+  ENG_YIELD_MOTION = 9,
+  ENG_YIELD_SENSOR = 10,
+  ENG_YIELD_POWER = 11,
 };
 
 static int eng_exec_op_yield(wasm_exec_env_t env, int timeout, int flags) {
@@ -258,9 +283,31 @@ static int eng_exec_op_yield(wasm_exec_env_t env, int timeout, int flags) {
     return ENG_YIELD_TIMEOUT;
   }
 
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
   // check permission (if no interaction, only listen for kill)
   bool has_interaction = eng_has_perm(env, ENG_PERM_INTERACTION);
   sig_type_t sig_mask = has_interaction ? (SIG_KEYS | SIG_KILL) : SIG_KILL;
+
+  // add optional event subscriptions
+  if (has_interaction) {
+    if (flags & ENG_YIELD_SUB_TOUCH) {
+      sig_mask |= SIG_TOUCH;
+    }
+    if (flags & ENG_YIELD_SUB_SCROLL) {
+      sig_mask |= SIG_SCROLL;
+    }
+    if (flags & ENG_YIELD_SUB_MOTION) {
+      sig_mask |= SIG_MOTION;
+    }
+    if (flags & ENG_YIELD_SUB_SENSOR) {
+      sig_mask |= SIG_SENSOR;
+    }
+    if (flags & ENG_YIELD_SUB_POWER) {
+      sig_mask |= SIG_POWER;
+    }
+  }
 
   // unlock graphics
   gfx_end(flags & ENG_YIELD_SKIP_FRAME, flags & ENG_YIELD_WAIT_FRAME);
@@ -312,12 +359,34 @@ static int eng_exec_op_yield(wasm_exec_env_t env, int timeout, int flags) {
     case SIG_RIGHT:
       ret = ENG_YIELD_RIGHT;
       break;
+    case SIG_TOUCH:
+      ret = ENG_YIELD_TOUCH;
+      break;
+    case SIG_SCROLL:
+      ret = ENG_YIELD_SCROLL;
+      break;
+    case SIG_MOTION:
+      ret = ENG_YIELD_MOTION;
+      break;
+    case SIG_SENSOR:
+      ret = ENG_YIELD_SENSOR;
+      break;
+    case SIG_POWER:
+      ret = ENG_YIELD_POWER;
+      break;
     default:
       break;
   }
 
+  // store event data
+  if (event.type == SIG_TOUCH) {
+    ctx->touch_pos = event.position;
+  } else if (event.type == SIG_SCROLL) {
+    ctx->scroll_std = event.scroll.std;
+    ctx->scroll_fast = event.scroll.fast;
+  }
+
   // clear dirty flag
-  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
   ctx->canvas_dirty = 0;
 
   // lock graphics

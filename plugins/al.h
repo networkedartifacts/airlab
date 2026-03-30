@@ -30,6 +30,9 @@ typedef enum {
   AL_INFO_STORAGE_INT,
   AL_INFO_STORAGE_EXT,
   AL_INFO_FAHRENHEIT,
+  AL_INFO_TOUCH_POS,
+  AL_INFO_SCROLL_STD,
+  AL_INFO_SCROLL_FAST,
 } al_info_t;
 
 IMPORT("al_info") extern float al_info(al_info_t i);
@@ -46,6 +49,11 @@ typedef enum {
   AL_YIELD_WAIT_FRAME = (1 << 1),
   AL_YIELD_INVERT = (1 << 2),
   AL_YIELD_REFRESH = (1 << 3),
+  AL_YIELD_SUB_TOUCH = (1 << 4),
+  AL_YIELD_SUB_SCROLL = (1 << 5),
+  AL_YIELD_SUB_MOTION = (1 << 6),
+  AL_YIELD_SUB_SENSOR = (1 << 7),
+  AL_YIELD_SUB_POWER = (1 << 8),
 } al_yield_flags_t;
 
 typedef enum {
@@ -56,6 +64,11 @@ typedef enum {
   AL_YIELD_DOWN = 4,
   AL_YIELD_LEFT = 5,
   AL_YIELD_RIGHT = 6,
+  AL_YIELD_TOUCH = 7,
+  AL_YIELD_SCROLL = 8,
+  AL_YIELD_MOTION = 9,
+  AL_YIELD_SENSOR = 10,
+  AL_YIELD_POWER = 11,
 } al_yield_result_t;
 
 IMPORT("al_yield") extern int _al_yield(int timeout, int flags);
