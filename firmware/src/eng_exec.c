@@ -145,8 +145,8 @@ enum {
   ENG_INFO_SENSOR_VOC,
   ENG_INFO_SENSOR_NOX,
   ENG_INFO_SENSOR_PRESSURE,
-  ENG_INFO_STORE_SHORT,
-  ENG_INFO_STORE_LONG,
+  ENG_INFO_STORE_SHORT,  // deprecated
+  ENG_INFO_STORE_LONG,   // deprecated
   ENG_INFO_ACCEL_FRONT,
   ENG_INFO_ACCEL_ROTATION,
   ENG_INFO_STORAGE_INT,
@@ -827,6 +827,128 @@ static int eng_exec_op_i2c(wasm_exec_env_t env, int addr, uint8_t *tx, int tx_le
 
   return err == ESP_OK ? 0 : -1;
 }
+/* store operations */
+
+enum {
+  ENG_STORE_INFO_START,
+  ENG_STORE_INFO_LENGTH,
+  ENG_STORE_INFO_COUNT_ALL,
+  ENG_STORE_INFO_COUNT_SHORT,
+  ENG_STORE_INFO_COUNT_LONG,
+};
+
+static int64_t eng_exec_op_store_info(wasm_exec_env_t env, int field) {
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_store_info: field=%d", field);
+  }
+
+  // get source
+  al_sample_source_t source = al_store_source();
+
+  // handle field
+  switch (field) {
+    case ENG_STORE_INFO_START:
+      return source.start(source.ctx);
+    case ENG_STORE_INFO_LENGTH:
+      return (int64_t)source.stop(source.ctx);
+    case ENG_STORE_INFO_COUNT_ALL:
+      return (int64_t)source.count(source.ctx);
+    case ENG_STORE_INFO_COUNT_SHORT:
+      return (int64_t)al_store_count(AL_STORE_SHORT);
+    case ENG_STORE_INFO_COUNT_LONG:
+      return (int64_t)al_store_count(AL_STORE_LONG);
+    default:
+      return -1;
+  }
+}
+
+// this function supports two modes:
+// - resolution == 0: raw mode, start is a sample index (negative indexes from end), copies consecutive samples.
+// - resolution > 0: interpolated mode, start is a time offset, samples are interpolated to the given resolution.
+static int eng_exec_op_store_query(wasm_exec_env_t env, int field, float *values, int values_len, int start,
+                                   int resolution) {
+  // check field
+  if (field < AL_SAMPLE_OFF || field > AL_SAMPLE_PRS) {
+    return -1;
+  }
+
+  // calculate count
+  int count = values_len / sizeof(float);
+  if (count <= 0) {
+    return -1;
+  }
+
+  // validate buffer
+  if (!eng_valid_buf(env, values, values_len, false)) {
+    return -1;
+  }
+
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_query: field=%d count=%d start=%d resolution=%d", field, count, start, resolution);
+  }
+
+  // get source
+  al_sample_source_t source = al_store_source();
+
+  // handle raw mode
+  if (resolution == 0) {
+    // resolve start index (negative means from end)
+    size_t size = source.count(source.ctx);
+    if (start < 0) {
+      start = (int)size + start;
+      if (start < 0) {
+        start = 0;
+      }
+    }
+    if ((size_t)start >= size) {
+      return 0;
+    }
+
+    // calculate remaining
+    size_t remaining = size - start;
+    if (remaining > (size_t)count) {
+      remaining = count;
+    }
+
+    // allocate and read samples
+    al_sample_t *samples = eng_exec_malloc(remaining * sizeof(al_sample_t));
+    if (!samples) {
+      return -1;
+    }
+    source.read(source.ctx, samples, remaining, start);
+
+    // extract field values
+    for (size_t i = 0; i < remaining; i++) {
+      values[i] = al_sample_read(samples[i], (al_sample_field_t)field);
+    }
+
+    // free samples
+    eng_exec_free(samples);
+
+    return (int)remaining;
+  }
+
+  // allocate samples
+  al_sample_t *samples = eng_exec_malloc(count * sizeof(al_sample_t));
+  if (!samples) {
+    return -1;
+  }
+
+  // query samples
+  size_t num = al_sample_query(&source, samples, count, start, resolution);
+
+  // extract field values
+  for (size_t i = 0; i < num; i++) {
+    values[i] = al_sample_read(samples[i], (al_sample_field_t)field);
+  }
+
+  // free samples
+  eng_exec_free(samples);
+
+  return (int)num;
+}
 
 /* sprite operations */
 
@@ -1504,6 +1626,8 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_draw", eng_exec_op_draw, "(iiiiii**)", NULL},
     {"al_gpio", eng_exec_op_gpio, "(iii)i", NULL},
     {"al_i2c", eng_exec_op_i2c, "(i*i*ii)i", NULL},
+    {"al_store_info", eng_exec_op_store_info, "(i)I", NULL},
+    {"al_store_query", eng_exec_op_store_query, "(i*~ii)i", NULL},
     {"al_sprite_resolve", eng_exec_op_sprite_resolve, "(*~)i", NULL},
     {"al_sprite_width", eng_exec_op_sprite_width, "(i)i", NULL},
     {"al_sprite_height", eng_exec_op_sprite_height, "(i)i", NULL},

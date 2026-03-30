@@ -23,8 +23,8 @@ typedef enum {
   AL_INFO_SENSOR_VOC,
   AL_INFO_SENSOR_NOX,
   AL_INFO_SENSOR_PRESSURE,
-  AL_INFO_STORE_SHORT,
-  AL_INFO_STORE_LONG,
+  AL_INFO_STORE_SHORT,  // deprecated: use al_store_info
+  AL_INFO_STORE_LONG,   // deprecated: use al_store_info
   AL_INFO_ACCEL_FRONT,
   AL_INFO_ACCEL_ROTATION,
   AL_INFO_STORAGE_INT,
@@ -130,6 +130,34 @@ IMPORT("al_gpio") extern int al_gpio(int cmd, al_gpio_flags_t flags, int arg);
 
 IMPORT("al_i2c")
 extern int al_i2c(int addr, const void *w, int wl, void *r, int rl, int timeout);
+
+/* store operations */
+
+typedef enum {
+  AL_STORE_INFO_START,
+  AL_STORE_INFO_LENGTH,
+  AL_STORE_INFO_COUNT_ALL,
+  AL_STORE_INFO_COUNT_SHORT,
+  AL_STORE_INFO_COUNT_LONG,
+} al_store_info_t;
+
+IMPORT("al_store_info") extern int64_t al_store_info(al_store_info_t field);
+
+typedef enum {
+  AL_STORE_QUERY_OFF,
+  AL_STORE_QUERY_CO2,
+  AL_STORE_QUERY_TMP,
+  AL_STORE_QUERY_HUM,
+  AL_STORE_QUERY_VOC,
+  AL_STORE_QUERY_NOX,
+  AL_STORE_QUERY_PRS,
+} al_store_query_field_t;
+
+IMPORT("al_store_query")
+extern int _al_store_query(int field, float *values, int values_len, int start, int resolution);
+int al_store_query(al_store_query_field_t field, float *values, int count, int start, int resolution) {
+  return _al_store_query((int)field, values, count * sizeof(float), start, resolution);
+}
 
 /* sprite operations */
 
