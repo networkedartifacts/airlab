@@ -14,8 +14,6 @@ bool al_sample_valid(al_sample_t sample) {
 float al_sample_read(al_sample_t sample, al_sample_field_t field) {
   // return value
   switch (field) {
-    case AL_SAMPLE_OFF:
-      return (float)sample.off;
     case AL_SAMPLE_CO2:
       return (float)sample.co2;
     case AL_SAMPLE_TMP:
@@ -28,6 +26,8 @@ float al_sample_read(al_sample_t sample, al_sample_field_t field) {
       return (float)sample.nox;
     case AL_SAMPLE_PRS:
       return (float)sample.prs;
+    case AL_SAMPLE_OFF:
+      return (float)sample.off;
     default:
       return 0;
   }

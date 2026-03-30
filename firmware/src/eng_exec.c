@@ -947,7 +947,7 @@ static int64_t eng_exec_op_store_info(wasm_exec_env_t env, int field) {
 static int eng_exec_op_store_query(wasm_exec_env_t env, int field, float *values, int values_len, int start,
                                    int resolution) {
   // check field
-  if (field < AL_SAMPLE_OFF || field > AL_SAMPLE_PRS) {
+  if (field < AL_SAMPLE_CO2 || field > AL_SAMPLE_OFF) {
     return -1;
   }
 

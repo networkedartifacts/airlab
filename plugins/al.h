@@ -160,13 +160,13 @@ typedef enum {
 IMPORT("al_store_info") extern int64_t al_store_info(al_store_info_t field);
 
 typedef enum {
-  AL_STORE_QUERY_OFF,
   AL_STORE_QUERY_CO2,
   AL_STORE_QUERY_TMP,
   AL_STORE_QUERY_HUM,
   AL_STORE_QUERY_VOC,
   AL_STORE_QUERY_NOX,
   AL_STORE_QUERY_PRS,
+  AL_STORE_QUERY_OFF,
 } al_store_query_field_t;
 
 IMPORT("al_store_query")
