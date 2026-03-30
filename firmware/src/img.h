@@ -30,6 +30,7 @@ extern const lv_img_dsc_t img_charging;
 extern const lv_img_dsc_t img_powered;
 extern const lv_img_dsc_t img_record;
 extern const lv_img_dsc_t img_connected;
+extern const lv_img_dsc_t img_networked;
 extern const lv_img_dsc_t img_bubble1;
 extern const lv_img_dsc_t img_bubble2;
 extern const lv_img_dsc_t img_bubble3;
