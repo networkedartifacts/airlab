@@ -481,6 +481,34 @@ static void eng_exec_op_rect(wasm_exec_env_t env, int x, int y, int w, int h, in
   ctx->canvas_dirty = true;
 }
 
+static void eng_exec_op_arc(wasm_exec_env_t env, int x, int y, int r, int sa, int ea, int c, int w) {
+  // log
+  if (ENG_EXEC_DEBUG) {
+    naos_log("eng_exec_op_arc: x=%d y=%d r=%d sa=%d ea=%d c=%d w=%d", x, y, r, sa, ea, c, w);
+  }
+
+  // check permission
+  if (!eng_has_perm(env, ENG_PERM_GRAPHICS)) {
+    return;
+  }
+
+  // get context
+  eng_exec_context_t *ctx = wasm_runtime_get_user_data(env);
+
+  // prepare descriptor
+  lv_draw_arc_dsc_t arc_dsc;
+  lv_draw_arc_dsc_init(&arc_dsc);
+  arc_dsc.color = eng_exec_color(c);
+  arc_dsc.width = w;
+  arc_dsc.rounded = w > 1;
+
+  // draw arc
+  lv_canvas_draw_arc(ctx->canvas, x, y, r, sa, ea, &arc_dsc);
+
+  // mark dirty
+  ctx->canvas_dirty = true;
+}
+
 enum {
   ENG_WRITE_ALIGN_CENTER = (1 << 0),
   ENG_WRITE_ALIGN_RIGHT = (1 << 1),
@@ -1470,6 +1498,7 @@ static NativeSymbol eng_exec_ops[] = {
     {"al_clear", eng_exec_op_clear, "(i)", NULL},
     {"al_line", eng_exec_op_line, "(iiiiii)", NULL},
     {"al_rect", eng_exec_op_rect, "(iiiiii)", NULL},
+    {"al_arc", eng_exec_op_arc, "(iiiiiii)", NULL},
     {"al_write", eng_exec_op_write, "(iiiii*~i)", NULL},
     {"al_beep", eng_exec_op_beep, "(fii)", NULL},
     {"al_draw", eng_exec_op_draw, "(iiiiii**)", NULL},

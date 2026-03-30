@@ -84,6 +84,8 @@ IMPORT("al_line") extern void al_line(int x1, int y1, int x2, int y2, int c, int
 
 IMPORT("al_rect") extern void al_rect(int x, int y, int w, int h, int c, int b);
 
+IMPORT("al_arc") extern void al_arc(int x, int y, int r, int sa, int ea, int c, int w);
+
 typedef enum {
   AL_WRITE_ALIGN_CENTER = (1 << 0),
   AL_WRITE_ALIGN_RIGHT = (1 << 1),
