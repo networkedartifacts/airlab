@@ -29,6 +29,7 @@ typedef enum {
   AL_INFO_ACCEL_ROTATION,
   AL_INFO_STORAGE_INT,
   AL_INFO_STORAGE_EXT,
+  AL_INFO_FAHRENHEIT,
 } al_info_t;
 
 IMPORT("al_info") extern float al_info(al_info_t i);

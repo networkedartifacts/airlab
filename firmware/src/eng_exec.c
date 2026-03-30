@@ -151,6 +151,7 @@ enum {
   ENG_INFO_ACCEL_ROTATION,
   ENG_INFO_STORAGE_INT,
   ENG_INFO_STORAGE_EXT,
+  ENG_INFO_FAHRENHEIT,
 };
 
 static float eng_exec_op_info(wasm_exec_env_t _, int i) {
@@ -193,6 +194,8 @@ static float eng_exec_op_info(wasm_exec_env_t _, int i) {
       return al_storage_info(AL_STORAGE_INT).usage;
     case ENG_INFO_STORAGE_EXT:
       return al_storage_info(AL_STORAGE_EXT).usage;
+    case ENG_INFO_FAHRENHEIT:
+      return naos_get_b("fahrenheit") ? 1.0f : 0.0f;
     default:
       return -1;
   }
