@@ -22,6 +22,7 @@ typedef struct __attribute__((packed)) {
  * The available sample fields.
  */
 typedef enum {
+  AL_SAMPLE_OFF,
   AL_SAMPLE_CO2,
   AL_SAMPLE_TMP,
   AL_SAMPLE_HUM,
