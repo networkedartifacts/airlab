@@ -322,7 +322,7 @@ void lvx_status_create(lvx_status_t* status, lv_obj_t* parent) {
   status->row = lv_obj_create(parent);
   lv_obj_set_size(status->row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
   lv_obj_set_flex_flow(status->row, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(status->row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_flex_align(status->row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_CENTER);
   lv_obj_set_style_border_width(status->row, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_all(status->row, 0, LV_PART_MAIN);
   lv_obj_set_style_pad_row(status->row, 7, LV_PART_MAIN);
@@ -392,11 +392,9 @@ void lvx_bar_create(lvx_bar_t* bar, lv_obj_t* parent) {
 
   // create status
   lvx_status_create(&bar->_status, parent);
-  lv_obj_align(bar->_status.row, LV_ALIGN_TOP_LEFT, 60, 3);
 
   // add mark label
   bar->_mrk = lv_label_create(parent);
-  lv_obj_align(bar->_mrk, LV_ALIGN_TOP_LEFT, 115, 5);
 
   // add value
   bar->_val = lv_label_create(parent);
@@ -417,9 +415,11 @@ void lvx_bar_update(lvx_bar_t* bar) {
 
   // update status
   lvx_status_update(&bar->_status);
+  lv_obj_align_to(bar->_status.row, bar->_time, LV_ALIGN_OUT_RIGHT_MID, 5, -2);
 
   // update mark
   lv_label_set_text(bar->_mrk, bar->mark != NULL ? bar->mark : "");
+  lv_obj_align_to(bar->_mrk, bar->_status.row, LV_ALIGN_OUT_RIGHT_MID, 10, 2);
 
   // update value
   lv_label_set_text(bar->_val, bar->value);
