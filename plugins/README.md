@@ -66,40 +66,49 @@ make upload
 
 The [`al.h`](al.h) header defines all functions available to plugins. The display is 296x128 pixels, exposed as `AL_W` and `AL_H`.
 
-**Info:**
+### Info
 
 | Function | Description |
 |----------|-------------|
-| `al_info(i)` | Read device info: battery, sensors, storage, accelerometer. |
+| `al_info(i)` | Read device info: battery, sensors, storage, accelerometer, input, and settings. |
 | `al_config(c, a, b, d)` | Set engine config: button repeat, screen rotation. |
 
-**Flow Control:**
+### Flow Control
 
 | Function | Description |
 |----------|-------------|
-| `al_yield(timeout, flags)` | Yield to the runtime, wait for input. Returns button events. Flags control frame skip, wait, invert, and refresh. |
+| `al_yield(timeout, flags)` | Yield to the runtime, wait for input. Returns events (buttons, touch, scroll, motion, sensor, power). Flags control frame behavior and event subscriptions. |
 | `al_delay(ms)` | Sleep for the given number of milliseconds. |
 | `al_millis()` | Get the current time in milliseconds. |
+| `al_clock(epoch, field)` | Get clock fields (year, month, day, hour, minute, second, epoch). Pass `0` for current time. |
 
-**Graphics:**
+### Graphics
 
 | Function | Description |
 |----------|-------------|
 | `al_clear(c)` | Clear the screen (0 = white, 1 = black). |
 | `al_line(x1, y1, x2, y2, c, b)` | Draw a line. |
 | `al_rect(x, y, w, h, c, b)` | Draw a rectangle. |
+| `al_arc(x, y, r, sa, ea, c, w)` | Draw an arc. `r` = radius, `sa`/`ea` = start/end angle, `w` = stroke width. |
 | `al_write(x, y, s, f, c, str, flags)` | Draw text. `s` = style, `f` = font size, `c` = color. Supports center/right alignment. |
 | `al_draw(x, y, w, h, s, a, img, mask)` | Draw a raw bitmap with optional mask. |
 | `al_beep(freq, duration, flags)` | Play a tone. Use `AL_BEEP_WAIT` to block. |
 
-**I/O:**
+### I/O
 
 | Function | Description |
 |----------|-------------|
 | `al_gpio(cmd, flags, arg)` | Configure, read, or write GPIO pins (digital, PWM, analog). |
 | `al_i2c(addr, w, wl, r, rl, timeout)` | Perform an I2C transaction. |
 
-**Sprites:**
+### Store
+
+| Function | Description |
+|----------|-------------|
+| `al_store_info(field)` | Get store info: start time, length, and record counts (all, short, long). |
+| `al_store_query(field, values, count, start, resolution)` | Query stored sensor data (CO2, temperature, humidity, VOC, NOx, pressure). With `resolution=0`, access raw samples by index (`start` can be negative to read from the end). With `resolution>0`, access time-based interpolated values where `start` is in milliseconds. |
+
+### Sprites
 
 | Function | Description |
 |----------|-------------|
@@ -108,14 +117,14 @@ The [`al.h`](al.h) header defines all functions available to plugins. The displa
 | `al_sprite_height(sprite)` | Get sprite height. |
 | `al_sprite_draw(sprite, x, y, s, a)` | Draw a sprite. |
 
-**Data:**
+### Data
 
 | Function | Description |
 |----------|-------------|
 | `al_data_set(name, buf, len)` | Write persistent key-value data. |
 | `al_data_get(name, buf, len)` | Read persistent key-value data. |
 
-**HTTP:**
+### HTTP
 
 | Function | Description |
 |----------|-------------|
@@ -124,7 +133,7 @@ The [`al.h`](al.h) header defines all functions available to plugins. The displa
 | `al_http_run(req, req_len, res, res_len)` | Execute the request with optional body, receive response. |
 | `al_http_get(field)` | Get response fields (status, length, errno). |
 
-**Config:**
+### Config
 
 | Function | Description |
 |----------|-------------|
@@ -133,7 +142,7 @@ The [`al.h`](al.h) header defines all functions available to plugins. The displa
 | `al_config_get_i(key)` | Read an integer config value. |
 | `al_config_get_f(key)` | Read a float config value. |
 
-**Utils:**
+### Utils
 
 | Function | Description |
 |----------|-------------|
