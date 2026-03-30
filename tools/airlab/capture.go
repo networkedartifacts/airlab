@@ -11,7 +11,7 @@ var captureCmd = &cobra.Command{
 }
 
 func init() {
-	captureCmd.PersistentFlags().IntVar(&captureScale, "scale", 1, "Set the pixel scale factor.")
+	captureCmd.PersistentFlags().IntVar(&captureScale, "scale", 10, "Set the pixel scale factor.")
 	captureCmd.PersistentFlags().BoolVar(&captureGrey, "grey", false, "Use a grey color palette.")
 
 	rootCmd.AddCommand(captureCmd)
