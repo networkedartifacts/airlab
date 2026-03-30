@@ -1,0 +1,5 @@
+name: example.clock
+title: "Example: Clock"
+version: v0.1.0
+binary:
+  main: ./main.wasm
