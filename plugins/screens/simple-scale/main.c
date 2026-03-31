@@ -6,20 +6,20 @@
 #define LABEL_Y 95
 #define LINE_WIDTH 2
 
-static float major_steps[AL_SENSOR_COUNT] = {500.0f, 10.0f, 25.0f, 100.0f, 50.0f, 50.0f};
-static float minor_steps[AL_SENSOR_COUNT] = {100.0f, 5.0f, 5.0f, 50.0f, 10.0f, 10.0f};
+static float major_steps[CM_SENSOR_COUNT] = {500.0f, 10.0f, 25.0f, 100.0f, 50.0f, 50.0f};
+static float minor_steps[CM_SENSOR_COUNT] = {100.0f, 5.0f, 5.0f, 50.0f, 10.0f, 10.0f};
 
 static int val_to_x(float val, float min_val, float max_val) {
-  return (int)(al_normalize(val, min_val, max_val) * (AL_W - 1));
+  return (int)(cm_normalize(val, min_val, max_val) * (AL_W - 1));
 }
 
 int main() {
   // patch temperature
-  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
+  cm_patch_temp(&cm_sensors[CM_SENSOR_TMP]);
 
   // resolve sensor and read value
-  int sidx = al_find_sensor("sensor", "co2");
-  al_sensor_t *s = &al_sensors[sidx];
+  int sidx = cm_find_sensor("sensor", "co2");
+  cm_sensor_t *s = &cm_sensors[sidx];
   float val = al_sensor_value(s->info);
   float major_step = major_steps[sidx];
   float minor_step = minor_steps[sidx];

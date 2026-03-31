@@ -9,11 +9,11 @@
 
 int main() {
   // patch temperature
-  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
+  cm_patch_temp(&cm_sensors[CM_SENSOR_TMP]);
 
   // resolve sensor
-  int sidx = al_find_sensor("sensor", "co2");
-  al_sensor_t *s = &al_sensors[sidx];
+  int sidx = cm_find_sensor("sensor", "co2");
+  cm_sensor_t *s = &cm_sensors[sidx];
 
   // query historical samples
   int store_stop = al_store_info(AL_STORE_INFO_LENGTH);

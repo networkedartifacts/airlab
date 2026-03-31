@@ -3,7 +3,7 @@
 #define SPARK_W 240
 #define SPARK_PAD 3
 #define SPARK_X 4
-#define ROW_H (AL_H / AL_SENSOR_COUNT)
+#define ROW_H (AL_H / CM_SENSOR_COUNT)
 #define SPAN_MS (5 * 60 * 1000)  // 5 minutes
 
 int main() {
@@ -20,7 +20,7 @@ int main() {
   }
 
   // patch temperature
-  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
+  cm_patch_temp(&cm_sensors[CM_SENSOR_TMP]);
 
   // clear screen
   al_clear(0);
@@ -29,9 +29,9 @@ int main() {
   float values[SPARK_W] = {0};
 
   // draw each sensor row
-  for (int si = 0; si < AL_SENSOR_COUNT; si++) {
+  for (int si = 0; si < CM_SENSOR_COUNT; si++) {
     // get sensor
-    al_sensor_t *s = &al_sensors[si];
+    cm_sensor_t *s = &cm_sensors[si];
 
     // compute row layout
     int row_y = si * ROW_H;

@@ -11,42 +11,42 @@
 #define CHAR_W 9                        // estimated px per char at font 16
 #define UNIT_X (AL_W - PAD_R + 6)       // unit label left edge
 
-static al_sensor_t *groups[2][NUM_ROWS] = {
+static cm_sensor_t *groups[2][NUM_ROWS] = {
     {
-        &al_sensors[AL_SENSOR_CO2],
-        &al_sensors[AL_SENSOR_VOC],
-        &al_sensors[AL_SENSOR_TMP],
+        &cm_sensors[CM_SENSOR_CO2],
+        &cm_sensors[CM_SENSOR_VOC],
+        &cm_sensors[CM_SENSOR_TMP],
     },
     {
-        &al_sensors[AL_SENSOR_NOX],
-        &al_sensors[AL_SENSOR_HUM],
-        &al_sensors[AL_SENSOR_PRS],
+        &cm_sensors[CM_SENSOR_NOX],
+        &cm_sensors[CM_SENSOR_HUM],
+        &cm_sensors[CM_SENSOR_PRS],
     },
 };
 
 int main() {
   // patch temperature
-  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
+  cm_patch_temp(&cm_sensors[CM_SENSOR_TMP]);
 
   // read group config
   char grp[4] = {0};
   al_config_get_s("group", grp, sizeof(grp));
   int g = (grp[0] == 'b') ? 1 : 0;
-  al_sensor_t **rows = groups[g];
+  cm_sensor_t **rows = groups[g];
 
   // clear screen
   al_clear(0);
 
   // draw each row
   for (int ri = 0; ri < NUM_ROWS; ri++) {
-    al_sensor_t *r = rows[ri];
+    cm_sensor_t *r = rows[ri];
     int ry = ri * ROW_H;
     int tick_top = ry + BOX_PAD_Y + 5;
     int tick_bot = ry + ROW_H - BOX_PAD_Y - 5;
 
     // read value
     float val = al_sensor_value(r->info);
-    float ratio = al_normalize(val, r->min_val, r->max_val);
+    float ratio = cm_normalize(val, r->min_val, r->max_val);
     int val_x = PAD_L + (int)(ratio * SCALE_W);
 
     // format value string

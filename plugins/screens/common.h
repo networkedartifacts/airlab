@@ -47,13 +47,13 @@ static float al_sensor_value(al_info_t info) {
 
 /* === Sensor Definitions === */
 
-#define AL_SENSOR_CO2 0
-#define AL_SENSOR_TMP 1
-#define AL_SENSOR_HUM 2
-#define AL_SENSOR_VOC 3
-#define AL_SENSOR_NOX 4
-#define AL_SENSOR_PRS 5
-#define AL_SENSOR_COUNT 6
+#define CM_SENSOR_CO2 0
+#define CM_SENSOR_TMP 1
+#define CM_SENSOR_HUM 2
+#define CM_SENSOR_VOC 3
+#define CM_SENSOR_NOX 4
+#define CM_SENSOR_PRS 5
+#define CM_SENSOR_COUNT 6
 
 typedef struct {
   al_info_t info;
@@ -62,9 +62,9 @@ typedef struct {
   const char *fmt;
   float min_val;
   float max_val;
-} al_sensor_t;
+} cm_sensor_t;
 
-static al_sensor_t al_sensors[AL_SENSOR_COUNT] = {
+static cm_sensor_t cm_sensors[CM_SENSOR_COUNT] = {
     {AL_INFO_SENSOR_CO2, AL_STORE_QUERY_CO2, "ppm", "%.0f", 400.0f, 2000.0f},
     {AL_INFO_SENSOR_TEMPERATURE, AL_STORE_QUERY_TMP, "°C", "%.1f", 0.0f, 50.0f},
     {AL_INFO_SENSOR_HUMIDITY, AL_STORE_QUERY_HUM, "% RH", "%.1f", 0.0f, 100.0f},
@@ -73,27 +73,27 @@ static al_sensor_t al_sensors[AL_SENSOR_COUNT] = {
     {AL_INFO_SENSOR_PRESSURE, AL_STORE_QUERY_PRS, "hPa", "%.0f", 900.0f, 1100.0f},
 };
 
-static void al_patch_temp(al_sensor_t *s) {
+static void cm_patch_temp(cm_sensor_t *s) {
   s->unit = al_temp_unit();
   s->min_val = al_temp_min();
   s->max_val = al_temp_max();
 }
 
-static int al_find_sensor(const char *key, const char *def) {
+static int cm_find_sensor(const char *key, const char *def) {
   char value[32] = {0};
   al_config_get_s(key, value, sizeof(value));
   const char *v = strlen(value) > 0 ? value : def;
   if (strlen(v) == 0) return -1;
-  if (strcmp(v, "co2") == 0) return AL_SENSOR_CO2;
-  if (strcmp(v, "tmp") == 0) return AL_SENSOR_TMP;
-  if (strcmp(v, "hum") == 0) return AL_SENSOR_HUM;
-  if (strcmp(v, "voc") == 0) return AL_SENSOR_VOC;
-  if (strcmp(v, "nox") == 0) return AL_SENSOR_NOX;
-  if (strcmp(v, "prs") == 0) return AL_SENSOR_PRS;
+  if (strcmp(v, "co2") == 0) return CM_SENSOR_CO2;
+  if (strcmp(v, "tmp") == 0) return CM_SENSOR_TMP;
+  if (strcmp(v, "hum") == 0) return CM_SENSOR_HUM;
+  if (strcmp(v, "voc") == 0) return CM_SENSOR_VOC;
+  if (strcmp(v, "nox") == 0) return CM_SENSOR_NOX;
+  if (strcmp(v, "prs") == 0) return CM_SENSOR_PRS;
   return -1;
 }
 
-static float al_normalize(float val, float min_val, float max_val) {
+static float cm_normalize(float val, float min_val, float max_val) {
   float denom = max_val - min_val;
   float ratio = denom > 0.0f ? (val - min_val) / denom : 0.0f;
   if (ratio < 0.0f) ratio = 0.0f;

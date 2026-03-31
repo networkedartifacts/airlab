@@ -13,13 +13,13 @@
 
 int main() {
   // patch temperature
-  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
+  cm_patch_temp(&cm_sensors[CM_SENSOR_TMP]);
 
   // get columns
   int cols[NUM_COLS] = {
-      al_find_sensor("col1", "co2"),
-      al_find_sensor("col2", "voc"),
-      al_find_sensor("col3", "tmp"),
+      cm_find_sensor("col1", "co2"),
+      cm_find_sensor("col2", "voc"),
+      cm_find_sensor("col3", "tmp"),
   };
 
   // clear screen
@@ -28,7 +28,7 @@ int main() {
   // draw each column
   for (int i = 0; i < NUM_COLS; i++) {
     // get sensor and value
-    al_sensor_t *s = &al_sensors[cols[i]];
+    cm_sensor_t *s = &cm_sensors[cols[i]];
     float val = al_sensor_value(s->info);
 
     // compute center
@@ -38,7 +38,7 @@ int main() {
     al_arc(cx, ARC_CY, ARC_R, ARC_SA, ARC_EA, 1, 2);
 
     // gauge indicator line on the arc
-    float ratio = al_normalize(val, s->min_val, s->max_val);
+    float ratio = cm_normalize(val, s->min_val, s->max_val);
     float deg = (ARC_SA + 90.f) + ratio * (360.f - (ARC_SA - ARC_EA));
     if (deg >= 360.0f) deg -= 360.0f;
     float rad = deg * (M_PI / 180.0f);

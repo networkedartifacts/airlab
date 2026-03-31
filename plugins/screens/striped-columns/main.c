@@ -9,15 +9,14 @@
 #define BAR_AREA_H (BAR_BOT - BAR_TOP)
 #define UNIT_Y 108
 
-static al_sensor_t *cols[NUM_COLS] = {
-    &al_sensors[AL_SENSOR_CO2], &al_sensors[AL_SENSOR_VOC],
-    &al_sensors[AL_SENSOR_TMP], &al_sensors[AL_SENSOR_HUM],
-    &al_sensors[AL_SENSOR_NOX], &al_sensors[AL_SENSOR_PRS],
+static cm_sensor_t *cols[NUM_COLS] = {
+    &cm_sensors[CM_SENSOR_CO2], &cm_sensors[CM_SENSOR_VOC], &cm_sensors[CM_SENSOR_TMP],
+    &cm_sensors[CM_SENSOR_HUM], &cm_sensors[CM_SENSOR_NOX], &cm_sensors[CM_SENSOR_PRS],
 };
 
 int main() {
   // patch temperature
-  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
+  cm_patch_temp(&cm_sensors[CM_SENSOR_TMP]);
 
   // clear screen and compute layout
   al_clear(0);
@@ -30,7 +29,7 @@ int main() {
   // draw each sensor column
   for (int i = 0; i < NUM_COLS; i++) {
     // get column
-    al_sensor_t *c = cols[i];
+    cm_sensor_t *c = cols[i];
     int x = x_off + i * col_w;
 
     // read value
@@ -42,7 +41,7 @@ int main() {
     al_write(x + col_w / 2, UNIT_Y + 4, 0, 14, 1, c->unit, AL_WRITE_ALIGN_CENTER);
 
     // normalize to [0,1] against fixed range
-    float ratio = al_normalize(val, c->min_val, c->max_val);
+    float ratio = cm_normalize(val, c->min_val, c->max_val);
 
     // draw horizontal stripes from bottom up
     int fill_stripes = (int)(ratio * max_stripes);
