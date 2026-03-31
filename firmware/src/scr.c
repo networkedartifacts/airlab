@@ -355,7 +355,7 @@ static const scr_trans_t scr_trans_map[] = {
             .usb__disconnected = "USB no connectado!",
             .usb__active = "Modo USB activo",
             .usb__eject = "Modo USB desconectado",
-            .ble__active = "Bluetooth activo\n\nNombre del dispositivo: %.8s",
+            .ble__active = "Bluetooth activo\n\nNombre: %.16s",
             .reset__confirm = "Restablecer Air Lab?",
             .reset__reset = "Air Lab\nrestablecido exitosamente!",
             .settings__title = "Ajustes",
@@ -452,7 +452,7 @@ static const scr_trans_t scr_trans_map[] = {
             .usb__disconnected = "USB nicht angeschlossen!",
             .usb__active = "USB-Modus aktiv",
             .usb__eject = "USB-Modus getrennt",
-            .ble__active = "Bluetooth Pairing aktiv\n\nGerätename: %.8s",
+            .ble__active = "Bluetooth Pairing aktiv\n\nName: %.16s",
             .reset__confirm = "Air Lab zurücksetzen?",
             .reset__reset = "Air Lab\nerfolgreich zurückgesetzt!",
             .settings__title = "Einstellungen",
@@ -548,7 +548,7 @@ static const scr_trans_t scr_trans_map[] = {
             .usb__disconnected = "USB not connected!",
             .usb__active = "USB Volume active",
             .usb__eject = "USB Volume ejected",
-            .ble__active = "Bluetooth pairing active\n\nDevice name: %.8s",
+            .ble__active = "Bluetooth pairing active\n\nName: %.16s",
             .reset__confirm = "Fully reset Air Lab?",
             .reset__reset = "Air Lab\nsuccessfully reset!",
             .settings__title = "Settings",
@@ -1949,7 +1949,8 @@ static void* scr_ble() {
   // add title
   lv_obj_t* title = lv_label_create(lv_scr_act());
   lv_label_set_text(title, lvx_fmt(scr_trans()->ble__active, naos_get_s("device-name")));
-  lv_obj_align(title, LV_ALIGN_CENTER, 0, 0);
+  lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_obj_align(title, LV_ALIGN_CENTER, 0, -8);
 
   // add signs
   lvx_sign_t back = {
