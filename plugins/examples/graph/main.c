@@ -104,18 +104,18 @@ static void draw(int field_idx, int span_idx) {
     snprintf(num_min, sizeof(num_min), fi->fmt, data_min);
     snprintf(num_max, sizeof(num_max), fi->fmt, data_max);
     snprintf(buf, sizeof(buf), "min %s  max %s", num_min, num_max);
-    al_write(GRAPH_X, y, 0, 12, 1, buf, 0);
+    al_write(GRAPH_X, y, 0, 8, 1, buf, 0);
     char num[16];
     snprintf(num, sizeof(num), fi->fmt, values[n - 1]);
     snprintf(buf, sizeof(buf), "now %s %s @ %dm", num, fi->unit, span);
-    al_write(AL_W - GRAPH_X, y, 0, 12, 1, buf, AL_WRITE_ALIGN_RIGHT);
+    al_write(AL_W - GRAPH_X, y, 0, 8, 1, buf, AL_WRITE_ALIGN_RIGHT);
   } else {
     snprintf(buf, sizeof(buf), "-- %s @ %dm", fi->unit, span);
-    al_write(AL_W / 2, y, 0, 12, 1, buf, AL_WRITE_ALIGN_CENTER);
+    al_write(AL_W / 2, y, 0, 8, 1, buf, AL_WRITE_ALIGN_CENTER);
   }
 
   // draw title
-  al_write(AL_W / 2, y, 0, 12, 1, fi->name, AL_WRITE_ALIGN_CENTER);
+  al_write(AL_W / 2, y, 0, 8, 1, fi->name, AL_WRITE_ALIGN_CENTER);
 }
 
 int main() {
