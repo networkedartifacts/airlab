@@ -1831,7 +1831,7 @@ static gui_list_item_t scr_explore_cb(int num, void* ctx) {
 
   return (gui_list_item_t){
       .title = scr_file_name(file),
-      .info = scr_file_info(file),
+      .info = scr_file_date(file),
   };
 }
 
