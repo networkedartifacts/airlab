@@ -52,8 +52,8 @@ DEV_KEEP static int scr_return_unlock_mask = 0;
 DEV_KEEP static int scr_partial_count = 0;
 
 static const char* scr_field_fmt[] = {
-    [AL_SAMPLE_CO2] = "%.0f CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
-    [AL_SAMPLE_VOC] = "%.0f VOC", [AL_SAMPLE_NOX] = "%.0f NOx", [AL_SAMPLE_PRS] = "%.0f hPa",
+    [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
+    [AL_SAMPLE_VOC] = "%.0f VOC",     [AL_SAMPLE_NOX] = "%.0f NOx", [AL_SAMPLE_PRS] = "%.0f hPa",
 };
 
 /* Helpers */
@@ -1434,9 +1434,9 @@ static void* scr_view() {
     bar.time = lvx_fmt("%02d:%02d", hour, minute);
     if (file != NULL) {
       if (recording) {
-        bar.mark = file->marks > 0 ? lvx_fmt("(M%d)", file->marks) : "";
+        bar.mark = file->marks > 0 ? lvx_fmt("M%d", file->marks) : "";
       } else {
-        bar.mark = marks[index] > 0 ? lvx_fmt("(M%d)", marks[index]) : "";
+        bar.mark = marks[index] > 0 ? lvx_fmt("M%d", marks[index]) : "";
       }
     }
     if (field == AL_SAMPLE_TMP) {

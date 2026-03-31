@@ -415,7 +415,7 @@ void lvx_bar_update(lvx_bar_t* bar) {
 
   // update status
   lvx_status_update(&bar->_status);
-  lv_obj_align_to(bar->_status.row, bar->_time, LV_ALIGN_OUT_RIGHT_MID, 5, -2);
+  lv_obj_align_to(bar->_status.row, bar->_time, LV_ALIGN_OUT_RIGHT_MID, 8, -2);
 
   // update mark
   lv_label_set_text(bar->_mrk, bar->mark != NULL ? bar->mark : "");
