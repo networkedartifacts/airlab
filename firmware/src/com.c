@@ -276,8 +276,9 @@ static void com_cleanup(uint16_t session) {
   }
 }
 
-static void com_ha_config_sensor(const char *hat, const char *did, const char *fwv, const char *bt, const char *uid,
-                                 const char *t, const char *n, const char *uom, const char *dc, int sdp) {
+static void com_ha_config_sensor(const char *hat, const char *did, const char *fwv, const char *bt, int hwr,
+                                 const char *uid, const char *t, const char *n, const char *uom, const char *dc,
+                                 int sdp) {
   // allocate buffer
   void *buf = malloc(128 + 1024);
   if (!buf) {
@@ -316,10 +317,10 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
    "    \"mdl\": \"NA-AL1\","                   \
    "    \"sw\": \"%s\","                        \
    "    \"sn\": \"%s\","                        \
-   "    \"hw\": \"R4\""                         \
+   "    \"hw\": \"R%d\""                        \
    "  }"                                        \
    "}")
-  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_field, dc, did, uid, sdp, did, fwv, did);
+  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_field, dc, did, uid, sdp, did, fwv, did, hwr);
   if (r < 0 || r >= 1024) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -331,7 +332,7 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
   free(buf);
 }
 
-static void com_ha_config_binary_sensor(const char *hat, const char *did, const char *fwv, const char *bt,
+static void com_ha_config_binary_sensor(const char *hat, const char *did, const char *fwv, const char *bt, int hwr,
                                         const char *uid, const char *t, const char *n, const char *dc) {
   // allocate buffer
   void *buf = malloc(128 + 1024);
@@ -361,10 +362,10 @@ static void com_ha_config_binary_sensor(const char *hat, const char *did, const 
    "    \"mdl\": \"NA-AL1\","             \
    "    \"sw\": \"%s\","                  \
    "    \"sn\": \"%s\","                  \
-   "    \"hw\": \"R4\""                   \
+   "    \"hw\": \"R%d\""                  \
    "  }"                                  \
    "}")
-  r = snprintf(buf + 128, 1024, BIN_SEN_TPL, n, bt, t, dc, did, uid, did, fwv, did);
+  r = snprintf(buf + 128, 1024, BIN_SEN_TPL, n, bt, t, dc, did, uid, did, fwv, did, hwr);
   if (r < 0 || r >= 1024) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -479,24 +480,29 @@ void com_online() {
     return;
   }
 
+  // get revision
+  naos_auth_data_t auth = {0};
+  naos_auth_describe(&auth);
+
   // get information
   const char *hat = naos_get_s("mqtt-ha-topic");
   const char *did = naos_get_s("device-id");
   const char *av = naos_get_s("app-version");
   const char *bt = naos_get_s("base-topic");
+  int hwr = auth.revision;
 
   // configure primary sensors
-  com_ha_config_sensor(hat, did, av, bt, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide", 0);
-  com_ha_config_sensor(hat, did, av, bt, "al-tmp", "tmp", "Temperature", "°C", "temperature", 1);
-  com_ha_config_sensor(hat, did, av, bt, "al-hum", "hum", "Humidity", "%", "humidity", 1);
-  com_ha_config_sensor(hat, did, av, bt, "al-voc", "voc", "VOC", "", "aqi", 0);
-  com_ha_config_sensor(hat, did, av, bt, "al-nox", "nox", "NOx", "", "aqi", 0);
-  com_ha_config_sensor(hat, did, av, bt, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure", 0);
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-co2", "co2", "CO2", "ppm", "carbon_dioxide", 0);
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-tmp", "tmp", "Temperature", "°C", "temperature", 1);
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-hum", "hum", "Humidity", "%", "humidity", 1);
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-voc", "voc", "VOC", "", "aqi", 0);
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-nox", "nox", "NOx", "", "aqi", 0);
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure", 0);
 
   // configure power sensors
-  com_ha_config_sensor(hat, did, av, bt, "al-bat", "bat", "Battery", "%", "battery", 0);
-  com_ha_config_binary_sensor(hat, did, av, bt, "al-usb", "usb", "USB", "plug");
-  com_ha_config_binary_sensor(hat, did, av, bt, "al-chg", "chg", "Charging", "power");
+  com_ha_config_sensor(hat, did, av, bt, hwr, "al-bat", "bat", "Battery", "%", "battery", 0);
+  com_ha_config_binary_sensor(hat, did, av, bt, hwr, "al-usb", "usb", "USB", "plug");
+  com_ha_config_binary_sensor(hat, did, av, bt, hwr, "al-chg", "chg", "Charging", "power");
 }
 
 void com_log(const char *msg, size_t len) {
