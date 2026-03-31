@@ -1,30 +1,5 @@
 #include "../common.h"
 
-typedef struct {
-  al_info_t info;
-  const char *unit;
-  const char *fmt;
-} sensor_t;
-
-static sensor_t sensors[] = {
-    {AL_INFO_SENSOR_CO2, "ppm", "%.0f"},       {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f"},
-    {AL_INFO_SENSOR_HUMIDITY, "% RH", "%.1f"}, {AL_INFO_SENSOR_VOC, "VOC", "%.0f"},
-    {AL_INFO_SENSOR_NOX, "NOx", "%.0f"},       {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f"},
-};
-
-static int find_sensor(const char *key, const char *def) {
-  char value[32] = {0};
-  al_config_get_s(key, value, sizeof(value));
-  const char *v = strlen(value) > 0 ? value : def;
-  if (strcmp(v, "co2") == 0) return 0;
-  if (strcmp(v, "tmp") == 0) return 1;
-  if (strcmp(v, "hum") == 0) return 2;
-  if (strcmp(v, "voc") == 0) return 3;
-  if (strcmp(v, "nox") == 0) return 4;
-  if (strcmp(v, "prs") == 0) return 5;
-  return 0;
-}
-
 #define GLYPH_COUNT 12
 #define SPACING 2
 
@@ -86,11 +61,11 @@ static void draw_str(int x, int y, const char *str) {
 
 int main() {
   // patch temperature
-  sensors[1].unit = al_temp_unit();
+  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
 
   // resolve sensor
-  int sidx = find_sensor("sensor", "co2");
-  sensor_t *s = &sensors[sidx];
+  int sidx = al_find_sensor("sensor", "co2");
+  al_sensor_t *s = &al_sensors[sidx];
 
   // load font glyphs
   char font[32] = {0};

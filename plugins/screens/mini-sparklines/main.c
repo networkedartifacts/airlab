@@ -1,27 +1,10 @@
 #include "../common.h"
 
-#define NUM_SENSORS 6
 #define SPARK_W 240
 #define SPARK_PAD 3
 #define SPARK_X 4
-#define ROW_H (AL_H / NUM_SENSORS)
+#define ROW_H (AL_H / AL_SENSOR_COUNT)
 #define SPAN_MS (5 * 60 * 1000)  // 5 minutes
-
-typedef struct {
-  al_info_t info;
-  al_store_query_field_t field;
-  const char *unit;
-  const char *fmt;
-} sensor_t;
-
-static sensor_t sensors[NUM_SENSORS] = {
-    {AL_INFO_SENSOR_CO2, AL_STORE_QUERY_CO2, "ppm", "%.0f"},
-    {AL_INFO_SENSOR_TEMPERATURE, AL_STORE_QUERY_TMP, "°C", "%.1f"},
-    {AL_INFO_SENSOR_HUMIDITY, AL_STORE_QUERY_HUM, "% RH", "%.1f"},
-    {AL_INFO_SENSOR_VOC, AL_STORE_QUERY_VOC, "VOC", "%.0f"},
-    {AL_INFO_SENSOR_NOX, AL_STORE_QUERY_NOX, "NOx", "%.0f"},
-    {AL_INFO_SENSOR_PRESSURE, AL_STORE_QUERY_PRS, "hPa", "%.0f"},
-};
 
 int main() {
   // determine time range (shared across all sensors)
@@ -37,7 +20,7 @@ int main() {
   }
 
   // patch temperature
-  sensors[1].unit = al_temp_unit();
+  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
 
   // clear screen
   al_clear(0);
@@ -46,9 +29,9 @@ int main() {
   float values[SPARK_W] = {0};
 
   // draw each sensor row
-  for (int si = 0; si < NUM_SENSORS; si++) {
+  for (int si = 0; si < AL_SENSOR_COUNT; si++) {
     // get sensor
-    sensor_t *s = &sensors[si];
+    al_sensor_t *s = &al_sensors[si];
 
     // compute row layout
     int row_y = si * ROW_H;

@@ -11,55 +11,42 @@
 #define CHAR_W 9                        // estimated px per char at font 16
 #define UNIT_X (AL_W - PAD_R + 6)       // unit label left edge
 
-typedef struct {
-  al_info_t info;
-  const char *unit;
-  const char *fmt;
-  float min_val;
-  float max_val;
-} row_t;
-
-static row_t groups[2][NUM_ROWS] = {
+static al_sensor_t *groups[2][NUM_ROWS] = {
     {
-        {AL_INFO_SENSOR_CO2, "ppm", "%.0f", 400.0f, 2000.0f},
-        {AL_INFO_SENSOR_VOC, "VOC", "%.0f", 0.0f, 500.0f},
-        {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f", 0.0f, 50.0f},
+        &al_sensors[AL_SENSOR_CO2],
+        &al_sensors[AL_SENSOR_VOC],
+        &al_sensors[AL_SENSOR_TMP],
     },
     {
-        {AL_INFO_SENSOR_NOX, "NOx", "%.0f", 0.0f, 200.0f},
-        {AL_INFO_SENSOR_HUMIDITY, "% RH", "%.1f", 0.0f, 100.0f},
-        {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f", 900.0f, 1100.0f},
+        &al_sensors[AL_SENSOR_NOX],
+        &al_sensors[AL_SENSOR_HUM],
+        &al_sensors[AL_SENSOR_PRS],
     },
 };
 
 int main() {
   // patch temperature
-  groups[0][2].unit = al_temp_unit();
-  groups[0][2].min_val = al_temp_min();
-  groups[0][2].max_val = al_temp_max();
+  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
 
   // read group config
   char grp[4] = {0};
   al_config_get_s("group", grp, sizeof(grp));
   int g = (grp[0] == 'b') ? 1 : 0;
-  row_t *rows = groups[g];
+  al_sensor_t **rows = groups[g];
 
   // clear screen
   al_clear(0);
 
   // draw each row
   for (int ri = 0; ri < NUM_ROWS; ri++) {
-    row_t *r = &rows[ri];
+    al_sensor_t *r = rows[ri];
     int ry = ri * ROW_H;
     int tick_top = ry + BOX_PAD_Y + 5;
     int tick_bot = ry + ROW_H - BOX_PAD_Y - 5;
 
     // read value
     float val = al_sensor_value(r->info);
-    float denom = r->max_val - r->min_val;
-    float ratio = denom > 0.0f ? (val - r->min_val) / denom : 0.0f;
-    if (ratio < 0.0f) ratio = 0.0f;
-    if (ratio > 1.0f) ratio = 1.0f;
+    float ratio = al_normalize(val, r->min_val, r->max_val);
     int val_x = PAD_L + (int)(ratio * SCALE_W);
 
     // format value string

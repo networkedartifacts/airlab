@@ -7,42 +7,13 @@
 #define BAR_AREA_H 36
 #define SPAN_MS (5 * 60 * 1000)  // 5 minutes
 
-typedef struct {
-  al_info_t info;
-  al_store_query_field_t field;
-  const char *unit;
-  const char *fmt;
-} sensor_t;
-
-static sensor_t sensors[] = {
-    {AL_INFO_SENSOR_CO2, AL_STORE_QUERY_CO2, "ppm", "%.0f"},
-    {AL_INFO_SENSOR_TEMPERATURE, AL_STORE_QUERY_TMP, "°C", "%.1f"},
-    {AL_INFO_SENSOR_HUMIDITY, AL_STORE_QUERY_HUM, "% RH", "%.1f"},
-    {AL_INFO_SENSOR_VOC, AL_STORE_QUERY_VOC, "VOC", "%.0f"},
-    {AL_INFO_SENSOR_NOX, AL_STORE_QUERY_NOX, "NOx", "%.0f"},
-    {AL_INFO_SENSOR_PRESSURE, AL_STORE_QUERY_PRS, "hPa", "%.0f"},
-};
-
-static int find_sensor(const char *key, const char *def) {
-  char value[32] = {0};
-  al_config_get_s(key, value, sizeof(value));
-  const char *v = strlen(value) > 0 ? value : def;
-  if (strcmp(v, "co2") == 0) return 0;
-  if (strcmp(v, "tmp") == 0) return 1;
-  if (strcmp(v, "hum") == 0) return 2;
-  if (strcmp(v, "voc") == 0) return 3;
-  if (strcmp(v, "nox") == 0) return 4;
-  if (strcmp(v, "prs") == 0) return 5;
-  return 0;
-}
-
 int main() {
   // patch temperature
-  sensors[1].unit = al_temp_unit();
+  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
 
   // resolve sensor
-  int sidx = find_sensor("sensor", "co2");
-  sensor_t *s = &sensors[sidx];
+  int sidx = al_find_sensor("sensor", "co2");
+  al_sensor_t *s = &al_sensors[sidx];
 
   // query historical samples
   int store_stop = al_store_info(AL_STORE_INFO_LENGTH);

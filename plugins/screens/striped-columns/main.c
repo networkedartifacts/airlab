@@ -9,25 +9,15 @@
 #define BAR_AREA_H (BAR_BOT - BAR_TOP)
 #define UNIT_Y 108
 
-typedef struct {
-  al_info_t info;
-  const char *unit;
-  const char *fmt;
-  float min_val;
-  float max_val;
-} col_t;
-
-static col_t cols[NUM_COLS] = {
-    {AL_INFO_SENSOR_CO2, "ppm", "%.0f", 400.0f, 2000.0f},    {AL_INFO_SENSOR_VOC, "VOC", "%.0f", 0.0f, 500.0f},
-    {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f", 0.0f, 50.0f}, {AL_INFO_SENSOR_HUMIDITY, "% RH", "%.1f", 0.0f, 100.0f},
-    {AL_INFO_SENSOR_NOX, "NOx", "%.0f", 0.0f, 200.0f},       {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f", 900.0f, 1100.0f},
+static al_sensor_t *cols[NUM_COLS] = {
+    &al_sensors[AL_SENSOR_CO2], &al_sensors[AL_SENSOR_VOC],
+    &al_sensors[AL_SENSOR_TMP], &al_sensors[AL_SENSOR_HUM],
+    &al_sensors[AL_SENSOR_NOX], &al_sensors[AL_SENSOR_PRS],
 };
 
 int main() {
   // patch temperature
-  cols[2].unit = al_temp_unit();
-  cols[2].min_val = al_temp_min();
-  cols[2].max_val = al_temp_max();
+  al_patch_temp(&al_sensors[AL_SENSOR_TMP]);
 
   // clear screen and compute layout
   al_clear(0);
@@ -40,7 +30,7 @@ int main() {
   // draw each sensor column
   for (int i = 0; i < NUM_COLS; i++) {
     // get column
-    col_t *c = &cols[i];
+    al_sensor_t *c = cols[i];
     int x = x_off + i * col_w;
 
     // read value
@@ -52,10 +42,7 @@ int main() {
     al_write(x + col_w / 2, UNIT_Y + 4, 0, 14, 1, c->unit, AL_WRITE_ALIGN_CENTER);
 
     // normalize to [0,1] against fixed range
-    float denom = c->max_val - c->min_val;
-    float ratio = denom > 0.0f ? (val - c->min_val) / denom : 0.0f;
-    if (ratio < 0.0f) ratio = 0.0f;
-    if (ratio > 1.0f) ratio = 1.0f;
+    float ratio = al_normalize(val, c->min_val, c->max_val);
 
     // draw horizontal stripes from bottom up
     int fill_stripes = (int)(ratio * max_stripes);
