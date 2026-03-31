@@ -29,8 +29,8 @@ int main() {
         float pressure = al_info(AL_INFO_SENSOR_PRESSURE);
         float fahrenheit = al_info(AL_INFO_FAHRENHEIT);
         snprintf(buf, sizeof(buf),
-                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f\nNOx: %.0f\nPressure: %.0f",
-                 temperature, fahrenheit, humidity, co2, voc, nox, pressure);
+                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f\nNOx: %.0f\nPressure: %.0f", temperature,
+                 fahrenheit, humidity, co2, voc, nox, pressure);
         break;
       }
       case 2: {

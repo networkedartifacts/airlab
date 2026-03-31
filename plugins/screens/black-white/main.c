@@ -14,9 +14,9 @@ typedef struct {
 } sensor_t;
 
 static sensor_t sensors[] = {
-    {AL_INFO_SENSOR_CO2, "ppm", "%.0f", 400.0f, 2000.0f}, {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f", 0.0f, 50.0f},
+    {AL_INFO_SENSOR_CO2, "ppm", "%.0f", 400.0f, 2000.0f},    {AL_INFO_SENSOR_TEMPERATURE, "°C", "%.1f", 0.0f, 50.0f},
     {AL_INFO_SENSOR_HUMIDITY, "% RH", "%.1f", 0.0f, 100.0f}, {AL_INFO_SENSOR_VOC, "VOC", "%.0f", 0.0f, 500.0f},
-    {AL_INFO_SENSOR_NOX, "NOx", "%.0f", 0.0f, 200.0f},    {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f", 900.0f, 1100.0f},
+    {AL_INFO_SENSOR_NOX, "NOx", "%.0f", 0.0f, 200.0f},       {AL_INFO_SENSOR_PRESSURE, "hPa", "%.0f", 900.0f, 1100.0f},
 };
 
 static int find_sensor(const char *key, const char *def) {

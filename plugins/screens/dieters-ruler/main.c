@@ -1,15 +1,15 @@
 #include "../common.h"
 
 #define NUM_ROWS 3
-#define ROW_H (AL_H / NUM_ROWS)  // 42
-#define PAD_L 8                  // left padding
-#define PAD_R 32                 // right padding (unit labels)
+#define ROW_H (AL_H / NUM_ROWS)         // 42
+#define PAD_L 8                         // left padding
+#define PAD_R 32                        // right padding (unit labels)
 #define SCALE_W (AL_W - PAD_L - PAD_R)  // tick ruler width
-#define TICK_STEP 7              // pixels between ticks
-#define BOX_PAD_X 4              // horizontal padding inside value box
-#define BOX_PAD_Y 2              // vertical padding for box within row
-#define CHAR_W 9                 // estimated px per char at font 16
-#define UNIT_X (AL_W - PAD_R + 6) // unit label left edge
+#define TICK_STEP 7                     // pixels between ticks
+#define BOX_PAD_X 4                     // horizontal padding inside value box
+#define BOX_PAD_Y 2                     // vertical padding for box within row
+#define CHAR_W 9                        // estimated px per char at font 16
+#define UNIT_X (AL_W - PAD_R + 6)       // unit label left edge
 
 typedef struct {
   al_info_t info;
