@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 typedef struct {
   al_info_t info;
@@ -27,13 +27,16 @@ static int find_sensor(const char *key, const char *def) {
 }
 
 static void format_value(char *buf, int buf_len, sensor_t *s) {
-  float val = al_info(s->info);
+  float val = al_sensor_value(s->info);
   char num[32];
   snprintf(num, sizeof(num), s->fmt, val);
   snprintf(buf, buf_len, "%s %s", num, s->unit);
 }
 
 int main() {
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+
   // resolve sensors
   int primary = find_sensor("primary", "co2");
   int left = find_sensor("left", "");
@@ -46,7 +49,7 @@ int main() {
   // draw primary value
   if (primary >= 0) {
     sensor_t *s = &sensors[primary];
-    float val = al_info(s->info);
+    float val = al_sensor_value(s->info);
     char num[32];
     snprintf(num, sizeof(num), s->fmt, val);
     al_write(AL_W / 2, 24, 0, 24, 1, num, AL_WRITE_ALIGN_CENTER);

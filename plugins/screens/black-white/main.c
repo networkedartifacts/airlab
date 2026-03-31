@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #define TEXT_FONT 24
 #define BOX_PAD_X 5
@@ -33,12 +33,17 @@ static int find_sensor(const char *key, const char *def) {
 }
 
 int main() {
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+  sensors[1].min_val = al_temp_min();
+  sensors[1].max_val = al_temp_max();
+
   // resolve sensor
   int sidx = find_sensor("sensor", "co2");
   sensor_t *s = &sensors[sidx];
 
   // format value
-  float val = al_info(s->info);
+  float val = al_sensor_value(s->info);
   char val_str[16];
   snprintf(val_str, sizeof(val_str), s->fmt, val);
   char buf[24];

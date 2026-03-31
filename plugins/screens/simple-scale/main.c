@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #define SCALE_Y 84
 #define MAJOR_TICK_Y (SCALE_Y + 25)
@@ -47,10 +47,15 @@ static int val_to_x(float val, float min_val, float max_val) {
 }
 
 int main() {
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+  sensors[1].min_val = al_temp_min();
+  sensors[1].max_val = al_temp_max();
+
   // resolve sensor and read value
   int sidx = find_sensor("sensor", "co2");
   sensor_t *s = &sensors[sidx];
-  float val = al_info(s->info);
+  float val = al_sensor_value(s->info);
 
   // clear screen
   al_clear(0);
@@ -76,7 +81,7 @@ int main() {
   float minor_increment = s->minor_step / 2;
   if (strcmp(s->unit, "% RH") == 0) {
     minor_increment = s->minor_step / 2.4;
-  } else if (strcmp(s->unit, "°C") == 0) {
+  } else if (strcmp(s->unit, "°C") == 0 || strcmp(s->unit, "°F") == 0) {
     minor_increment = s->minor_step / 4;
   } else if (strcmp(s->unit, "VOC") == 0) {
     minor_increment = s->minor_step / 4;

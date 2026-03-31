@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 typedef struct {
   al_info_t info;
@@ -85,6 +85,9 @@ static void draw_str(int x, int y, const char *str) {
 }
 
 int main() {
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+
   // resolve sensor
   int sidx = find_sensor("sensor", "co2");
   sensor_t *s = &sensors[sidx];
@@ -96,7 +99,7 @@ int main() {
   init_glyphs(font);
 
   // format current value
-  float val = al_info(s->info);
+  float val = al_sensor_value(s->info);
   char buf[16];
   snprintf(buf, sizeof(buf), s->fmt, val);
 

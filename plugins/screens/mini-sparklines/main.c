@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #define NUM_SENSORS 6
 #define SPARK_W 240
@@ -36,6 +36,9 @@ int main() {
     if (count > SPARK_W) count = SPARK_W;
   }
 
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+
   // clear screen
   al_clear(0);
 
@@ -56,6 +59,13 @@ int main() {
     // query history for this sensor
     for (int j = 0; j < SPARK_W; j++) values[j] = 0;
     int n = (resolution > 0 && count > 0) ? al_store_query(s->field, values, count, first, resolution) : 0;
+
+    // convert stored temperature values
+    if (s->info == AL_INFO_SENSOR_TEMPERATURE) {
+      for (int j = 0; j < n; j++) {
+        values[j] = al_temp_convert(values[j]);
+      }
+    }
 
     // min/max for dynamic normalization
     float s_min = 0, s_max = 0;
@@ -86,7 +96,7 @@ int main() {
     }
 
     // current value + unit, right-aligned
-    float val = al_info(s->info);
+    float val = al_sensor_value(s->info);
     char val_str[16], buf[32];
     snprintf(val_str, sizeof(val_str), s->fmt, val);
     snprintf(buf, sizeof(buf), "%s %s", val_str, s->unit);

@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #include <math.h>
 
@@ -39,6 +39,11 @@ static int find_sensor(const char *key, const char *def) {
 }
 
 int main() {
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+  sensors[1].min_val = al_temp_min();
+  sensors[1].max_val = al_temp_max();
+
   // get columns
   int cols[NUM_COLS] = {
       find_sensor("col1", "co2"),
@@ -53,7 +58,7 @@ int main() {
   for (int i = 0; i < NUM_COLS; i++) {
     // get sensor and value
     sensor_t *s = &sensors[cols[i]];
-    float val = al_info(s->info);
+    float val = al_sensor_value(s->info);
 
     // compute center
     int cx = COL_PAD + i * COL_W + COL_W / 2;

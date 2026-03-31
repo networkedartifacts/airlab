@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #define NUM_ROWS 3
 #define ROW_H (AL_H / NUM_ROWS)  // 42
@@ -33,6 +33,11 @@ static row_t groups[2][NUM_ROWS] = {
 };
 
 int main() {
+  // patch temperature
+  groups[0][2].unit = al_temp_unit();
+  groups[0][2].min_val = al_temp_min();
+  groups[0][2].max_val = al_temp_max();
+
   // read group config
   char grp[4] = {0};
   al_config_get_s("group", grp, sizeof(grp));
@@ -50,7 +55,7 @@ int main() {
     int tick_bot = ry + ROW_H - BOX_PAD_Y - 5;
 
     // read value
-    float val = al_info(r->info);
+    float val = al_sensor_value(r->info);
     float denom = r->max_val - r->min_val;
     float ratio = denom > 0.0f ? (val - r->min_val) / denom : 0.0f;
     if (ratio < 0.0f) ratio = 0.0f;

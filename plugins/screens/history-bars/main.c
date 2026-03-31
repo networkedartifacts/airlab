@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #define BAR_N 59
 #define BAR_W 4
@@ -37,6 +37,9 @@ static int find_sensor(const char *key, const char *def) {
 }
 
 int main() {
+  // patch temperature
+  sensors[1].unit = al_temp_unit();
+
   // resolve sensor
   int sidx = find_sensor("sensor", "co2");
   sensor_t *s = &sensors[sidx];
@@ -55,8 +58,15 @@ int main() {
   float values[BAR_N] = {0};
   int n = (resolution > 0 && count > 0) ? al_store_query(s->field, values, count, first, resolution) : 0;
 
+  // convert stored temperature values
+  if (s->info == AL_INFO_SENSOR_TEMPERATURE) {
+    for (int i = 0; i < n; i++) {
+      values[i] = al_temp_convert(values[i]);
+    }
+  }
+
   // current live value
-  float val = al_info(s->info);
+  float val = al_sensor_value(s->info);
 
   // min/max for bar normalization
   float min_val = 0, max_val = 0;

@@ -1,4 +1,4 @@
-#include "../../al.h"
+#include "../common.h"
 
 #define NUM_COLS 6
 #define LINE_H 2
@@ -24,6 +24,11 @@ static col_t cols[NUM_COLS] = {
 };
 
 int main() {
+  // patch temperature
+  cols[2].unit = al_temp_unit();
+  cols[2].min_val = al_temp_min();
+  cols[2].max_val = al_temp_max();
+
   // clear screen and compute layout
   al_clear(0);
 
@@ -39,7 +44,7 @@ int main() {
     int x = x_off + i * col_w;
 
     // read value
-    float val = al_info(c->info);
+    float val = al_sensor_value(c->info);
     char buf[16];
     snprintf(buf, sizeof(buf), c->fmt, val);
 
