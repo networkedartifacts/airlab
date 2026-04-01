@@ -236,8 +236,8 @@ extern int al_config_get_s(const char *key, char *value, int value_len) {
   return _al_config_get_s((const void *)key, strlen(key), value, value_len);
 }
 
-IMPORT("al_config_get_b") extern bool _al_config_get_b(const void *key, int key_len);
-extern bool al_config_get_b(const char *key) { return _al_config_get_b((const void *)key, strlen(key)); }
+IMPORT("al_config_get_b") extern int _al_config_get_b(const void *key, int key_len);
+extern bool al_config_get_b(const char *key) { return _al_config_get_b((const void *)key, strlen(key)) != 0; }
 
 IMPORT("al_config_get_i") extern int _al_config_get_i(const void *key, int key_len);
 extern int al_config_get_i(const char *key) { return _al_config_get_i((const void *)key, strlen(key)); }

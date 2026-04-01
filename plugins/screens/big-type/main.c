@@ -81,7 +81,7 @@ int main() {
   // compute centered layout
   int str_w = measure(buf);
   int glyph_h = max_height(buf);
-  int show_unit = al_config_get_b("unit");
+  bool show_unit = al_config_get_b("unit");
   int total_h = show_unit ? glyph_h + 4 + 16 : glyph_h;
   int y_start = (AL_H - total_h) / 2;
 
