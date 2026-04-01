@@ -99,7 +99,6 @@ static naos_param_t params[] = {
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},
     {.name = "fahrenheit", .type = NAOS_BOOL, .default_b = false},
     {.name = "developer", .type = NAOS_BOOL, .default_b = true},
-    {.name = "idle-auto-cycle", .type = NAOS_BOOL, .default_b = true},
     {.name = "clock-cal", .type = NAOS_LONG, .func_l = clock_cal, .skip_func_init = true},  // ppm: -63..+126
 };
 

@@ -50,6 +50,9 @@ DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
 DEV_KEEP static int scr_return_unlock_mask = 0;
 DEV_KEEP static int scr_partial_count = 0;
+DEV_KEEP static int32_t scr_screen_index = 0;
+static int64_t scr_screen_start = 0;
+static bool scr_auto_cycle = true;
 
 static const char* scr_field_fmt[] = {
     [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
@@ -980,16 +983,15 @@ static void* scr_sensor() {
 static void* scr_idle() {
   // local state
   static bool wakeup_handled = false;
-  DEV_KEEP static int16_t screen_index = 0;
 
   // handle button wake from deep sleep (once)
   if (!wakeup_handled && naos_millis() < 3000) {
     wakeup_handled = true;
     uint8_t wakeup = al_buttons_wakeup();
     if (wakeup & (1 << AL_BUTTON_LEFT)) {
-      screen_index--;
+      scr_screen_index--;
     } else if (wakeup & (1 << AL_BUTTON_RIGHT)) {
-      screen_index++;
+      scr_screen_index++;
     }
   }
 
@@ -1003,7 +1005,7 @@ static void* scr_idle() {
   /* Multi-Screen Idle */
 
   // track screen start time
-  int64_t screen_start = naos_millis();
+  scr_screen_start = naos_millis();
 
   // track skipped screens
   uint16_t skipped = 0;
@@ -1030,11 +1032,14 @@ static void* scr_idle() {
     }
 
     // wrap index
-    if (screen_index < 0) {
-      screen_index = count - 1;
-    } else if (screen_index >= count) {
-      screen_index = 0;
+    if (scr_screen_index < 0) {
+      scr_screen_index = count - 1;
+    } else if (scr_screen_index >= count) {
+      scr_screen_index = 0;
     }
+
+    // update parameter
+    naos_set_l("idle-scr-index", scr_screen_index);
 
     // find nth ATTR section
     const char* file = NULL;
@@ -1042,7 +1047,7 @@ static void* scr_idle() {
     uint16_t n = 0;
     for (int i = 0; i < screens->sections_num; i++) {
       if (screens->sections[i].type == ENG_BUNDLE_TYPE_ATTR) {
-        if (n == screen_index) {
+        if (n == scr_screen_index) {
           key = screens->sections[i].name;
           file = eng_bundle_read(screens, &screens->sections[i]);
           break;
@@ -1065,9 +1070,9 @@ static void* scr_idle() {
     }
 
     // advance index if 60s have elapsed and cycling is enabled
-    if (naos_get_b("idle-auto-cycle") && naos_millis() - screen_start >= 60 * 1000) {
-      screen_index++;
-      screen_start = naos_millis();
+    if (scr_auto_cycle && naos_millis() - scr_screen_start >= 60 * 1000) {
+      scr_screen_index++;
+      scr_screen_start = naos_millis();
     }
 
     // run screen
@@ -1088,8 +1093,8 @@ static void* scr_idle() {
       if (skipped >= count) {
         break;
       }
-      screen_index++;
-      screen_start = naos_millis();
+      scr_screen_index++;
+      scr_screen_start = naos_millis();
       continue;
     }
 
@@ -1101,12 +1106,12 @@ static void* scr_idle() {
 
     // handle left/right
     if (event.type == SIG_LEFT) {
-      screen_index--;
-      screen_start = naos_millis();
+      scr_screen_index--;
+      scr_screen_start = naos_millis();
       continue;
     } else if (event.type == SIG_RIGHT) {
-      screen_index++;
-      screen_start = naos_millis();
+      scr_screen_index++;
+      scr_screen_start = naos_millis();
       continue;
     }
 
@@ -3352,7 +3357,26 @@ static void scr_task() {
   }
 }
 
+static void scr_screen_index_set(int32_t value) {
+  scr_screen_index = value;
+  scr_screen_start = naos_millis();
+}
+
+static naos_param_t scr_params[] = {
+    {.name = "idle-scr-index",
+     .type = NAOS_LONG,
+     .func_l = scr_screen_index_set,
+     .mode = NAOS_VOLATILE,
+     .skip_func_init = true},
+    {.name = "idle-auto-cycle", .type = NAOS_BOOL, .sync_b = &scr_auto_cycle, .default_b = true},
+};
+
 void scr_run(al_trigger_t trigger) {
+  // register parameters
+  for (int i = 0; i < NAOS_COUNT(scr_params); i++) {
+    naos_register(&scr_params[i]);
+  }
+
   // handle return
   scr_handler = scr_menu;
   if (trigger == AL_RESET) {
