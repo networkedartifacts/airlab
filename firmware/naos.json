@@ -31,8 +31,6 @@
     "CONFIG_LWIP_TCP_SND_BUF_DEFAULT": "2920",
     "CONFIG_MBEDTLS_SSL_PROTO_TLS1_3": "y",
     "CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC": "y",
-    "CONFIG_TINYUSB_MSC_ENABLED": "y",
-    "CONFIG_TINYUSB_MSC_BUFSIZE": "4096",
     "CONFIG_FATFS_LFN_HEAP": "y",
     "CONFIG_FATFS_USE_LABEL": "y",
     "CONFIG_FATFS_IMMEDIATE_FSYNC": "y",
@@ -74,12 +72,6 @@
     "tinyusb": {
       "registry": "espressif/tinyusb",
       "version": "^0.17.0"
-    },
-    "esp_tinyusb": {
-      "registry": "espressif/esp_tinyusb",
-      "repository": "https://github.com/espressif/esp-usb.git",
-      "version": "bd4194778f59a2e876c7cd3de5ddd4898f5ed451",
-      "path": "device/esp_tinyusb"
     },
     "littlefs": {
       "registry": "joltwallet/littlefs",

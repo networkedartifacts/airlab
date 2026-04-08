@@ -45,6 +45,10 @@ set(SOURCE_FILES
         lib/sensor_pm.c
         lib/sensor_pm.h
         lib/storage.c
+        lib/storage.h
+        lib/storage_ext.c
+        lib/storage_int.c
+        lib/storage_usb.c
         lib/store.c
         lib/touch.c
         lib/ulp.c
