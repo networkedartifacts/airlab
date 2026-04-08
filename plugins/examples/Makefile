@@ -1,4 +1,4 @@
-.PHONY: adc clock config data events gfx gpio graph hello http i2c info pollen sen55 servo sprite weather
+.PHONY: adc clock config data events gfx gpio graph hello http i2c info no2 pollen sen55 servo sprite weather
 
 COMPILE := zig cc -mcpu=mvp -target wasm32-wasi -Wl,-z,stack-size=65536 -Wl,--initial-memory=262144 -Wl,--max-memory=262144 -Os
 UPLOAD ?= 0
@@ -12,9 +12,9 @@ $1:
 	@if [ "$$(LAUNCH)" = "1" ]; then airlab plugin launch example.$1.alp; fi
 endef
 
-all: adc clock config data events gfx gpio graph hello http i2c info pollen sen55 servo sprite weather
+all: adc clock config data events gfx gpio graph hello http i2c info no2 pollen sen55 servo sprite weather
 
-$(foreach t,adc clock data config events gfx gpio graph hello http i2c info pollen sen55 servo sprite weather,$(eval $(call build_task,$t)))
+$(foreach t,adc clock data config events gfx gpio graph hello http i2c info no2 pollen sen55 servo sprite weather,$(eval $(call build_task,$t)))
 
 upload:
 	$(MAKE) UPLOAD=1 all
