@@ -90,7 +90,8 @@ static bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) 
   }
 
   // check section header
-  if (i->pos + 13 > i->len) {
+  size_t min_section = i->modern ? 15 : 13;
+  if (i->pos + min_section > i->len) {
     naos_log("eng_bundle_iter_next: incomplete section header");
     return false;
   }
@@ -100,10 +101,6 @@ static bool eng_bundle_iter_next(eng_bundle_iter_t *i, eng_bundle_section_t *s) 
 
   // get flags (ALB only)
   if (i->modern) {
-    if (i->pos + 2 > i->len) {
-      naos_log("eng_bundle_iter_next: incomplete section flags");
-      return false;
-    }
     s->flags = eng_bundle_le16(i->buf + i->pos);
     i->pos += 2;
   } else {
@@ -151,7 +148,9 @@ eng_bundle_t *eng_bundle_parse(void *buf, size_t len) {
   };
 
   // allocate sections
-  b->sections = al_calloc(iter.sections, sizeof(eng_bundle_section_t));
+  if (iter.sections > 0) {
+    b->sections = al_calloc(iter.sections, sizeof(eng_bundle_section_t));
+  }
   b->sections_num = iter.sections;
 
   // parse sections
