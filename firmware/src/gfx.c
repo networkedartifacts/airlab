@@ -13,6 +13,8 @@
 #define GFX_WIDTH AL_EPD_HEIGHT
 #define GFX_HEIGHT AL_EPD_WIDTH
 #define GFX_DEBUG false
+#define GFX_WAIT_PARTIAL 3000
+#define GFX_WAIT_FULL 5000
 
 // Docs: https://docs.lvgl.io/master/index.html
 
@@ -195,8 +197,9 @@ void gfx_end(bool skip, bool wait) {
 
   // await signal
   if (wait) {
-    if (!naos_await(gfx_signal, 1, false, 1000)) {
-      naos_log("gfx: cancelled wait");
+    int64_t timeout = gfx_refresh ? GFX_WAIT_FULL : GFX_WAIT_PARTIAL;
+    if (!naos_await(gfx_signal, 1, false, timeout)) {
+      naos_log("gfx: cancelled wait after %lldms (refresh=%d)", timeout, gfx_refresh);
     } else if (GFX_DEBUG) {
       naos_log("gfx: end done");
     }
