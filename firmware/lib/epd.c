@@ -159,7 +159,7 @@ static void al_epd_wait(const char *task) {
     if (start + 15000 < naos_millis()) {
       ESP_ERROR_CHECK(ESP_FAIL);
     } else {
-      naos_delay(1);
+      naos_delay(10);
     }
   }
 
