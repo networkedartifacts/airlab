@@ -386,6 +386,27 @@ static void com_pub_sensor(al_sample_t sample, al_sample_field_t field, const ch
   naos_publish_s(topic, value, 0, false, NAOS_LOCAL);
 }
 
+static const char *com_power_state_str(al_power_state_t power) {
+  if (power.charging) {
+    return "charging";
+  } else if (power.has_usb) {
+    return "powered";
+  } else {
+    return "battery";
+  }
+}
+
+static void com_sync() {
+  // Note: LittleFS storage info is really slow.
+
+  // update storage metric
+  naos_set_d("int-storage", al_storage_info(AL_STORAGE_INT).usage);
+  naos_set_d("ext-storage", al_storage_info(AL_STORAGE_EXT).usage);
+
+  // update power state
+  naos_set_s("power-state", com_power_state_str(al_power_get()));
+}
+
 static void com_task() {
   // wait some time
   naos_delay(2000);
@@ -397,6 +418,10 @@ static void com_task() {
   });
   naos_wifi_init();
   naos_mqtt_init(1);
+
+  // start sync
+  naos_defer("sync", 2000, com_sync);
+  naos_repeat("sync", 30000, com_sync);
 
   // set flag
   com_did_start = true;

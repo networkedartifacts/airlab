@@ -24,33 +24,14 @@ static void clock_cal(int32_t value) {
   al_clock_set_calibration((int8_t)value);
 }
 
+static void long_interval(int32_t value) {
+  // update store interval
+  al_store_set_interval(value);
+}
+
 static float battery() {
   // return battery level
   return al_power_get().bat_level;
-}
-
-static const char* power_state_str(al_power_state_t power) {
-  if (power.charging) {
-    return "charging";
-  } else if (power.has_usb) {
-    return "powered";
-  } else {
-    return "battery";
-  }
-}
-
-static void sync() {
-  // update storage metric
-  naos_set_d("int-storage", al_storage_info(AL_STORAGE_INT).usage);
-  naos_set_d("ext-storage", al_storage_info(AL_STORAGE_EXT).usage);
-
-  // update power state
-  naos_set_s("power-state", power_state_str(al_power_get()));
-
-  // configure interval
-  if (naos_get_l("long-interval") != al_store_get_interval()) {
-    al_store_set_interval(naos_get_l("long-interval"));
-  }
 }
 
 static void wake() {
@@ -64,6 +45,9 @@ static void setup() {
 
   // apply clock calibration
   al_clock_set_calibration((int8_t)naos_get_l("clock-cal"));
+
+  // apply store long interval
+  al_store_set_interval(naos_get_l("long-interval"));
 
   // determine reset
   bool reset = trigger == AL_RESET;
@@ -79,9 +63,6 @@ static void setup() {
   // allow allocations in external memory
   heap_caps_malloc_extmem_enable(2048);
 
-  // run sync
-  naos_repeat("sync", 1000, sync);
-
   // defer wake
   naos_defer("wake", 5000, wake);
 
@@ -95,7 +76,7 @@ static naos_param_t params[] = {
     {.name = "power-state", .type = NAOS_STRING, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
-    {.name = "long-interval", .type = NAOS_LONG, .default_l = 60},
+    {.name = "long-interval", .type = NAOS_LONG, .default_l = 60, .func_l = long_interval, .skip_func_init = true},
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},
     {.name = "fahrenheit", .type = NAOS_BOOL, .default_b = false},
     {.name = "developer", .type = NAOS_BOOL, .default_b = true},
