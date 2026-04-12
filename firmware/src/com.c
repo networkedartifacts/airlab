@@ -397,14 +397,19 @@ static const char *com_power_state_str(al_power_state_t power) {
 }
 
 static void com_sync() {
-  // Note: LittleFS storage info is really slow.
-
   // update storage metric
   naos_set_d("int-storage", al_storage_info(AL_STORAGE_INT).usage);
   naos_set_d("ext-storage", al_storage_info(AL_STORAGE_EXT).usage);
 
   // update power state
   naos_set_s("power-state", com_power_state_str(al_power_get()));
+}
+
+static void com_sync_schedule() {
+  // the little FS storage info is very slow and causes a lot of IPC traffic to
+  // disable caches on the other core. thus we run on the protocol core where
+  // most tasks have a higher priority. this also frees up the timer task
+  naos_run("sync", 4096, 0, com_sync);
 }
 
 static void com_task() {
@@ -420,8 +425,8 @@ static void com_task() {
   naos_mqtt_init(1);
 
   // start sync
-  naos_defer("sync", 2000, com_sync);
-  naos_repeat("sync", 30000, com_sync);
+  naos_defer("sync", 2000, com_sync_schedule);
+  naos_repeat("sync", 30000, com_sync_schedule);
 
   // set flag
   com_did_start = true;
