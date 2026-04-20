@@ -176,24 +176,13 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   return sample;
 }
 
-static void al_sensor_check() {
+static void al_sensor_read() {
   // acquire mutex
   naos_lock(al_sensor_mutex);
 
-  // check if SCD measurement is available
-  al_sensor_hal_err_t err = al_sensor_hal_ready();
-  if (err != AL_SENSOR_HAL_OK) {
-    if (err != AL_SENSOR_HAL_BUSY) {
-      naos_log("al-sns: HAL error=%d", err);
-      ESP_ERROR_CHECK(ESP_FAIL);
-    }
-    naos_unlock(al_sensor_mutex);
-    return;
-  }
-
   // read sensor
   al_sensor_hal_data_t data;
-  err = al_sensor_hal_read(&data);
+  esp_err_t err = al_sensor_hal_read(&data);
   if (err != AL_SENSOR_HAL_OK) {
     naos_log("al-sns: HAL read error=%d", err);
     ESP_ERROR_CHECK(ESP_FAIL);
@@ -211,6 +200,18 @@ static void al_sensor_check() {
   // dispatch event
   if (al_sensor_hook != NULL) {
     al_sensor_hook(sample);
+  }
+}
+
+static void al_sensor_check() {
+  // check if measurement is available
+  naos_lock(al_sensor_mutex);
+  bool ready = al_sensor_hal_ready();
+  naos_unlock(al_sensor_mutex);
+
+  // defer read if ready
+  if (ready) {
+    naos_defer("al-sns-r", 0, al_sensor_read);
   }
 }
 

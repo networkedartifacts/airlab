@@ -174,7 +174,7 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   return AL_SENSOR_HAL_OK;
 }
 
-al_sensor_hal_err_t al_sensor_hal_ready() {
+bool al_sensor_hal_ready() {
   // handle manual mode
   if (al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL) {
     // ensure next measurement if zero
@@ -197,10 +197,10 @@ al_sensor_hal_err_t al_sensor_hal_ready() {
   // otherwise, check if SCD measurement is available
   al_sensor_hal_err_t err = al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xe4b8, 0, 1, false);
   if (err != AL_SENSOR_HAL_OK || (al_sensor_hal_br[0] & 0xFFF) == 0) {
-    return AL_SENSOR_HAL_BUSY;
+    return false;
   }
 
-  return AL_SENSOR_HAL_OK;
+  return true;
 }
 
 al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {

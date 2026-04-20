@@ -99,16 +99,13 @@ int main(void) {
       &state);
 
   // check if ready
-  al_sensor_hal_err_t err = al_sensor_hal_ready();
-  if (err != AL_SENSOR_HAL_OK) {
-    if (err != AL_SENSOR_HAL_BUSY) {
-      log(AL_ULP_TYPE_ERROR, err);
-    }
+  bool ready = al_sensor_hal_ready();
+  if (!ready) {
     return 0;
   }
 
   // read sensor
-  err = al_sensor_hal_read(&data);
+  al_sensor_hal_err_t err = al_sensor_hal_read(&data);
   if (err != AL_SENSOR_HAL_OK) {
     log(AL_ULP_TYPE_ERROR, err);
     return 0;
