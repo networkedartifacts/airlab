@@ -89,9 +89,9 @@ static al_sensor_hal_err_t al_sensor_hal_transfer(uint8_t target, uint16_t addr,
   return AL_SENSOR_HAL_OK;
 }
 
-static al_sensor_hal_err_t al_sensor_hal_read_lps(uint8_t reg, uint8_t* val) {
+static al_sensor_hal_err_t al_sensor_hal_read_lps(uint8_t reg, uint8_t* val, size_t len) {
   // read register
-  al_sensor_hal_err_t err = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, &reg, 1, val, 1);
+  al_sensor_hal_err_t err = al_sensor_hal_ops.transfer(AL_SENSOR_HAL_LPS22, &reg, 1, val, len);
   if (err != AL_SENSOR_HAL_OK) {
     return err | AL_SENSOR_HAL_ERR_LPS22;
   }
@@ -164,7 +164,7 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   if (mode == AL_SENSOR_HAL_SLEEP) {
     AL_CHECK(al_sensor_hal_write_lps(0x10, 0x0));  // power down
   } else {
-    AL_CHECK(al_sensor_hal_write_lps(0x10, 0x18));  // 1Hz, LPF on
+    AL_CHECK(al_sensor_hal_write_lps(0x10, 0x1A));  // 1Hz, LPF+BDU on
   }
 
   // store mode
@@ -220,9 +220,7 @@ al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
   data->nox = al_sensor_hal_br[1];
 
   // read LPS sensor
-  AL_CHECK(al_sensor_hal_read_lps(0x28, &al_sensor_hal_bt[0]));
-  AL_CHECK(al_sensor_hal_read_lps(0x29, &al_sensor_hal_bt[1]));
-  AL_CHECK(al_sensor_hal_read_lps(0x2a, &al_sensor_hal_bt[2]));
+  AL_CHECK(al_sensor_hal_read_lps(0x28, al_sensor_hal_bt, 3));
   data->prs = al_sensor_hal_bt[0] | al_sensor_hal_bt[1] << 8 | al_sensor_hal_bt[2] << 16;
 
   // set epoch
