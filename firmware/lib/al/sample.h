@@ -32,6 +32,15 @@ typedef enum {
 } al_sample_field_t;
 
 /**
+ * Sets the altitude in meters used to convert the raw station pressure stored
+ * in samples to sea-level-corrected pressure (QNH) when read. Zero disables
+ * the correction.
+ *
+ * @param meters The altitude above sea level.
+ */
+void al_sample_set_altitude(float meters);
+
+/**
  * Checks if a sample is valid.
  *
  * @return True if the sample is valid.

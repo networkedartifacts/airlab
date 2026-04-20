@@ -1,3 +1,4 @@
+#include <math.h>
 #include <string.h>
 
 #include <al/sample.h>
@@ -5,6 +6,17 @@
 #define AL_SAMPLE_QUERY_BATCH 32
 
 #define AL_SAMPLE_LERP(a, b, f) ((float)a * (1.f - f) + ((float)b * f))
+
+static float al_sample_prs_factor = 1.f;
+
+void al_sample_set_altitude(float meters) {
+  // clamp to a sensible range
+  if (meters < -500.f) meters = -500.f;
+  if (meters > 9000.f) meters = 9000.f;
+
+  // ISA barometric formula: QNH = P_station / (1 - L*h/T0)^(g*M/(R*L))
+  al_sample_prs_factor = powf(1.f - 0.0065f * meters / 288.15f, 5.255f);
+}
 
 bool al_sample_valid(al_sample_t sample) {
   // a sample is valid if CO2 is not zero
@@ -25,7 +37,7 @@ float al_sample_read(al_sample_t sample, al_sample_field_t field) {
     case AL_SAMPLE_NOX:
       return (float)sample.nox;
     case AL_SAMPLE_PRS:
-      return (float)sample.prs;
+      return (float)sample.prs / al_sample_prs_factor;
     case AL_SAMPLE_OFF:
       return (float)sample.off;
     default:

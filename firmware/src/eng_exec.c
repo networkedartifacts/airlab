@@ -19,6 +19,7 @@
 #include <al/accel.h>
 #include <al/power.h>
 #include <al/clock.h>
+#include <al/sample.h>
 #include <al/store.h>
 
 #include "com.h"
@@ -181,17 +182,17 @@ static float eng_exec_op_info(wasm_exec_env_t env, int i) {
     case ENG_INFO_POWER_CHARGING:
       return al_power_get().charging ? 1.0f : 0.0f;
     case ENG_INFO_SENSOR_TEMPERATURE:
-      return (float)al_store_last().tmp / 100.f;
+      return al_sample_read(al_store_last(), AL_SAMPLE_TMP);
     case ENG_INFO_SENSOR_HUMIDITY:
-      return (float)al_store_last().hum / 100.f;
+      return al_sample_read(al_store_last(), AL_SAMPLE_HUM);
     case ENG_INFO_SENSOR_CO2:
-      return al_store_last().co2;
+      return al_sample_read(al_store_last(), AL_SAMPLE_CO2);
     case ENG_INFO_SENSOR_VOC:
-      return al_store_last().voc;
+      return al_sample_read(al_store_last(), AL_SAMPLE_VOC);
     case ENG_INFO_SENSOR_NOX:
-      return al_store_last().nox;
+      return al_sample_read(al_store_last(), AL_SAMPLE_NOX);
     case ENG_INFO_SENSOR_PRESSURE:
-      return al_store_last().prs;
+      return al_sample_read(al_store_last(), AL_SAMPLE_PRS);
     case ENG_INFO_STORE_SHORT:
       return (float)al_store_count(AL_STORE_SHORT);
     case ENG_INFO_STORE_LONG:

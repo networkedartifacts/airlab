@@ -7,6 +7,7 @@
 #include <al/clock.h>
 #include <al/core.h>
 #include <al/power.h>
+#include <al/sample.h>
 #include <al/store.h>
 #include <al/storage.h>
 #include <al/sensor.h>
@@ -29,6 +30,11 @@ static void long_interval(int32_t value) {
   al_store_set_interval(value);
 }
 
+static void altitude(int32_t value) {
+  // update pressure altitude correction
+  al_sample_set_altitude((float)value);
+}
+
 static float battery() {
   // return battery level
   return al_power_get().bat_level;
@@ -48,6 +54,9 @@ static void setup() {
 
   // apply store long interval
   al_store_set_interval(naos_get_l("long-interval"));
+
+  // set altitude
+  al_sample_set_altitude((float)naos_get_l("altitude"));
 
   // determine reset
   bool reset = trigger == AL_RESET;
@@ -77,6 +86,7 @@ static naos_param_t params[] = {
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
     {.name = "long-interval", .type = NAOS_LONG, .default_l = 60, .func_l = long_interval, .skip_func_init = true},
+    {.name = "altitude", .type = NAOS_LONG, .default_l = 0, .func_l = altitude, .skip_func_init = true},
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},
     {.name = "fahrenheit", .type = NAOS_BOOL, .default_b = false},
     {.name = "developer", .type = NAOS_BOOL, .default_b = true},
