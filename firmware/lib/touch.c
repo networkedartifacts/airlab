@@ -20,7 +20,7 @@ static al_touch_hook_t al_touch_hook = NULL;
 
 static void al_touch_read(uint8_t reg, uint8_t *buf, size_t len) {
   // read data
-  for (size_t i = 0; i < 10; i++) {
+  for (size_t i = 0; i < 15; i++) {
     esp_err_t err = al_i2c_transfer(AL_TOUCH_ADDR, &reg, 1, buf, len, 1000);
     if (err != ESP_FAIL) {
       ESP_ERROR_CHECK(err);
@@ -29,7 +29,7 @@ static void al_touch_read(uint8_t reg, uint8_t *buf, size_t len) {
     if (AL_TOUCH_DEBUG) {
       naos_log("al-tch: retrying read...");
     }
-    naos_delay(100);
+    naos_delay(10);
   }
   ESP_ERROR_CHECK(ESP_FAIL);
 }
@@ -277,7 +277,7 @@ static void al_touch_check() {
 static void al_touch_signal() {
   // defer check if low
   if (gpio_get_level(AL_TOUCH_INT) == 0) {
-    naos_defer_isr(al_touch_check);
+    naos_defer_isr("al-tch", al_touch_check);
   }
 }
 

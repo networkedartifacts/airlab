@@ -405,13 +405,6 @@ static void com_sync() {
   naos_set_s("power-state", com_power_state_str(al_power_get()));
 }
 
-static void com_sync_schedule() {
-  // the little FS storage info is very slow and causes a lot of IPC traffic to
-  // disable caches on the other core. thus we run on the protocol core where
-  // most tasks have a higher priority. this also frees up the timer task
-  naos_run("sync", 4096, 0, com_sync);
-}
-
 static void com_task() {
   // wait some time
   naos_delay(2000);
@@ -425,8 +418,8 @@ static void com_task() {
   naos_mqtt_init(1);
 
   // start sync
-  naos_defer("sync", 2000, com_sync_schedule);
-  naos_repeat("sync", 30000, com_sync_schedule);
+  naos_defer("sync", 2000, com_sync);
+  naos_repeat_defer("sync", 30000, com_sync);
 
   // set flag
   com_did_start = true;
@@ -496,7 +489,7 @@ void com_init() {
 
   // run tasks
   naos_run("com", 4096, 1, com_task);
-  naos_repeat("com-discovery", 10000, com_online);
+  naos_repeat_defer("com-discovery", 10000, com_online);
 }
 
 bool com_started() {

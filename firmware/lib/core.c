@@ -51,7 +51,7 @@ static void al_int_task() {
 static void al_int_signal() {
   // defer check
   if (gpio_get_level(AL_INT_IN) == 0) {
-    naos_defer_isr(al_int_task);
+    naos_defer_isr("al-int", al_int_task);
   }
 }
 
