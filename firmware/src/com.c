@@ -8,6 +8,7 @@
 #include <naos/mqtt.h>
 #include <naos/auth.h>
 #include <naos/debug.h>
+#include <naos/trace.h>
 #include <naos/sys.h>
 #include <esp_err.h>
 
@@ -486,6 +487,7 @@ void com_init() {
 
   // install debug endpoint
   naos_debug_install();
+  naos_trace_install();
 
   // run tasks
   naos_run("com", 4096, 1, com_task);
