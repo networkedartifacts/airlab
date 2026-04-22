@@ -28,9 +28,11 @@ int main() {
         float nox = al_info(AL_INFO_SENSOR_NOX);
         float pressure = al_info(AL_INFO_SENSOR_PRESSURE);
         float fahrenheit = al_info(AL_INFO_FAHRENHEIT);
+        float voc_raw = al_info(AL_INFO_SENSOR_VOC_RAW);
+        float nox_raw = al_info(AL_INFO_SENSOR_NOX_RAW);
         snprintf(buf, sizeof(buf),
-                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f\nNOx: %.0f\nPressure: %.0f", temperature,
-                 fahrenheit, humidity, co2, voc, nox, pressure);
+                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f (%.0f)\nNOx: %.0f (%.0f)\nPressure: %.0f",
+                 temperature, fahrenheit, humidity, co2, voc, voc_raw, nox, nox_raw, pressure);
         break;
       }
       case 2: {
@@ -60,11 +62,18 @@ int main() {
     al_write(8, 8, 2, 16, 1, buf, 0);
 
     // handle exit
-    if (al_yield(0, 0) == AL_YIELD_ESCAPE) {
+    al_yield_result_t res = al_yield(1000, 0);
+    if (res == AL_YIELD_ESCAPE) {
       return 0;
+    } else if (res == AL_YIELD_TIMEOUT) {
+      continue;
     }
 
-    // next screen
-    n = (n + 1) % 5;
+    // advance
+    if (res == AL_YIELD_LEFT) {
+      n = (n + 4) % 5;
+    } else if (res == AL_YIELD_RIGHT) {
+      n = (n + 1) % 5;
+    }
   }
 }
