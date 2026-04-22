@@ -1,6 +1,8 @@
 #ifndef AL_SENSOR_H
 #define AL_SENSOR_H
 
+#include <stdint.h>
+
 #include <al/sample.h>
 
 /**
@@ -37,5 +39,19 @@ al_sample_t al_sensor_next();
  * @param rate The sensor rate.
  */
 void al_sensor_set_rate(al_sensor_rate_t rate);
+
+/**
+ * Returns the latest raw VOC reading from the sensor.
+ *
+ * @return The raw VOC value.
+ */
+uint16_t al_sensor_raw_voc();
+
+/**
+ * Returns the latest raw NOx reading from the sensor.
+ *
+ * @return The raw NOx value.
+ */
+uint16_t al_sensor_raw_nox();
 
 #endif  // AL_SENSOR_H

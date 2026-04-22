@@ -26,6 +26,8 @@ AL_KEEP static float al_sensor_long_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_long_comp_last = 0;
 AL_KEEP static float al_sensor_chg_comp_curr = 0;
 static float al_sensor_last_raw_temp = NAN;
+static uint16_t al_sensor_last_raw_voc = 0;
+static uint16_t al_sensor_last_raw_nox = 0;
 
 #define AL_SENSOR_CHG_COMP_RATE 0.002f  // ramp rate (°C/s)
 
@@ -144,6 +146,10 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
       naos_log("al-sns: chg comp applied: %.3f°C", al_sensor_chg_comp_curr);
     }
   }
+
+  // update last raw VOC/NOx readings
+  al_sensor_last_raw_voc = data.voc;
+  al_sensor_last_raw_nox = data.nox;
 
   // perform gas index calculation
   int32_t voc_index = 0;
@@ -386,4 +392,14 @@ void al_sensor_set_rate(al_sensor_rate_t rate) {
 float al_sensor_raw_temp() {
   // return last raw temperature
   return al_sensor_last_raw_temp;
+}
+
+uint16_t al_sensor_raw_voc() {
+  // return last raw VOC reading
+  return al_sensor_last_raw_voc;
+}
+
+uint16_t al_sensor_raw_nox() {
+  // return last raw NOx reading
+  return al_sensor_last_raw_nox;
 }
