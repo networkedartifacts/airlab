@@ -21,6 +21,7 @@
 #include <al/clock.h>
 #include <al/sample.h>
 #include <al/store.h>
+#include <al/sensor.h>
 
 #include "com.h"
 #include "fnt.h"
@@ -160,6 +161,8 @@ enum {
   ENG_INFO_SCROLL_STD,
   ENG_INFO_SCROLL_FAST,
   ENG_INFO_CONNECTED,
+  ENG_INFO_SENSOR_VOC_RAW,
+  ENG_INFO_SENSOR_VOC_NOX,
 };
 
 static float eng_exec_op_info(wasm_exec_env_t env, int i) {
@@ -215,6 +218,10 @@ static float eng_exec_op_info(wasm_exec_env_t env, int i) {
       return ctx->scroll_fast;
     case ENG_INFO_CONNECTED:
       return naos_status() >= NAOS_CONNECTED ? 1.0f : 0.0f;
+    case ENG_INFO_SENSOR_VOC_RAW:
+      return (float)al_sensor_raw_voc();
+    case ENG_INFO_SENSOR_VOC_NOX:
+      return (float)al_sensor_raw_nox();
     default:
       return -1;
   }
