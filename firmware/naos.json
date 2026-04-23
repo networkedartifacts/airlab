@@ -70,7 +70,7 @@
     "esp_tinyusb": {
       "registry": "espressif/esp_tinyusb",
       "repository": "https://github.com/espressif/esp-usb.git",
-      "version": "master",
+      "version": "bd4194778f59a2e876c7cd3de5ddd4898f5ed451",
       "path": "device/esp_tinyusb"
     },
     "littlefs": {
