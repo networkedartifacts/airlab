@@ -288,6 +288,7 @@ typedef struct {
   const char* config__language;
   const char* config__date;
   const char* config__time;
+  const char* config__timezone;
   const char* config__sleep_rate;
   const char* config__record_rate;
   const char* config__long_interval;
@@ -375,6 +376,7 @@ static const scr_trans_t scr_trans_map[] = {
             .config__language = "Idioma",
             .config__date = "Fecha",
             .config__time = "Hora",
+            .config__timezone = "Zona horaria",
             .config__sleep_rate = "Muestreo en reposo",
             .config__record_rate = "Muestreo en registro",
             .config__long_interval = "Intervalo largo plazo",
@@ -472,6 +474,7 @@ static const scr_trans_t scr_trans_map[] = {
             .config__language = "Sprache",
             .config__date = "Datum",
             .config__time = "Uhrzeit",
+            .config__timezone = "Zeitzone",
             .config__sleep_rate = "Schlaf Messrate",
             .config__record_rate = "Aufnahme Messrate",
             .config__long_interval = "Langzeit Intervall",
@@ -568,6 +571,7 @@ static const scr_trans_t scr_trans_map[] = {
             .config__language = "Language",
             .config__date = "Date",
             .config__time = "Time",
+            .config__timezone = "Timezone",
             .config__sleep_rate = "Sleep Sample Rate",
             .config__record_rate = "Record Sample Rate",
             .config__long_interval = "Long-term Interval",
@@ -2020,101 +2024,107 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 3: {
       return (gui_list_item_t){
+          .title = t->config__timezone,
+          .info = naos_get_s("time-tz-name"),
+      };
+    }
+    case 4: {
+      return (gui_list_item_t){
           .title = t->config__sleep_rate,
           .info = lvx_fmt("%lds", naos_get_l("sleep-rate")),
       };
     }
-    case 4: {
+    case 5: {
       return (gui_list_item_t){
           .title = t->config__record_rate,
           .info = lvx_fmt("%lds", naos_get_l("record-rate")),
       };
     }
-    case 5: {
+    case 6: {
       return (gui_list_item_t){
           .title = t->config__long_interval,
           .info = lvx_fmt("%lds", naos_get_l("long-interval")),
       };
     }
-    case 6: {
+    case 7: {
       return (gui_list_item_t){
           .title = t->config__temp_unit,
           .info = naos_get_b("fahrenheit") ? "°F" : "°C",
       };
     }
-    case 7: {
+    case 8: {
       return (gui_list_item_t){
           .title = t->config__developer,
           .info = naos_get_b("developer") ? t->on : t->off,
       };
     }
-    case 8: {
+    case 9: {
       return (gui_list_item_t){
           .title = t->config__power_light,
           .info = naos_get_b("power-light") ? t->on : t->off,
       };
     }
-    case 9: {
+    case 10: {
       return (gui_list_item_t){
           .title = t->config__co2_light,
           .info = naos_get_b("co2-light") ? t->on : t->off,
       };
     }
-    case 10: {
+    case 11: {
       return (gui_list_item_t){
           .title = t->config__wifi_network,
           .info = lvx_truncate(naos_get_s("wifi-ssid"), 20),
       };
     }
-    case 11: {
+    case 12: {
       return (gui_list_item_t){
           .title = "MQTT Broker",
           .info = lvx_truncate(naos_get_s("mqtt-host"), 20),
       };
     }
-    case 12: {
+    case 13: {
       return (gui_list_item_t){
           .title = "Home Assistant",
           .info = naos_get_b("mqtt-ha") ? t->on : t->off,
       };
     }
-    case 13: {
+    case 14: {
       return (gui_list_item_t){
           .title = t->config__ble_prev_sleep,
           .info = naos_get_b("ble-prev-sleep") ? t->on : t->off,
       };
     }
-    case 14: {
+    case 15: {
       return (gui_list_item_t){
           .title = t->config__mqtt_prev_sleep,
           .info = naos_get_b("mqtt-prev-sleep") ? t->on : t->off,
       };
     }
-    case 15: {
+    case 16: {
       return (gui_list_item_t){
           .title = t->config__ble_pairing,
           .info = naos_get_b("ble-pairing") ? t->on : t->off,
       };
     }
-    case 16: {
+    case 17: {
       return (gui_list_item_t){
           .title = t->config__ble_bonding,
           .info = naos_get_b("ble-bonding") ? t->on : t->off,
       };
     }
-    case 17: {
+    case 18: {
       return (gui_list_item_t){
           .title = t->config__ble_clear,
           .info = t->execute,
       };
     }
-    case 18: {
+    case 19: {
       return (gui_list_item_t){
           .title = t->config__clock_cal,
           .info = lvx_fmt("%dppm", naos_get_l("clock-cal")),
       };
     }
-    case 19: {
+    case 20: {
       return (gui_list_item_t){
           .title = t->config__reset,
           .info = t->execute,
@@ -2136,7 +2146,7 @@ static void* scr_config() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(20, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(21, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_settings;
     }
@@ -2187,7 +2197,7 @@ static void* scr_config() {
         break;
       }
 
-      case 3: {
+      case 4: {
         // cycle through sensor rates
         int32_t value = naos_get_l("sleep-rate");
         if (value == 5) {
@@ -2201,7 +2211,7 @@ static void* scr_config() {
         break;
       }
 
-      case 4: {
+      case 5: {
         // cycle through sensor rates
         int32_t value = naos_get_l("record-rate");
         if (value == 5) {
@@ -2215,7 +2225,7 @@ static void* scr_config() {
         break;
       }
 
-      case 5: {
+      case 6: {
         // use wheel to change long interval
         int value = naos_get_l("long-interval");
         if (gui_wheel(t->config__long_interval, &value, 30, 10, 900, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
@@ -2225,49 +2235,49 @@ static void* scr_config() {
         break;
       }
 
-      case 6: {
+      case 7: {
         // toggle fahrenheit temperature setting
         naos_set_b("fahrenheit", !naos_get_b("fahrenheit"));
 
         break;
       }
 
-      case 7: {
+      case 8: {
         // toggle developer mode
         naos_set_b("developer", !naos_get_b("developer"));
 
         break;
       }
 
-      case 8: {
+      case 9: {
         // toggle power light
         naos_set_b("power-light", !naos_get_b("power-light"));
 
         break;
       }
 
-      case 9: {
+      case 10: {
         // toggle CO2 light
         naos_set_b("co2-light", !naos_get_b("co2-light"));
 
         break;
       }
 
-      case 13: {
+      case 14: {
         // toggle BLE no sleep
         naos_set_b("ble-prev-sleep", !naos_get_b("ble-prev-sleep"));
 
         break;
       }
 
-      case 14: {
+      case 15: {
         // toggle MQTT no sleep
         naos_set_b("mqtt-prev-sleep", !naos_get_b("mqtt-prev-sleep"));
 
         break;
       }
 
-      case 15: {
+      case 16: {
         // toggle BLE pairing
         bool value = !naos_get_b("ble-pairing");
         naos_set_b("ble-pairing", value);
@@ -2279,7 +2289,7 @@ static void* scr_config() {
         break;
       }
 
-      case 16: {
+      case 17: {
         // toggle BLE bonding
         bool value = !naos_get_b("ble-bonding");
         naos_set_b("ble-bonding", value);
@@ -2291,7 +2301,7 @@ static void* scr_config() {
         break;
       }
 
-      case 17: {
+      case 18: {
         // clear BLE peers
         naos_ble_peerlist_clear();
         naos_ble_allowlist_clear();
@@ -2300,7 +2310,7 @@ static void* scr_config() {
         break;
       }
 
-      case 18: {
+      case 19: {
         // use wheel to change clock calibration
         int value = naos_get_l("clock-cal");
         if (gui_wheel(t->config__clock_cal, &value, -63, 1, 126, t->save, t->cancel, "%dppm", SCR_ACTION_TIMEOUT)) {
@@ -2310,7 +2320,7 @@ static void* scr_config() {
         break;
       }
 
-      case 19: {
+      case 20: {
         // check recording
         if (rec_running()) {
           gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
