@@ -489,6 +489,15 @@ void com_init() {
   naos_debug_install();
   naos_trace_install();
 
+  // disable SNTP client if timezone has not been update yet. reset the list
+  // once the timezone has been set and the list is stilly empty. this ensures
+  // that previously hand-configured time does not suddenly get overridden
+  if (strcmp(naos_get_s("time-tz-name"), "Etc/UTC") == 0) {
+    naos_set_s("time-sntp-list", "");
+  } else if (strlen(naos_get_s("time-sntp-list")) == 0) {
+    naos_clear("time-sntp-list");  // pool.ntp.org
+  }
+
   // run tasks
   naos_run("com", 4096, 1, com_task);
   naos_repeat_defer("com-discovery", 10000, com_online);
