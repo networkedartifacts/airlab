@@ -176,7 +176,7 @@ static sig_event_t scr_idle_sleep() {
   // check if powered or connected via BLE/MQTT
   if (power.has_usb || has_ble || has_mqtt) {
     // wait some time
-    sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH, 60 * 1000);
+    sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_INTERRUPT | SIG_LAUNCH, 60 * 1000);
 
     // start engine on launch
     if (event.type == SIG_LAUNCH) {
