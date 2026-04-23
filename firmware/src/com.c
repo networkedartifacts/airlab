@@ -9,6 +9,7 @@
 #include <naos/auth.h>
 #include <naos/debug.h>
 #include <naos/trace.h>
+#include <naos/connect.h>
 #include <naos/sys.h>
 #include <esp_err.h>
 
@@ -417,6 +418,7 @@ static void com_task() {
   });
   naos_wifi_init();
   naos_mqtt_init(1);
+  naos_connect_init();
 
   // start sync
   naos_defer("sync", 2000, com_sync);
