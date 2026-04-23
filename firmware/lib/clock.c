@@ -180,8 +180,26 @@ static void al_clock_set(al_clock_state_t state) {
   al_clock_write(0x00, al_clock_memory.r0);
 }
 
-// RTC stores local wall clock. TZ is set by naos_time via tzset() before
-// init runs, so mktime / localtime_r round-trip consistently.
+static time_t al_clock_timegm(int year, int mon, int day, int hour, int min, int sec) {
+  // treat Jan/Feb as months 13/14 of the previous year so the leap day comes last
+  mon -= 2;
+  if (mon <= 0) {
+    mon += 12;
+    year -= 1;
+  }
+
+  // count leap days and month-offset days
+  int64_t leap_days = year / 4 - year / 100 + year / 400;
+  int64_t month_days = 367LL * mon / 12;
+
+  // compute days since 1970-01-01
+  int64_t days = leap_days + month_days + day + (int64_t)year * 365 - 719499;
+
+  // combine days and time-of-day into seconds
+  int64_t seconds = days * 86400 + (int64_t)hour * 3600 + (int64_t)min * 60 + sec;
+
+  return (time_t)seconds;
+}
 
 static int64_t al_clock_sync_wall_ms = 0;
 static int64_t al_clock_sync_mono_ms = 0;
@@ -228,21 +246,8 @@ void al_clock_init(bool reset) {
     al_clock_write(0x01, al_clock_memory.r1);
   }
 
-  // get time
-  time_t t = time(NULL);
-  struct tm cal;
-  localtime_r(&t, &cal);
-
-  // update time
-  cal.tm_year = state.year - 1900;
-  cal.tm_mon = state.month - 1;
-  cal.tm_mday = state.day;
-  cal.tm_hour = state.hours;
-  cal.tm_min = state.minutes;
-  cal.tm_sec = state.seconds;
-
-  // set time
-  t = mktime(&cal);
+  // seed system time from RTC (stored as UTC)
+  time_t t = al_clock_timegm(state.year, state.month, state.day, state.hours, state.minutes, state.seconds);
   struct timeval tv = {.tv_sec = t};
   settimeofday(&tv, NULL);
 
@@ -252,10 +257,10 @@ void al_clock_init(bool reset) {
 }
 
 void al_clock_update() {
-  // get time
+  // get UTC time
   time_t t = time(NULL);
   struct tm cal;
-  localtime_r(&t, &cal);
+  gmtime_r(&t, &cal);
 
   // prepare state
   al_clock_state_t state = {
