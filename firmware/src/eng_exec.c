@@ -163,6 +163,7 @@ enum {
   ENG_INFO_CONNECTED,
   ENG_INFO_SENSOR_VOC_RAW,
   ENG_INFO_SENSOR_VOC_NOX,
+  ENG_INGO_ALTITUDE,
 };
 
 static float eng_exec_op_info(wasm_exec_env_t env, int i) {
@@ -222,6 +223,8 @@ static float eng_exec_op_info(wasm_exec_env_t env, int i) {
       return (float)al_sensor_raw_voc();
     case ENG_INFO_SENSOR_VOC_NOX:
       return (float)al_sensor_raw_nox();
+    case ENG_INGO_ALTITUDE:
+      return (float)naos_get_l("altitude");
     default:
       return -1;
   }

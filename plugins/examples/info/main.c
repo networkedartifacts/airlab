@@ -30,9 +30,11 @@ int main() {
         float fahrenheit = al_info(AL_INFO_FAHRENHEIT);
         float voc_raw = al_info(AL_INFO_SENSOR_VOC_RAW);
         float nox_raw = al_info(AL_INFO_SENSOR_NOX_RAW);
+        float altitude = al_info(AL_INFO_ALTITUDE);
         snprintf(buf, sizeof(buf),
-                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f (%.0f)\nNOx: %.0f (%.0f)\nPressure: %.0f",
-                 temperature, fahrenheit, humidity, co2, voc, voc_raw, nox, nox_raw, pressure);
+                 "Temp: %.1f (F: %.0f)\nHumidity: %.1f\nCO2: %.0f\nVOC: %.0f (%.0f)\nNOx: %.0f (%.0f)\nPressure: %.0f "
+                 "(A: %.0f)",
+                 temperature, fahrenheit, humidity, co2, voc, voc_raw, nox, nox_raw, pressure, altitude);
         break;
       }
       case 2: {
