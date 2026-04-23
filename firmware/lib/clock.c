@@ -1,5 +1,7 @@
 #include <naos.h>
+#include <naos/sys.h>
 #include <sys/time.h>
+#include <time.h>
 #include <esp_err.h>
 
 #include <al/core.h>
@@ -178,6 +180,39 @@ static void al_clock_set(al_clock_state_t state) {
   al_clock_write(0x00, al_clock_memory.r0);
 }
 
+// RTC stores local wall clock. TZ is set by naos_time via tzset() before
+// init runs, so mktime / localtime_r round-trip consistently.
+
+static int64_t al_clock_sync_wall_ms = 0;
+static int64_t al_clock_sync_mono_ms = 0;
+
+static void al_clock_sync_mark(void) {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  al_clock_sync_wall_ms = (int64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  al_clock_sync_mono_ms = naos_millis();
+}
+
+static void al_clock_sync_check(void) {
+  // read current wall and monotonic clocks
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  int64_t now_wall = (int64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  int64_t now_mono = naos_millis();
+
+  // detect wall-clock step: |actual - expected| > 2s
+  int64_t expected = al_clock_sync_wall_ms + (now_mono - al_clock_sync_mono_ms);
+  int64_t delta = now_wall - expected;
+  if (delta < -2000 || delta > 2000) {
+    naos_log("al-clk: clock step detected (delta=%lldms), mirroring to RTC", delta);
+    al_clock_update();
+  }
+
+  // update cache
+  al_clock_sync_wall_ms = now_wall;
+  al_clock_sync_mono_ms = now_mono;
+}
+
 void al_clock_init(bool reset) {
   // get clock
   al_clock_state_t state = al_clock_get();
@@ -210,6 +245,10 @@ void al_clock_init(bool reset) {
   t = mktime(&cal);
   struct timeval tv = {.tv_sec = t};
   settimeofday(&tv, NULL);
+
+  // start background sync
+  al_clock_sync_mark();
+  naos_repeat_defer("al-clk-sync", 20000, al_clock_sync_check);
 }
 
 void al_clock_update() {
@@ -230,6 +269,9 @@ void al_clock_update() {
 
   // set clock
   al_clock_set(state);
+
+  // refresh sync cache
+  al_clock_sync_mark();
 }
 
 void al_clock_set_calibration(int8_t ppm) {

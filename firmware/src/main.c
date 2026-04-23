@@ -2,6 +2,7 @@
 #include <naos/cpu.h>
 #include <naos/serial.h>
 #include <naos/sys.h>
+#include <naos/time.h>
 #include <esp_heap_caps.h>
 
 #include <al/clock.h>
@@ -105,6 +106,7 @@ void app_main() {
   naos_init(&config);
   naos_cpu_init();
   naos_serial_init_secio_usj();
+  naos_time_init();
   naos_start();
 
   // derive device name from ID if not set
