@@ -191,7 +191,8 @@ static void al_sensor_read() {
   esp_err_t err = al_sensor_hal_read(&data);
   if (err != AL_SENSOR_HAL_OK) {
     naos_log("al-sns: HAL read error=%d", err);
-    ESP_ERROR_CHECK(ESP_FAIL);
+    naos_unlock(al_sensor_mutex);
+    return;
   }
 
   // ingest data
