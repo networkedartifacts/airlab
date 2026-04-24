@@ -1249,6 +1249,11 @@ static void* scr_idle() {
     // sleep until next update
     sig_event_t event = scr_idle_sleep();
 
+    // restart on launch (plugin cleaned up screen)
+    if (event.type == SIG_LAUNCH) {
+      return scr_idle;
+    }
+
     // exit on keys
     if (event.type & SIG_KEYS) {
       break;
