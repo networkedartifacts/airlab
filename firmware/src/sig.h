@@ -23,6 +23,7 @@ typedef enum {
   SIG_POWER = (1 << 15),
   SIG_LAUNCH = (1 << 16),
   SIG_KILL = (1 << 17),
+  SIG_REFRESH = (1 << 18),
 
   SIG_META = SIG_ENTER | SIG_ESCAPE,
   SIG_ARROWS = SIG_UP | SIG_DOWN | SIG_LEFT | SIG_RIGHT,
