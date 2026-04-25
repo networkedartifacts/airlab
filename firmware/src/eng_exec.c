@@ -1885,15 +1885,11 @@ void *eng_exec_start(eng_bundle_t *bundle, const char *binary, eng_perm_t perms,
   ctx->config_schema = config_schema;
   ctx->config_values = config_values;
 
-  // clear screen
-  if (cleanup) {
-    gui_cleanup(false);
-  } else {
-    gfx_begin(false, false);
-    lv_disp_set_rotation(NULL, LV_DISP_ROT_NONE);
-    lv_obj_clean(lv_scr_act());
-    gfx_end(true, false);
-  }
+  // clear screen (skip flushing the cleared frame when the engine is about
+  // to draw on top, to avoid a visible blank refresh)
+  gfx_begin(false, false);
+  lvx_cleanup();
+  gfx_end(!cleanup, false);
 
   // ensure frame buffer
   if (!eng_exec_buffer) {

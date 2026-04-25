@@ -124,6 +124,8 @@ void lvx_modal_clear(lvx_modal_t *modal);
 
 /* Helpers */
 
+void lvx_cleanup();
+
 void lvx_log_event(lv_event_t *event);
 
 void lvx_style_set_pad(lv_style_t *style, lv_coord_t top, lv_coord_t bottom, lv_coord_t left, lv_coord_t right);

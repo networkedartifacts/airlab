@@ -14,8 +14,7 @@
 void gui_cleanup(bool refresh) {
   // clear group and screen
   gfx_begin(refresh, false);
-  lv_disp_set_rotation(NULL, LV_DISP_ROT_NONE);
-  lv_obj_clean(lv_scr_act());
+  lvx_cleanup();
   gfx_end(false, refresh);
 }
 
@@ -34,11 +33,11 @@ static lv_obj_t* gui_progress_bar = NULL;
 static int64_t gui_progress_updated = 0;
 
 void gui_progress_start(const char* text) {
-  // cleanup screen
-  gui_cleanup(false);
-
   // begin draw
   gfx_begin(false, false);
+
+  // cleanup screen
+  lvx_cleanup();
 
   // add label
   lv_obj_t* lbl = lv_label_create(lv_scr_act());

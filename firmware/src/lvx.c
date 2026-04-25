@@ -565,6 +565,11 @@ void lvx_modal_clear(lvx_modal_t* modal) {
 
 /* Helpers */
 
+void lvx_cleanup() {
+  lv_disp_set_rotation(NULL, LV_DISP_ROT_NONE);
+  lv_obj_clean(lv_scr_act());
+}
+
 void lvx_log_event(lv_event_t* event) {
   // prepare names
   static const char* names[] = {

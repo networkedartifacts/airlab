@@ -1138,6 +1138,9 @@ static void* scr_idle() {
   // begin draw
   gfx_begin(false, false);
 
+  // cleanup any previous plugin screen
+  lvx_cleanup();
+
   // add status
   lvx_status_t status = {0};
   lvx_status_create(&status, lv_scr_act());
