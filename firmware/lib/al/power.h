@@ -24,6 +24,7 @@ typedef struct {
   bool has_usb;
   bool can_fast;
   bool charging;
+  bool hiz;
   al_power_phase_t phase;
 } al_power_state_t;
 
@@ -43,6 +44,15 @@ void al_power_config(al_power_hook_t hook);
  * Returns the current power state.
  */
 al_power_state_t al_power_get();
+
+/**
+ * Sets the charger input high-impedance mode. While enabled, the device runs
+ * from the battery even if USB power is present. The charger watchdog is
+ * disabled while active to keep the setting across sleep phases.
+ *
+ * @param enable Whether hi-Z mode is enabled.
+ */
+void al_power_hiz(bool enable);
 
 /**
  * Turns the device power off.

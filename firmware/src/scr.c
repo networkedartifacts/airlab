@@ -173,8 +173,12 @@ static sig_event_t scr_idle_sleep() {
   bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
   bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
 
-  // check if powered or connected via BLE/MQTT
-  if (power.has_usb || has_ble || has_mqtt) {
+  // check if sleep is prevented at power-test level 2
+  bool stay_awake = naos_get_l("power-test") >= 2;
+
+  // check if powered or connected via BLE/MQTT (in hi-Z mode the device runs
+  // from the battery, so an attached USB cable should not prevent sleep)
+  if ((power.has_usb && !power.hiz) || has_ble || has_mqtt || stay_awake) {
     // wait some time
     sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_INTERRUPT | SIG_LAUNCH | SIG_REFRESH, 60 * 1000);
 
@@ -1536,8 +1540,14 @@ static void* scr_view() {
       continue;
     }
 
-    // handle idle timeout
+    // handle idle timeout (at power-test level 3 the screen is kept active to
+    // allow measuring its power consumption)
     if (event.type == SIG_TIMEOUT) {
+      if (naos_get_l("power-test") >= 3) {
+        deadline = naos_millis() + SCR_IDLE_TIMEOUT;
+        continue;
+      }
+
       // cleanup
       gui_cleanup(false);
 
@@ -3212,8 +3222,9 @@ static void* scr_menu() {
     // await event
     sig_event_t event = sig_await(SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH | SIG_KEYS, 0);
 
-    // handle deadline
-    if (event.type & (SIG_SENSOR | SIG_INTERRUPT) && naos_millis() > deadline) {
+    // handle deadline (at power-test level 3 the screen is kept active to
+    // allow measuring its power consumption)
+    if (event.type & (SIG_SENSOR | SIG_INTERRUPT) && naos_millis() > deadline && naos_get_l("power-test") < 3) {
       event.type = SIG_TIMEOUT;
     } else if (event.type & (SIG_KEYS | SIG_LAUNCH)) {
       deadline = naos_millis() + SCR_IDLE_TIMEOUT;

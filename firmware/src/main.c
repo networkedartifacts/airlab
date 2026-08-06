@@ -36,6 +36,11 @@ static void altitude(int32_t value) {
   al_sample_set_altitude((float)value);
 }
 
+static void power_test(int32_t value) {
+  // update charger input mode
+  al_power_hiz(value >= 1);
+}
+
 static float battery() {
   // return battery level
   return al_power_get().bat_level;
@@ -58,6 +63,9 @@ static void setup() {
 
   // set altitude
   al_sample_set_altitude((float)naos_get_l("altitude"));
+
+  // apply charger hi-Z mode
+  al_power_hiz(naos_get_l("power-test") >= 1);
 
   // determine reset
   bool reset = trigger == AL_RESET;
@@ -91,6 +99,7 @@ static naos_param_t params[] = {
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},
     {.name = "fahrenheit", .type = NAOS_BOOL, .default_b = false},
     {.name = "developer", .type = NAOS_BOOL, .default_b = true},
+    {.name = "power-test", .type = NAOS_LONG, .default_l = 0, .func_l = power_test, .skip_func_init = true},  // 0: off, 1: hi-Z, 2: + stay awake, 3: + keep screen
     {.name = "clock-cal", .type = NAOS_LONG, .func_l = clock_cal, .skip_func_init = true},  // ppm: -63..+126
 };
 

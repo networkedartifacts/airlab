@@ -43,7 +43,8 @@ static struct {
   union {
     struct {
       uint8_t iindpm : 5;
-      uint8_t _omitted : 3;
+      uint8_t _omitted : 2;
+      uint8_t en_hiz : 1;
     };
     uint8_t raw;
   } reg0;
@@ -239,6 +240,7 @@ void al_power_check() {
       .has_usb = has_usb,
       .can_fast = can_fast,
       .charging = charging,
+      .hiz = al_power_memory.reg0.en_hiz == 1,
       .phase = (al_power_phase_t)al_power_memory.reg8.chrg_stat,
   };
   if (state.phase == AL_POWER_PHASE_NONE && has_usb) {
@@ -316,6 +318,27 @@ al_power_state_t al_power_get() {
   naos_unlock(al_power_mutex);
 
   return state;
+}
+
+void al_power_hiz(bool enable) {
+  // acquire mutex
+  naos_lock(al_power_mutex);
+
+  // update input mode
+  if (al_power_read(0x00, &al_power_memory.reg0.raw, 1)) {
+    al_power_memory.reg0.en_hiz = enable ? 1 : 0;
+    al_power_write(0x00, al_power_memory.reg0.raw, true);
+  }
+
+  // disable watchdog while hi-Z is active, as an expiry during sleep would
+  // reset the charger and re-enable its input
+  if (al_power_read(0x05, &al_power_memory.reg5.raw, 1)) {
+    al_power_memory.reg5.watchdog = enable ? 0b00 : 0b10;
+    al_power_write(0x05, al_power_memory.reg5.raw, true);
+  }
+
+  // release mutex
+  naos_unlock(al_power_mutex);
 }
 
 void al_power_off() {
