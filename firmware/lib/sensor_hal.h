@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define AL_SENSOR_MSR_TIME 5000  // ms
+
 typedef enum {
   AL_SENSOR_HAL_NORMAL,     // 5s
   AL_SENSOR_HAL_LOW_POWER,  // 30s

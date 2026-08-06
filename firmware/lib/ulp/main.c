@@ -7,7 +7,7 @@
 
 #include "shared.h"
 
-#define READINGS 16  // 80s
+#define READINGS 64  // 320s at 5s rate
 #define LOGS 32
 #define DEBUG false
 

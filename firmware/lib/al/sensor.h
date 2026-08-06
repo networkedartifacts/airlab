@@ -6,15 +6,6 @@
 #include <al/sample.h>
 
 /**
- * The available sensor rates.
- */
-typedef enum {
-  AL_SENSOR_RATE_5S,
-  AL_SENSOR_RATE_30S,
-  AL_SENSOR_RATE_60S,
-} al_sensor_rate_t;
-
-/**
  * A sensor hook.
  */
 typedef void (*al_sensor_hook_t)(al_sample_t sample);
@@ -34,11 +25,15 @@ void al_sensor_config(al_sensor_hook_t hook);
 al_sample_t al_sensor_next();
 
 /**
- * Set the sensor rate.
+ * Set the sensor measurement interval. The most efficient sensor mode with a
+ * cadence not slower than the requested interval is selected: below 30s the
+ * sensor measures periodically every 5s, below 60s every 30s, and from 60s on
+ * single-shot measurements are taken at the requested interval. Values are
+ * clamped to 5-300 seconds.
  *
- * @param rate The sensor rate.
+ * @param seconds The measurement interval in seconds.
  */
-void al_sensor_set_rate(al_sensor_rate_t rate);
+void al_sensor_set_interval(int32_t seconds);
 
 /**
  * Returns the latest raw VOC reading from the sensor.

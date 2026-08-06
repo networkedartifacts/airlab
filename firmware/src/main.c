@@ -47,8 +47,8 @@ static float battery() {
 }
 
 static void wake() {
-  // set fast sensor rate
-  al_sensor_set_rate(AL_SENSOR_RATE_5S);
+  // set fast sensor interval
+  al_sensor_set_interval(5);
 }
 
 static void setup() {
@@ -94,6 +94,7 @@ static naos_param_t params[] = {
     {.name = "power-state", .type = NAOS_STRING, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
+    {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},
     {.name = "long-interval", .type = NAOS_LONG, .default_l = 60, .func_l = long_interval, .skip_func_init = true},
     {.name = "altitude", .type = NAOS_LONG, .default_l = 0, .func_l = altitude, .skip_func_init = true},
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},

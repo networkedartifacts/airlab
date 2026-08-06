@@ -190,20 +190,19 @@ static sig_event_t scr_idle_sleep() {
     return event;
   }
 
-  // determine rate
-  al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
-  int32_t raw_rate = naos_get_l(rec_running() ? "record-rate" : "sleep-rate");
-  if (raw_rate == 30) {
-    rate = AL_SENSOR_RATE_30S;
-  } else if (raw_rate == 60) {
-    rate = AL_SENSOR_RATE_60S;
+  // set sensor interval
+  al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
+
+  // determine display interval (a full ULP reading buffer may wake us earlier)
+  int32_t display_interval = naos_get_l("display-rate");
+  if (display_interval < 60) {
+    display_interval = 60;
+  } else if (display_interval > 300) {
+    display_interval = 300;
   }
 
-  // set rate
-  al_sensor_set_rate(rate);
-
-  // sleep for one minute (no return)
-  al_sleep(true, 60 * 1000);
+  // sleep until next display refresh (no return)
+  al_sleep(true, display_interval * 1000);
 
   return (sig_event_t){
       .type = SIG_TIMEOUT,
@@ -2232,6 +2231,10 @@ static void* scr_config() {
           naos_set_l("sleep-rate", 30);
         } else if (value == 30) {
           naos_set_l("sleep-rate", 60);
+        } else if (value == 60) {
+          naos_set_l("sleep-rate", 120);
+        } else if (value == 120) {
+          naos_set_l("sleep-rate", 300);
         } else {
           naos_set_l("sleep-rate", 5);
         }
@@ -2246,6 +2249,10 @@ static void* scr_config() {
           naos_set_l("record-rate", 30);
         } else if (value == 30) {
           naos_set_l("record-rate", 60);
+        } else if (value == 60) {
+          naos_set_l("record-rate", 120);
+        } else if (value == 120) {
+          naos_set_l("record-rate", 300);
         } else {
           naos_set_l("record-rate", 5);
         }
@@ -2886,7 +2893,8 @@ static void* scr_develop() {
     // handle compensation
     if (selected == 10) {
       // prepare variables
-      al_sensor_rate_t rate = AL_SENSOR_RATE_5S;
+      static const int32_t intervals[] = {5, 30, 60, 120, 300};
+      size_t interval = 0;
 
       for (;;) {
         // get last sample
@@ -2902,7 +2910,7 @@ static void* scr_develop() {
         const char* phase = phase_names[al_power_get().phase];
 
         // update screen
-        gui_write(lvx_fmt("Rate: %d\nTemp: %.1f\nHum: %.1f\nPhase: %s", rate, tmp, hum, phase), false);
+        gui_write(lvx_fmt("Rate: %lds\nTemp: %.1f\nHum: %.1f\nPhase: %s", intervals[interval], tmp, hum, phase), false);
 
         // await event
         sig_event_t event = sig_await(SIG_SENSOR | SIG_ESCAPE | SIG_ENTER, 0);
@@ -2914,11 +2922,11 @@ static void* scr_develop() {
         if (event.type & SIG_ESCAPE) {
           break;
         } else if (event.type & SIG_ENTER) {
-          rate++;
-          if (rate > AL_SENSOR_RATE_60S) {
-            rate = AL_SENSOR_RATE_5S;
+          interval++;
+          if (interval >= sizeof(intervals) / sizeof(intervals[0])) {
+            interval = 0;
           }
-          al_sensor_set_rate(rate);
+          al_sensor_set_interval(intervals[interval]);
         }
       }
     }

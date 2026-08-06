@@ -43,9 +43,9 @@ static struct {
   float target;
   float rate;
 } al_sensor_long_comp[] = {
-    [AL_SENSOR_RATE_5S] = {.target = 0.f, .rate = 0.03f},     // max 50s
-    [AL_SENSOR_RATE_30S] = {.target = 1.0f, .rate = 0.003f},  // max 5min
-    [AL_SENSOR_RATE_60S] = {.target = 1.5f, .rate = 0.002f},  // max 12.5min
+    [AL_SENSOR_HAL_NORMAL] = {.target = 0.f, .rate = 0.03f},       // max 50s
+    [AL_SENSOR_HAL_LOW_POWER] = {.target = 1.0f, .rate = 0.003f},  // max 5min
+    [AL_SENSOR_HAL_MANUAL] = {.target = 1.5f, .rate = 0.002f},     // max 12.5min (tuned at 60s)
 };
 
 static float al_sensor_clamp(float v, float lo, float hi) {
@@ -351,17 +351,24 @@ al_sample_t al_sensor_next() {
   return sample;
 }
 
-void al_sensor_set_rate(al_sensor_rate_t rate) {
+void al_sensor_set_interval(int32_t seconds) {
+  // clamp interval
+  if (seconds < 5) {
+    seconds = 5;
+  } else if (seconds > 300) {
+    seconds = 300;
+  }
+
   // lock mutex
   naos_lock(al_sensor_mutex);
 
   // determine mode and interval
   al_sensor_hal_mode_t mode = AL_SENSOR_HAL_NORMAL;
   int interval = 0;
-  if (rate == AL_SENSOR_RATE_60S) {
+  if (seconds >= 60) {
     mode = AL_SENSOR_HAL_MANUAL;
-    interval = 55000;
-  } else if (rate == AL_SENSOR_RATE_30S) {
+    interval = seconds * 1000 - AL_SENSOR_MSR_TIME;
+  } else if (seconds >= 30) {
     mode = AL_SENSOR_HAL_LOW_POWER;
   } else {
     mode = AL_SENSOR_HAL_NORMAL;

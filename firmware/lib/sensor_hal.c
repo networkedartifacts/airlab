@@ -8,8 +8,6 @@
 #define AL_SENSOR_HAL_SGP41 0x59
 #define AL_SENSOR_HAL_LPS22 0x5C
 
-#define AL_SENSOR_MSR_TIME 5000  // ms
-
 #define AL_CHECK(call)              \
   {                                 \
     al_sensor_hal_err_t err = call; \
