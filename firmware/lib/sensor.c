@@ -25,11 +25,14 @@ AL_KEEP static int64_t al_sensor_switch_comp = 0;
 AL_KEEP static float al_sensor_long_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_long_comp_last = 0;
 AL_KEEP static float al_sensor_chg_comp_curr = 0;
+AL_KEEP static int64_t al_sensor_gas_last = 0;
 static float al_sensor_last_raw_temp = NAN;
 static uint16_t al_sensor_last_raw_voc = 0;
 static uint16_t al_sensor_last_raw_nox = 0;
 
 #define AL_SENSOR_CHG_COMP_RATE 0.002f  // ramp rate (°C/s)
+
+#define AL_SENSOR_GAS_STEP 5000  // gas index sampling interval (ms)
 
 static const float al_sensor_chg_comp_target[] = {
     [AL_POWER_PHASE_NONE] = 0.0f,
@@ -151,11 +154,23 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   al_sensor_last_raw_voc = data.voc;
   al_sensor_last_raw_nox = data.nox;
 
+  // determine gas index steps to cover the elapsed time at the nominal
+  // sampling interval, as replaying sparse samples keeps the algorithm's
+  // sample-count based time constants wall-clock correct
+  int32_t gas_steps = 1;
+  if (al_sensor_gas_last != 0) {
+    gas_steps = (int32_t)((data.epoch - al_sensor_gas_last + AL_SENSOR_GAS_STEP / 2) / AL_SENSOR_GAS_STEP);
+    gas_steps = gas_steps < 1 ? 1 : (gas_steps > 180 ? 180 : gas_steps);
+  }
+  al_sensor_gas_last = data.epoch;
+
   // perform gas index calculation
   int32_t voc_index = 0;
   int32_t nox_index = 0;
-  GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
-  GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
+  for (int32_t i = 0; i < gas_steps; i++) {
+    GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
+    GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
+  }
 
   // calculate pressure
   float prs = (float)data.prs / 4096.f;
@@ -269,6 +284,9 @@ static void al_sensor_monitor() {
   // adjust compensation times
   al_sensor_switch_comp += diff;
   al_sensor_long_comp_last += diff;
+  if (al_sensor_gas_last != 0) {
+    al_sensor_gas_last += diff;
+  }
 }
 
 void al_sensor_init(bool reset) {
@@ -311,10 +329,13 @@ void al_sensor_init(bool reset) {
     // prepare compensation times
     al_sensor_switch_comp = al_clock_get_epoch();
     al_sensor_long_comp_last = al_clock_get_epoch();
+    al_sensor_gas_last = 0;
 
     // initialize gas index parameters
-    GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC, 5.f);
-    GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX, 5.f);
+    GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC,
+                                                  AL_SENSOR_GAS_STEP / 1000.f);
+    GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_nox_params, GasIndexAlgorithm_ALGORITHM_TYPE_NOX,
+                                                  AL_SENSOR_GAS_STEP / 1000.f);
   }
 
   // log state
