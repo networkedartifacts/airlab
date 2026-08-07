@@ -136,13 +136,24 @@ static al_sensor_hal_err_t al_sensor_hal_condition() {
   return AL_SENSOR_HAL_OK;
 }
 
+static al_sensor_hal_err_t al_sensor_hal_measure_raw() {
+  // trigger SGP raw measurement with default compensation values, which
+  // switches the sensor from conditioning to measurement mode (the result is
+  // left unread and superseded by the compensated measurement during read)
+  al_sensor_hal_bw[0] = 0x8000;
+  al_sensor_hal_bw[1] = 0x6666;
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x2619, 2, 0, false));
+
+  return AL_SENSOR_HAL_OK;
+}
+
 void al_sensor_hal_init(al_sensor_hal_ops_t ops, al_sensor_hal_state_t* state) {
   // store ops and state
   al_sensor_hal_ops = ops;
   al_sensor_hal_state = state;
 }
 
-al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval) {
+al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval, int duty) {
   // wake up SCD
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36f6, 0, 0, true));
   al_sensor_hal_ops.delay(30);
@@ -169,9 +180,13 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
     return AL_SENSOR_HAL_ERR_MODE;
   }
 
-  // turn off SGP heater when sleeping
-  if (mode == AL_SENSOR_HAL_SLEEP) {
+  // turn off SGP heater when sleeping or entering duty-cycled manual mode,
+  // and turn it on right away in continuous manual mode, so the sensor is
+  // warm and settled by the first distant reading (a no-op if already on)
+  if (mode == AL_SENSOR_HAL_SLEEP || (mode == AL_SENSOR_HAL_MANUAL && duty > 0)) {
     AL_CHECK(al_sensor_hal_heater_off());
+  } else if (mode == AL_SENSOR_HAL_MANUAL && duty == 0) {
+    AL_CHECK(al_sensor_hal_measure_raw());
   }
 
   // configure LPS sensor
@@ -184,7 +199,9 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   // store mode
   al_sensor_hal_state->mode = mode;
   al_sensor_hal_state->interval = interval;
+  al_sensor_hal_state->duty = duty;
   al_sensor_hal_state->heat = 0;
+  al_sensor_hal_state->raw = 0;
   al_sensor_hal_state->shot = 0;
 
   return AL_SENSOR_HAL_OK;
@@ -211,19 +228,32 @@ bool al_sensor_hal_ready() {
     }
 
     // manage SGP heater duty cycling if enabled
-    if (al_sensor_hal_ops.condition) {
-      // turn off a heater that is on for too long (e.g. after read errors)
+    if (al_sensor_hal_ops.condition && al_sensor_hal_state->duty > 0) {
+      // turn off a heater that is on beyond the active window (e.g. after
+      // read errors), so the next cycle starts over cleanly
       if (al_sensor_hal_state->heat != 0 &&
-          al_sensor_hal_ops.epoch() - al_sensor_hal_state->heat > AL_SENSOR_MAX_HEAT) {
+          al_sensor_hal_ops.epoch() - al_sensor_hal_state->heat > al_sensor_hal_state->duty + AL_SENSOR_MAX_HEAT) {
         AL_CHECK(al_sensor_hal_heater_off());
         al_sensor_hal_state->heat = 0;
+        al_sensor_hal_state->raw = 0;
       }
 
-      // start SGP conditioning ahead of the measurement deadline
+      // start SGP conditioning at the beginning of the active window
       if (al_sensor_hal_state->heat == 0 &&
-          al_sensor_hal_ops.epoch() >= al_sensor_hal_state->next - AL_SENSOR_CND_TIME) {
+          al_sensor_hal_ops.epoch() >= al_sensor_hal_state->next - al_sensor_hal_state->duty) {
         AL_CHECK(al_sensor_hal_condition());
         al_sensor_hal_state->heat = al_sensor_hal_ops.epoch();
+        al_sensor_hal_state->raw = 0;
+      }
+
+      // switch to measurement mode once conditioning ends (10s limit per
+      // datasheet) and keep triggering raw measurements at 1Hz until the
+      // reading is taken at the deadline
+      if (al_sensor_hal_state->heat != 0 &&
+          al_sensor_hal_ops.epoch() - al_sensor_hal_state->heat >= AL_SENSOR_CND_TIME &&
+          al_sensor_hal_ops.epoch() - al_sensor_hal_state->raw >= 1000) {
+        AL_CHECK(al_sensor_hal_measure_raw());
+        al_sensor_hal_state->raw = al_sensor_hal_ops.epoch();
       }
     }
 
@@ -278,9 +308,10 @@ al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
   data->nox = al_sensor_hal_br[1];
 
   // turn off SGP heater when duty cycling in manual mode
-  if (al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL && al_sensor_hal_ops.condition) {
+  if (al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL && al_sensor_hal_state->duty > 0) {
     AL_CHECK(al_sensor_hal_heater_off());
     al_sensor_hal_state->heat = 0;
+    al_sensor_hal_state->raw = 0;
   }
 
   // read LPS sensor

@@ -29,15 +29,31 @@ al_sample_t al_sensor_next();
  * cadence not slower than the requested interval is selected: below 30s the
  * sensor measures periodically every 5s, below 60s every 30s, and from 60s on
  * single-shot measurements are taken at the requested interval. Values are
- * clamped to 5-300 seconds.
+ * clamped to 5-600 seconds.
  *
  * @param seconds The measurement interval in seconds.
  */
 void al_sensor_set_interval(int32_t seconds);
 
 /**
- * Prepares the sensor for deep sleep. In manual mode the SGP heater is turned
- * off, so the ULP can duty-cycle it around measurements.
+ * Set the SGP41 active window per measurement cycle in manual mode. When zero
+ * (the default), the SGP41 runs continuously with its heater always on, which
+ * preserves full signal quality. When set, the sensor is duty-cycled: per
+ * cycle it runs conditioning (max 10s) followed by raw measurements at 1Hz
+ * until the reading is taken at the end of the window, after which the heater
+ * is turned off. Duty cycling trades VOC/NOx signal quality for battery life
+ * and must be opted into deliberately. The window is applied on the next
+ * al_sensor_set_interval() call and clamped to 10 seconds at least and half
+ * the measurement interval at most.
+ *
+ * @param seconds The active window in seconds (0 = continuous).
+ */
+void al_sensor_set_gas_window(int32_t seconds);
+
+/**
+ * Prepares the sensor for deep sleep. When duty cycling in manual mode the
+ * SGP heater is turned off, so the ULP can cycle it around measurements. In
+ * continuous operation the heater stays on.
  */
 void al_sensor_sleep();
 

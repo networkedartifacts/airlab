@@ -190,7 +190,8 @@ static sig_event_t scr_idle_sleep() {
     return event;
   }
 
-  // set sensor interval
+  // set sensor gas window and interval
+  al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
 
   // determine display interval (a full ULP reading buffer may wake us earlier)

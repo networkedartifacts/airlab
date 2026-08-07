@@ -26,13 +26,18 @@ AL_KEEP static float al_sensor_long_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_long_comp_last = 0;
 AL_KEEP static float al_sensor_chg_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_gas_last = 0;
+AL_KEEP static int32_t al_sensor_gas_window = 0;
 static float al_sensor_last_raw_temp = NAN;
 static uint16_t al_sensor_last_raw_voc = 0;
 static uint16_t al_sensor_last_raw_nox = 0;
 
 #define AL_SENSOR_CHG_COMP_RATE 0.002f  // ramp rate (°C/s)
 
-#define AL_SENSOR_GAS_STEP 5000  // gas index sampling interval (ms)
+// The gas index algorithm is characterized for 1s and 10s sampling intervals
+// only, so it is run at 1s internally and sparse readings are replayed to
+// cover the elapsed time, effectively downsampling for display and logging.
+#define AL_SENSOR_GAS_STEP 1000  // gas index sampling interval (ms)
+#define AL_SENSOR_GAS_MAX_STEPS 1800
 
 static const float al_sensor_chg_comp_target[] = {
     [AL_POWER_PHASE_NONE] = 0.0f,
@@ -160,7 +165,7 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   int32_t gas_steps = 1;
   if (al_sensor_gas_last != 0) {
     gas_steps = (int32_t)((data.epoch - al_sensor_gas_last + AL_SENSOR_GAS_STEP / 2) / AL_SENSOR_GAS_STEP);
-    gas_steps = gas_steps < 1 ? 1 : (gas_steps > 180 ? 180 : gas_steps);
+    gas_steps = gas_steps < 1 ? 1 : (gas_steps > AL_SENSOR_GAS_MAX_STEPS ? AL_SENSOR_GAS_MAX_STEPS : gas_steps);
   }
   al_sensor_gas_last = data.epoch;
 
@@ -320,7 +325,7 @@ void al_sensor_init(bool reset) {
     }
 
     // reset sensor
-    al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL, 0);
+    al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_NORMAL, 0, 0);
     if (err != AL_SENSOR_HAL_OK) {
       naos_log("al-sns: HAL error=%d", err);
       ESP_ERROR_CHECK(ESP_FAIL);
@@ -339,7 +344,8 @@ void al_sensor_init(bool reset) {
   }
 
   // log state
-  naos_log("al-sns: init mode=%d interval=%d", al_sensor_state.mode, al_sensor_state.interval);
+  naos_log("al-sns: init mode=%d interval=%d duty=%d", al_sensor_state.mode, al_sensor_state.interval,
+           al_sensor_state.duty);
 
   // ensure store is shifted once
   al_sensor_monitor();
@@ -376,13 +382,15 @@ void al_sensor_sleep() {
   // acquire mutex
   naos_lock(al_sensor_mutex);
 
-  // turn off the SGP heater in manual mode, so the ULP can duty-cycle it
-  if (al_sensor_state.mode == AL_SENSOR_HAL_MANUAL) {
+  // turn off the SGP heater when duty cycling in manual mode, so the ULP can
+  // cycle it around measurements (it stays on for continuous operation)
+  if (al_sensor_state.mode == AL_SENSOR_HAL_MANUAL && al_sensor_state.duty > 0) {
     al_sensor_hal_err_t err = al_sensor_hal_heater_off();
     if (err != AL_SENSOR_HAL_OK) {
       naos_log("al-sns: HAL error=%d", err);
     }
     al_sensor_state.heat = 0;
+    al_sensor_state.raw = 0;
   }
 
   // release mutex
@@ -394,7 +402,7 @@ void al_sensor_off() {
   naos_lock(al_sensor_mutex);
 
   // turn the sensor off
-  al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_SLEEP, 0);
+  al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_SLEEP, 0, 0);
   if (err != AL_SENSOR_HAL_OK) {
     naos_log("al-sns: HAL error=%d", err);
   }
@@ -410,19 +418,27 @@ void al_sensor_set_interval(int32_t seconds) {
   // clamp interval
   if (seconds < 5) {
     seconds = 5;
-  } else if (seconds > 300) {
-    seconds = 300;
+  } else if (seconds > 600) {
+    seconds = 600;
   }
 
   // lock mutex
   naos_lock(al_sensor_mutex);
 
-  // determine mode and interval
+  // determine mode, interval and duty
   al_sensor_hal_mode_t mode = AL_SENSOR_HAL_NORMAL;
   int interval = 0;
+  int duty = 0;
   if (seconds >= 60) {
     mode = AL_SENSOR_HAL_MANUAL;
     interval = seconds * 1000 - AL_SENSOR_MSR_TIME;
+    if (al_sensor_gas_window > 0) {
+      // clamp the active window to the conditioning time at least and half
+      // the interval at most, to keep a meaningful idle phase per cycle
+      int32_t window = al_sensor_gas_window;
+      window = window < 10 ? 10 : (window > seconds / 2 ? seconds / 2 : window);
+      duty = window * 1000;
+    }
   } else if (seconds >= 30) {
     mode = AL_SENSOR_HAL_LOW_POWER;
   } else {
@@ -430,13 +446,13 @@ void al_sensor_set_interval(int32_t seconds) {
   }
 
   // skip if already set
-  if (al_sensor_state.mode == mode && al_sensor_state.interval == interval) {
+  if (al_sensor_state.mode == mode && al_sensor_state.interval == interval && al_sensor_state.duty == duty) {
     naos_unlock(al_sensor_mutex);
     return;
   }
 
-  // set mode and interval
-  al_sensor_hal_err_t err = al_sensor_hal_config(mode, interval);
+  // set mode, interval and duty
+  al_sensor_hal_err_t err = al_sensor_hal_config(mode, interval, duty);
   if (err != AL_SENSOR_HAL_OK) {
     naos_log("al-sns: HAL error=%d", err);
     ESP_ERROR_CHECK(ESP_FAIL);
@@ -446,9 +462,16 @@ void al_sensor_set_interval(int32_t seconds) {
   al_sensor_switch_comp = al_clock_get_epoch();
 
   // log state
-  naos_log("al-sns: config mode=%d interval=%d", mode, interval);
+  naos_log("al-sns: config mode=%d interval=%d duty=%d", mode, interval, duty);
 
   // unlock mutex
+  naos_unlock(al_sensor_mutex);
+}
+
+void al_sensor_set_gas_window(int32_t seconds) {
+  // store window, applied on the next al_sensor_set_interval() call
+  naos_lock(al_sensor_mutex);
+  al_sensor_gas_window = seconds;
   naos_unlock(al_sensor_mutex);
 }
 
