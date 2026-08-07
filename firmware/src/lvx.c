@@ -483,8 +483,17 @@ void lvx_chart_draw(lvx_chart_t chart) {
     // leave a gap for unavailable values (NaN)
     if (!isnan(value)) {
       lv_coord_t h = 2 + (lv_coord_t)al_safe_map(value, 0, chart.range, 0, 78);
-      points[1].y = 80 - h;
-      lv_canvas_draw_line(chart.canvas, points, 2, &bar_desc);
+      if (chart.flags != NULL && chart.flags[i]) {
+        // draw degraded values as dotted bars (2px segments with 2px gaps)
+        for (lv_coord_t y = 80; y > 80 - h; y -= 4) {
+          points[0].y = y;
+          points[1].y = (lv_coord_t)(y - 2 > 80 - h ? y - 2 : 80 - h);
+          lv_canvas_draw_line(chart.canvas, points, 2, &bar_desc);
+        }
+      } else {
+        points[1].y = 80 - h;
+        lv_canvas_draw_line(chart.canvas, points, 2, &bar_desc);
+      }
     }
     if (chart.marks[i] > 0) {
       points[0].y = 82;

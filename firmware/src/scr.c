@@ -1505,11 +1505,13 @@ static void* scr_view() {
       range = 1500;
     }
 
-    // collect values
+    // collect values and flags
     float values[LVX_CHART_SIZE] = {0};
+    uint8_t flags[LVX_CHART_SIZE] = {0};
     for (size_t i = 0; i < num; i++) {
       al_sample_t sample = samples[i];
       values[i] = al_sample_read(sample, field);
+      flags[i] = al_sample_gas_flags(sample, field) != 0;
       if (field == AL_SAMPLE_TMP && fahrenheit) {
         values[i] = scr_temp_convert(values[i]);
       }
@@ -1523,6 +1525,7 @@ static void* scr_view() {
         .canvas = canvas,
         .range = range,
         .values = values,
+        .flags = flags,
         .marks = marks,
         .arrows = precision,
         .offset = source_start,
@@ -3165,21 +3168,38 @@ static void* scr_menu() {
       lv_img_set_src(fan, &img_fan1);
     }
 
-    // draw chart
+    // draw chart, splitting the line at unavailable values (NaN)
     lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
     lv_point_t points[SCR_HIST_POINTS] = {0};
-    for (size_t i = 0; i < SCR_HIST_POINTS; i++) {
-      points[i].x = (lv_coord_t)(i * 24 / (SCR_HIST_POINTS - 1));
-      points[i].y = (lv_coord_t)al_safe_map(values[i], min, max, 14, 2);
-    }
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
     line_dsc.width = 2;
-    lv_canvas_draw_line(chart, points, SCR_HIST_POINTS, &line_dsc);
+    size_t run_start = 0, run_len = 0;
+    for (size_t i = 0; i < SCR_HIST_POINTS; i++) {
+      if (isnan(values[i])) {
+        if (run_len > 1) {
+          lv_canvas_draw_line(chart, &points[run_start], (uint32_t)run_len, &line_dsc);
+        }
+        run_len = 0;
+        continue;
+      }
+      if (run_len == 0) {
+        run_start = i;
+      }
+      points[i].x = (lv_coord_t)(i * 24 / (SCR_HIST_POINTS - 1));
+      points[i].y = (lv_coord_t)al_safe_map(values[i], min, max, 14, 2);
+      run_len++;
+    }
+    if (run_len > 1) {
+      lv_canvas_draw_line(chart, &points[run_start], (uint32_t)run_len, &line_dsc);
+    }
 
-    // draw drain
+    // draw drain (empty for unavailable values)
     lv_canvas_fill_bg(drain, lv_color_white(), LV_OPA_COVER);
-    lv_coord_t drain_height = (lv_coord_t)al_safe_map(values[SCR_HIST_POINTS - 1], min, max, 0, 9);
+    lv_coord_t drain_height = 0;
+    if (!isnan(values[SCR_HIST_POINTS - 1])) {
+      drain_height = (lv_coord_t)al_safe_map(values[SCR_HIST_POINTS - 1], min, max, 0, 9);
+    }
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = lv_color_black();

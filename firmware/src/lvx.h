@@ -100,6 +100,7 @@ typedef struct {
   lv_obj_t *canvas;
   float range;
   float *values;
+  uint8_t *flags;  // degraded values, drawn as dotted bars (optional)
   uint8_t *marks;
   bool arrows;
   int64_t offset;  // ms since 1970
