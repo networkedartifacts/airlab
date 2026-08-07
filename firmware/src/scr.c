@@ -2514,7 +2514,7 @@ static void* scr_check() {
         false);
     sig_await(SIG_SENSOR, 0);
     al_sample_t state = al_store_last();
-    if (state.co2 > 2500 && state.tmp > 25 && state.hum > 60 && state.voc > 50) {
+    if (state.co2 > 2500 && state.tmp > 25 && state.hum > 60 && (state.voc & AL_SAMPLE_GAS_VALUE) > 50) {
       break;
     }
   }

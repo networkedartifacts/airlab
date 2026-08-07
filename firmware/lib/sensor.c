@@ -189,6 +189,17 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
     if (al_sensor_state.duty > 0) {
       nox_index = 0;
     }
+
+    // stamp gas flags: mark values sampled while the SGP was duty-cycled and
+    // values emitted during the initial learning phase
+    if (voc_index != 0) {
+      voc_index |= al_sensor_state.duty > 0 ? AL_SAMPLE_GAS_CYCLED : 0;
+      voc_index |= GasIndexAlgorithm_is_learning(&al_sensor_voc_params) ? AL_SAMPLE_GAS_LEARNING : 0;
+    }
+    if (nox_index != 0) {
+      nox_index |= al_sensor_state.duty > 0 ? AL_SAMPLE_GAS_CYCLED : 0;
+      nox_index |= GasIndexAlgorithm_is_learning(&al_sensor_nox_params) ? AL_SAMPLE_GAS_LEARNING : 0;
+    }
   }
 
   // calculate pressure

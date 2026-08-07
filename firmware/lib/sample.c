@@ -32,12 +32,17 @@ float al_sample_read(al_sample_t sample, al_sample_field_t field) {
       return (float)sample.tmp / 100.f;
     case AL_SAMPLE_HUM:
       return (float)sample.hum / 100.f;
-    case AL_SAMPLE_VOC:
-      // a zero index means no reading is available (algorithm blackout,
-      // duty-cycled NOx or disabled SGP) and is reported as NaN
-      return sample.voc != 0 ? (float)sample.voc : NAN;
-    case AL_SAMPLE_NOX:
-      return sample.nox != 0 ? (float)sample.nox : NAN;
+    case AL_SAMPLE_VOC: {
+      // mask out the gas flags, a zero index means no reading is available
+      // (algorithm blackout, duty-cycled NOx or disabled SGP) and is
+      // reported as NaN
+      int16_t voc = (int16_t)(sample.voc & AL_SAMPLE_GAS_VALUE);
+      return voc != 0 ? (float)voc : NAN;
+    }
+    case AL_SAMPLE_NOX: {
+      int16_t nox = (int16_t)(sample.nox & AL_SAMPLE_GAS_VALUE);
+      return nox != 0 ? (float)nox : NAN;
+    }
     case AL_SAMPLE_PRS:
       return (float)sample.prs / al_sample_prs_factor;
     case AL_SAMPLE_OFF:
@@ -51,17 +56,37 @@ al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset) {
   // calculate factor
   float f = 1.f / (float)(b.off - a.off) * (float)(offset - a.off);
 
+  // split gas indices into values and flags
+  int16_t voc_a = (int16_t)(a.voc & AL_SAMPLE_GAS_VALUE);
+  int16_t voc_b = (int16_t)(b.voc & AL_SAMPLE_GAS_VALUE);
+  int16_t nox_a = (int16_t)(a.nox & AL_SAMPLE_GAS_VALUE);
+  int16_t nox_b = (int16_t)(b.nox & AL_SAMPLE_GAS_VALUE);
+  int16_t voc_flags = (int16_t)((a.voc | b.voc) & ~AL_SAMPLE_GAS_VALUE);
+  int16_t nox_flags = (int16_t)((a.nox | b.nox) & ~AL_SAMPLE_GAS_VALUE);
+
   return (al_sample_t){
       .off = offset,
       .co2 = AL_SAMPLE_LERP(a.co2, b.co2, f),
       .tmp = AL_SAMPLE_LERP(a.tmp, b.tmp, f),
       .hum = AL_SAMPLE_LERP(a.hum, b.hum, f),
       // propagate the gas index no-data sentinel instead of synthesizing
-      // bogus intermediate values at availability boundaries
-      .voc = (a.voc == 0 || b.voc == 0) ? 0 : AL_SAMPLE_LERP(a.voc, b.voc, f),
-      .nox = (a.nox == 0 || b.nox == 0) ? 0 : AL_SAMPLE_LERP(a.nox, b.nox, f),
+      // bogus intermediate values at availability boundaries, and combine
+      // the flags of both endpoints otherwise
+      .voc = (voc_a == 0 || voc_b == 0) ? 0 : (int16_t)AL_SAMPLE_LERP(voc_a, voc_b, f) | voc_flags,
+      .nox = (nox_a == 0 || nox_b == 0) ? 0 : (int16_t)AL_SAMPLE_LERP(nox_a, nox_b, f) | nox_flags,
       .prs = AL_SAMPLE_LERP(a.prs, b.prs, f),
   };
+}
+
+int32_t al_sample_gas_flags(al_sample_t sample, al_sample_field_t field) {
+  // return flag bits of gas index fields
+  if (field == AL_SAMPLE_VOC) {
+    return sample.voc & ~AL_SAMPLE_GAS_VALUE;
+  } else if (field == AL_SAMPLE_NOX) {
+    return sample.nox & ~AL_SAMPLE_GAS_VALUE;
+  }
+
+  return 0;
 }
 
 int al_sample_search(al_sample_source_t *source, int32_t *offset) {

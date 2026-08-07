@@ -29,6 +29,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+// Note: This vendored copy contains local modifications, marked with "LOCAL".
+
 #ifndef GASINDEXALGORITHM_H_
 #define GASINDEXALGORITHM_H_
 
@@ -38,7 +40,7 @@
 #define GasIndexAlgorithm_ALGORITHM_TYPE_VOC (0)
 #define GasIndexAlgorithm_ALGORITHM_TYPE_NOX (1)
 #define GasIndexAlgorithm_DEFAULT_SAMPLING_INTERVAL (1.f)
-#define GasIndexAlgorithm_INITIAL_BLACKOUT (15.f)  // Note: lowered from 45.f.
+#define GasIndexAlgorithm_INITIAL_BLACKOUT (15.f)  // LOCAL: lowered from 45.f
 #define GasIndexAlgorithm_INDEX_GAIN (230.f)
 #define GasIndexAlgorithm_SRAW_STD_INITIAL (50.f)
 #define GasIndexAlgorithm_SRAW_STD_BONUS_VOC (220.f)
@@ -257,5 +259,16 @@ void GasIndexAlgorithm_get_sampling_interval(const GasIndexAlgorithmParams* para
  *                    during initial blackout period and 1..500 afterwards
  */
 void GasIndexAlgorithm_process(GasIndexAlgorithmParams* params, int32_t sraw, int32_t* gas_index);
+
+/* LOCAL: the following addition is not part of the Sensirion distribution */
+
+/**
+ * Returns whether the algorithm is still in its initial learning phase and
+ * emitted indices are not yet fully settled.
+ *
+ * @param params    Pointer to the GasIndexAlgorithmParams struct
+ * @return          True while learning.
+ */
+bool GasIndexAlgorithm_is_learning(const GasIndexAlgorithmParams* params);
 
 #endif /* GASINDEXALGORITHM_H_ */

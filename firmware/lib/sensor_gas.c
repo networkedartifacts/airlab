@@ -182,6 +182,18 @@ void GasIndexAlgorithm_process(GasIndexAlgorithmParams* params, int32_t sraw, in
   *gas_index = ((int32_t)((params->mGas_Index + 0.5f)));
 }
 
+/* LOCAL: the following addition is not part of the Sensirion distribution */
+
+bool GasIndexAlgorithm_is_learning(const GasIndexAlgorithmParams* params) {
+  // the algorithm is learning during the initial blackout and until the
+  // longer initial variance learning phase is over
+  if (params->mUptime <= GasIndexAlgorithm_INITIAL_BLACKOUT) {
+    return true;
+  }
+
+  return params->m_Mean_Variance_Estimator___Uptime_Gamma < params->mInit_Duration_Variance;
+}
+
 static void GasIndexAlgorithm__mean_variance_estimator__set_parameters(GasIndexAlgorithmParams* params) {
   params->m_Mean_Variance_Estimator___Initialized = false;
   params->m_Mean_Variance_Estimator___Mean = 0.f;

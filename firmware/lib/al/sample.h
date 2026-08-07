@@ -32,6 +32,20 @@ typedef enum {
 } al_sample_field_t;
 
 /**
+ * The gas index fields (VOC, NOx) store the index (1-500, 0 = no reading) in
+ * the lower bits and carry additional flags in the upper bits. Consumers of
+ * raw samples must mask the value with AL_SAMPLE_GAS_VALUE before use. The
+ * learning flag is set while the gas index algorithm is in its initial
+ * learning phase, which lasts about 1.45 hours for VOC and 5.7 hours for NOx
+ * and restarts on a non-deep-sleep boot (cold boot, flash or crash) or when
+ * a disabled SGP is re-enabled. Deep sleep, dock transitions and duty
+ * cycling changes do not restart it.
+ */
+#define AL_SAMPLE_GAS_VALUE 0x03FF     // index value mask
+#define AL_SAMPLE_GAS_CYCLED 0x0400    // sampled while the SGP was duty-cycled
+#define AL_SAMPLE_GAS_LEARNING 0x0800  // algorithm in initial learning phase
+
+/**
  * Sets the altitude in meters used to convert the raw station pressure stored
  * in samples to sea-level-corrected pressure (QNH) when read. Zero disables
  * the correction.
@@ -58,6 +72,15 @@ bool al_sample_valid(al_sample_t);
  * @return The value.
  */
 float al_sample_read(al_sample_t sample, al_sample_field_t field);
+
+/**
+ * Reads the gas flags from a sample.
+ *
+ * @param sample The sample.
+ * @param field The field (AL_SAMPLE_VOC or AL_SAMPLE_NOX).
+ * @return The flag bits, or zero for other fields.
+ */
+int32_t al_sample_gas_flags(al_sample_t sample, al_sample_field_t field);
 
 /**
  * Linearly interpolates between two samples.
