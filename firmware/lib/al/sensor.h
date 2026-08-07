@@ -54,6 +54,19 @@ void al_sensor_set_interval(int32_t seconds);
 void al_sensor_set_gas_window(int32_t seconds);
 
 /**
+ * Set the gas grace period, which makes the gas window power dependent: while
+ * USB powered, and for the given number of seconds after power loss, the
+ * SGP41 runs continuously at full quality and the configured gas window
+ * applies only afterwards. Full quality operation resumes as soon as power
+ * returns. When zero (the default), the gas window applies unconditionally.
+ * The grace is evaluated once per second while awake and on every wake up
+ * from deep sleep, so transitions during sleep are applied on the next wake.
+ *
+ * @param seconds The grace period in seconds (0 = window always applies).
+ */
+void al_sensor_set_gas_grace(int32_t seconds);
+
+/**
  * Prepares the sensor for deep sleep. When duty cycling in manual mode the
  * SGP heater is turned off, so the ULP can cycle it around measurements. In
  * continuous operation the heater stays on.

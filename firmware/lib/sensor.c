@@ -27,6 +27,9 @@ AL_KEEP static int64_t al_sensor_long_comp_last = 0;
 AL_KEEP static float al_sensor_chg_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_gas_last = 0;
 AL_KEEP static int32_t al_sensor_gas_window = 0;
+AL_KEEP static int32_t al_sensor_gas_grace = 0;
+AL_KEEP static int64_t al_sensor_unpowered_since = 0;
+AL_KEEP static int32_t al_sensor_seconds = 0;
 static float al_sensor_last_raw_temp = NAN;
 static uint16_t al_sensor_last_raw_voc = 0;
 static uint16_t al_sensor_last_raw_nox = 0;
@@ -265,6 +268,15 @@ static void al_sensor_monitor() {
     al_store_set_base(now, true);
   }
 
+  /* check if the sensor configuration needs to be re-applied */
+
+  // re-apply the last requested interval, which applies pending gas window,
+  // gas grace and power dependent changes (power loss, grace expiry and
+  // power return), the call is skipped internally if nothing changed
+  if (al_sensor_seconds != 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
+    al_sensor_set_interval(al_sensor_seconds);
+  }
+
   /* check if clock has been changed */
 
   // prepare last epoch
@@ -302,6 +314,9 @@ static void al_sensor_monitor() {
   al_sensor_long_comp_last += diff;
   if (al_sensor_gas_last != 0) {
     al_sensor_gas_last += diff;
+  }
+  if (al_sensor_unpowered_since != 0) {
+    al_sensor_unpowered_since += diff;
   }
 }
 
@@ -436,18 +451,38 @@ void al_sensor_set_interval(int32_t seconds) {
   // lock mutex
   naos_lock(al_sensor_mutex);
 
+  // store requested interval for re-evaluation by the monitor
+  al_sensor_seconds = seconds;
+
+  // determine the effective gas window subject to the power grace: while USB
+  // powered or within the grace period after power loss the sensor runs
+  // continuously, and the configured window applies only afterwards
+  int32_t window = al_sensor_gas_window;
+  if (al_sensor_gas_grace > 0) {
+    if (al_power_get().has_usb) {
+      al_sensor_unpowered_since = 0;
+      window = 0;
+    } else {
+      if (al_sensor_unpowered_since == 0) {
+        al_sensor_unpowered_since = al_clock_get_epoch();
+      }
+      if (al_clock_get_epoch() - al_sensor_unpowered_since < (int64_t)al_sensor_gas_grace * 1000) {
+        window = 0;
+      }
+    }
+  }
+
   // determine mode, interval and duty (a negative window disables the SGP
   // entirely in all modes)
   al_sensor_hal_mode_t mode = AL_SENSOR_HAL_NORMAL;
   int interval = 0;
-  int duty = al_sensor_gas_window < 0 ? -1 : 0;
+  int duty = window < 0 ? -1 : 0;
   if (seconds >= 60) {
     mode = AL_SENSOR_HAL_MANUAL;
     interval = seconds * 1000 - AL_SENSOR_MSR_TIME;
-    if (al_sensor_gas_window > 0) {
+    if (window > 0) {
       // clamp the active window to the conditioning time at least and half
       // the interval at most, to keep a meaningful idle phase per cycle
-      int32_t window = al_sensor_gas_window;
       window = window < 10 ? 10 : (window > seconds / 2 ? seconds / 2 : window);
       duty = window * 1000;
     }
@@ -492,6 +527,13 @@ void al_sensor_set_gas_window(int32_t seconds) {
   // store window, applied on the next al_sensor_set_interval() call
   naos_lock(al_sensor_mutex);
   al_sensor_gas_window = seconds;
+  naos_unlock(al_sensor_mutex);
+}
+
+void al_sensor_set_gas_grace(int32_t seconds) {
+  // store grace, applied on the next al_sensor_set_interval() call
+  naos_lock(al_sensor_mutex);
+  al_sensor_gas_grace = seconds;
   naos_unlock(al_sensor_mutex);
 }
 

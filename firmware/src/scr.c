@@ -178,6 +178,11 @@ static sig_event_t scr_idle_sleep() {
     scr_power_off(true, true);
   }
 
+  // set sensor gas window and grace also while staying awake, the sensor
+  // monitor re-applies the configuration if it changed
+  al_sensor_set_gas_window(naos_get_l("gas-window"));
+  al_sensor_set_gas_grace(naos_get_l("gas-grace"));
+
   // check BLE and MQTT
   bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
   bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
@@ -199,8 +204,7 @@ static sig_event_t scr_idle_sleep() {
     return event;
   }
 
-  // set sensor gas window and interval
-  al_sensor_set_gas_window(naos_get_l("gas-window"));
+  // set sensor interval
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
 
   // determine display interval (a full ULP reading buffer may wake us earlier)
