@@ -117,6 +117,16 @@ void al_ulp_start() {
   naos_log("al-ulp: started: length=%d", al_ulp_bin_end - al_ulp_bin_start);
 }
 
+void al_ulp_sync() {
+  // copy the sensor state to the ULP memory and drop stale readings, so a
+  // wake up from a ULP-less deep sleep restores the actual state and does
+  // not ingest readings from an earlier ULP run again
+  al_sensor_hal_state_t *state = (al_sensor_hal_state_t *)&ulp_state;
+  *state = al_sensor_hal_dump();
+  ulp_num_readings = 0;
+  ulp_num_logs = 0;
+}
+
 void al_ulp_load_state(al_sensor_hal_state_t *state) {
   // check if ULP woke up
   if (!esp_sleep_get_wakeup_cause()) {

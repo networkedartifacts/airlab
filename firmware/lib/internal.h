@@ -44,6 +44,7 @@ void al_touch_wake();
 
 void al_ulp_stop();
 void al_ulp_start();
+void al_ulp_sync();
 void al_ulp_load_state(al_sensor_hal_state_t* state);
 int al_ulp_readings();
 al_sensor_hal_data_t al_ulp_get_reading(int index);

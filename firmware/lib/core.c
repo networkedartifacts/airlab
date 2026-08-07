@@ -163,9 +163,15 @@ al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
   // sleep peripherals
   al_touch_sleep();
 
-  // prepare sensor for ULP handover (also ensures the heater is off)
+  // prepare the sensor for the ULP handover, or turn it off entirely and
+  // sync the ULP memory if the ULP stays disabled
   if (deep) {
-    al_sensor_sleep();
+    if (ulp) {
+      al_sensor_sleep();
+    } else {
+      al_sensor_off();
+      al_ulp_sync();
+    }
   }
 
   // enable deep sleep hold

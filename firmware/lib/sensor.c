@@ -389,6 +389,23 @@ void al_sensor_sleep() {
   naos_unlock(al_sensor_mutex);
 }
 
+void al_sensor_off() {
+  // acquire mutex
+  naos_lock(al_sensor_mutex);
+
+  // turn the sensor off
+  al_sensor_hal_err_t err = al_sensor_hal_config(AL_SENSOR_HAL_SLEEP, 0);
+  if (err != AL_SENSOR_HAL_OK) {
+    naos_log("al-sns: HAL error=%d", err);
+  }
+
+  // log state
+  naos_log("al-sns: off");
+
+  // release mutex
+  naos_unlock(al_sensor_mutex);
+}
+
 void al_sensor_set_interval(int32_t seconds) {
   // clamp interval
   if (seconds < 5) {

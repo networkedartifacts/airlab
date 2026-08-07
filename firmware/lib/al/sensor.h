@@ -42,6 +42,13 @@ void al_sensor_set_interval(int32_t seconds);
 void al_sensor_sleep();
 
 /**
+ * Turns the sensor off: the SCD41 is powered down, the SGP heater is turned
+ * off and the LPS22 is set to power-down mode. The sensor is reconfigured on
+ * the next al_sensor_set_interval() call after wake up.
+ */
+void al_sensor_off();
+
+/**
  * Returns the latest raw VOC reading from the sensor.
  *
  * @return The raw VOC value.
