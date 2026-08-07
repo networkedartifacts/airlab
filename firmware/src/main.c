@@ -95,7 +95,7 @@ static naos_param_t params[] = {
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
     {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},
-    {.name = "gas-window", .type = NAOS_LONG, .default_l = 0},  // SGP41 active window (s, 0 = continuous)
+    {.name = "gas-window", .type = NAOS_LONG, .default_l = 0},  // SGP41 active window (s, 0 = continuous, <0 = off)
     {.name = "long-interval", .type = NAOS_LONG, .default_l = 60, .func_l = long_interval, .skip_func_init = true},
     {.name = "altitude", .type = NAOS_LONG, .default_l = 0, .func_l = altitude, .skip_func_init = true},
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},

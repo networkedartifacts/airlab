@@ -42,7 +42,7 @@ typedef struct {
 typedef struct {
   al_sensor_hal_mode_t mode;
   int interval;
-  int duty;  // SGP active window per cycle in manual mode (ms, 0 = continuous)
+  int duty;  // SGP active window per cycle in manual mode (ms, 0 = continuous, <0 = disabled in all modes)
   int64_t next;
   int64_t heat;
   int64_t raw;

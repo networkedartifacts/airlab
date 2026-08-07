@@ -44,9 +44,12 @@ void al_sensor_set_interval(int32_t seconds);
  * is turned off. Duty cycling trades VOC/NOx signal quality for battery life
  * and must be opted into deliberately. The window is applied on the next
  * al_sensor_set_interval() call and clamped to 10 seconds at least and half
- * the measurement interval at most.
+ * the measurement interval at most. A negative window disables the SGP41
+ * entirely in all modes: the heater stays off, VOC/NOx are reported as zero
+ * and the gas index algorithms are reset when re-enabled, behaving like a
+ * cold start including the NOx run-in.
  *
- * @param seconds The active window in seconds (0 = continuous).
+ * @param seconds The active window in seconds (0 = continuous, <0 = off).
  */
 void al_sensor_set_gas_window(int32_t seconds);
 

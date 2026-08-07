@@ -159,22 +159,26 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
   al_sensor_last_raw_voc = data.voc;
   al_sensor_last_raw_nox = data.nox;
 
-  // determine gas index steps to cover the elapsed time at the nominal
-  // sampling interval, as replaying sparse samples keeps the algorithm's
-  // sample-count based time constants wall-clock correct
-  int32_t gas_steps = 1;
-  if (al_sensor_gas_last != 0) {
-    gas_steps = (int32_t)((data.epoch - al_sensor_gas_last + AL_SENSOR_GAS_STEP / 2) / AL_SENSOR_GAS_STEP);
-    gas_steps = gas_steps < 1 ? 1 : (gas_steps > AL_SENSOR_GAS_MAX_STEPS ? AL_SENSOR_GAS_MAX_STEPS : gas_steps);
-  }
-  al_sensor_gas_last = data.epoch;
-
-  // perform gas index calculation
+  // perform gas index calculation, unless the reading was taken with a
+  // disabled SGP (zero raw values), in which case the indices stay zero
   int32_t voc_index = 0;
   int32_t nox_index = 0;
-  for (int32_t i = 0; i < gas_steps; i++) {
-    GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
-    GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
+  if (data.voc != 0 || data.nox != 0) {
+    // determine gas index steps to cover the elapsed time at the nominal
+    // sampling interval, as replaying sparse samples keeps the algorithm's
+    // sample-count based time constants wall-clock correct
+    int32_t gas_steps = 1;
+    if (al_sensor_gas_last != 0) {
+      gas_steps = (int32_t)((data.epoch - al_sensor_gas_last + AL_SENSOR_GAS_STEP / 2) / AL_SENSOR_GAS_STEP);
+      gas_steps = gas_steps < 1 ? 1 : (gas_steps > AL_SENSOR_GAS_MAX_STEPS ? AL_SENSOR_GAS_MAX_STEPS : gas_steps);
+    }
+    al_sensor_gas_last = data.epoch;
+
+    // run the calculation
+    for (int32_t i = 0; i < gas_steps; i++) {
+      GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
+      GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
+    }
   }
 
   // calculate pressure
@@ -425,10 +429,11 @@ void al_sensor_set_interval(int32_t seconds) {
   // lock mutex
   naos_lock(al_sensor_mutex);
 
-  // determine mode, interval and duty
+  // determine mode, interval and duty (a negative window disables the SGP
+  // entirely in all modes)
   al_sensor_hal_mode_t mode = AL_SENSOR_HAL_NORMAL;
   int interval = 0;
-  int duty = 0;
+  int duty = al_sensor_gas_window < 0 ? -1 : 0;
   if (seconds >= 60) {
     mode = AL_SENSOR_HAL_MANUAL;
     interval = seconds * 1000 - AL_SENSOR_MSR_TIME;
@@ -449,6 +454,14 @@ void al_sensor_set_interval(int32_t seconds) {
   if (al_sensor_state.mode == mode && al_sensor_state.interval == interval && al_sensor_state.duty == duty) {
     naos_unlock(al_sensor_mutex);
     return;
+  }
+
+  // reset the gas index algorithms when re-enabling a disabled SGP, so they
+  // re-learn from scratch instead of resuming from stale state
+  if (al_sensor_state.duty < 0 && duty >= 0) {
+    GasIndexAlgorithm_reset(&al_sensor_voc_params);
+    GasIndexAlgorithm_reset(&al_sensor_nox_params);
+    al_sensor_gas_last = 0;
   }
 
   // set mode, interval and duty

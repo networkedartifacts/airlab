@@ -180,10 +180,11 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
     return AL_SENSOR_HAL_ERR_MODE;
   }
 
-  // turn off SGP heater when sleeping or entering duty-cycled manual mode,
-  // and turn it on right away in continuous manual mode, so the sensor is
-  // warm and settled by the first distant reading (a no-op if already on)
-  if (mode == AL_SENSOR_HAL_SLEEP || (mode == AL_SENSOR_HAL_MANUAL && duty > 0)) {
+  // turn off SGP heater when sleeping, disabled or entering duty-cycled
+  // manual mode, and turn it on right away in continuous manual mode, so the
+  // sensor is warm and settled by the first distant reading (a no-op if
+  // already on)
+  if (mode == AL_SENSOR_HAL_SLEEP || duty < 0 || (mode == AL_SENSOR_HAL_MANUAL && duty > 0)) {
     AL_CHECK(al_sensor_hal_heater_off());
   } else if (mode == AL_SENSOR_HAL_MANUAL && duty == 0) {
     AL_CHECK(al_sensor_hal_measure_raw());
@@ -312,14 +313,19 @@ al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
   data->tmp = al_sensor_hal_br[1];
   data->hum = al_sensor_hal_br[2];
 
-  // read SGP sensor
-  al_sensor_hal_bw[0] = data->hum;
-  al_sensor_hal_bw[1] = data->tmp;
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x2619, 2, 0, false));
-  al_sensor_hal_ops.delay(50);
-  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0, 0, 2, false));
-  data->voc = al_sensor_hal_br[0];
-  data->nox = al_sensor_hal_br[1];
+  // read SGP sensor, unless disabled
+  if (al_sensor_hal_state->duty < 0) {
+    data->voc = 0;
+    data->nox = 0;
+  } else {
+    al_sensor_hal_bw[0] = data->hum;
+    al_sensor_hal_bw[1] = data->tmp;
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x2619, 2, 0, false));
+    al_sensor_hal_ops.delay(50);
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0, 0, 2, false));
+    data->voc = al_sensor_hal_br[0];
+    data->nox = al_sensor_hal_br[1];
+  }
 
   // turn off SGP heater when duty cycling in manual mode
   if (al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL && al_sensor_hal_state->duty > 0) {
