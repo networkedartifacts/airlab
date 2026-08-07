@@ -302,6 +302,9 @@ void al_clock_set_calibration(int8_t ppm) {
     val = 0;
   }
 
+  // set OUT bit to keep the open-drain IRQ pin released
+  val |= 0x80;
+
   // write CAL_CFG1 register (0x07)
   al_clock_write(0x07, val);
 
