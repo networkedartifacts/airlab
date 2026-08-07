@@ -8,6 +8,7 @@
 #define AL_SENSOR_MSR_TIME 5000   // ms
 #define AL_SENSOR_CND_TIME 9000   // ms
 #define AL_SENSOR_MAX_HEAT 10000  // ms (SGP41 conditioning limit)
+#define AL_SENSOR_CYCLE_TIME (180 * 1000 - AL_SENSOR_MSR_TIME)  // manual interval from which the SCD is power-cycled
 
 typedef enum {
   AL_SENSOR_HAL_NORMAL,     // 5s
@@ -43,6 +44,7 @@ typedef struct {
   int interval;
   int64_t next;
   int64_t heat;
+  int64_t shot;
 } al_sensor_hal_state_t;
 
 typedef struct {

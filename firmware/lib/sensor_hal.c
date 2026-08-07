@@ -109,6 +109,13 @@ static al_sensor_hal_err_t al_sensor_hal_write_lps(uint8_t reg, uint8_t val) {
   return AL_SENSOR_HAL_OK;
 }
 
+static bool al_sensor_hal_cycled() {
+  // power-cycle the SCD between single shots only on long intervals: the
+  // stabilization shot that must be discarded after a power cycle (~62 mC)
+  // only beats the ~450 uA idle draw from ~140 s onwards
+  return al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL && al_sensor_hal_state->interval >= AL_SENSOR_CYCLE_TIME;
+}
+
 static al_sensor_hal_err_t al_sensor_hal_measure() {
   // wake up SCD41
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36f6, 0, 0, true));
@@ -155,8 +162,8 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   } else if (mode == AL_SENSOR_HAL_LOW_POWER) {
     // start low power periodic measurement
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x21ac, 0, 0, false));
-  } else if (mode == AL_SENSOR_HAL_SLEEP) {
-    // power down
+  } else if (mode == AL_SENSOR_HAL_SLEEP || (mode == AL_SENSOR_HAL_MANUAL && interval >= AL_SENSOR_CYCLE_TIME)) {
+    // power down (in power-cycled manual mode the next shot wakes it again)
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36e0, 0, 0, false));
   } else if (mode != AL_SENSOR_HAL_MANUAL) {
     return AL_SENSOR_HAL_ERR_MODE;
@@ -178,6 +185,7 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   al_sensor_hal_state->mode = mode;
   al_sensor_hal_state->interval = interval;
   al_sensor_hal_state->heat = 0;
+  al_sensor_hal_state->shot = 0;
 
   return AL_SENSOR_HAL_OK;
 }
@@ -219,16 +227,34 @@ bool al_sensor_hal_ready() {
       }
     }
 
-    // take measurement if deadline is reached
-    if (al_sensor_hal_ops.epoch() >= al_sensor_hal_state->next - AL_SENSOR_MSR_TIME) {
+    // take measurement if deadline is reached, one measurement time earlier
+    // when power-cycled to fit the discarded stabilization shot
+    int64_t lead = al_sensor_hal_cycled() ? 2 * AL_SENSOR_MSR_TIME : AL_SENSOR_MSR_TIME;
+    if (al_sensor_hal_state->shot == 0 && al_sensor_hal_ops.epoch() >= al_sensor_hal_state->next - lead) {
       AL_CHECK(al_sensor_hal_measure());
       al_sensor_hal_state->next = al_sensor_hal_ops.epoch() + al_sensor_hal_state->interval;
+      al_sensor_hal_state->shot = al_sensor_hal_cycled() ? 1 : 2;
+    }
+
+    // skip the data-ready poll while no shot is in flight, as a power-cycled
+    // SCD would return garbage (the ULP transfer does not detect NACKs)
+    if (al_sensor_hal_state->shot == 0) {
+      return false;
     }
   }
 
   // otherwise, check if SCD measurement is available
   al_sensor_hal_err_t err = al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xe4b8, 0, 1, false);
   if (err != AL_SENSOR_HAL_OK || (al_sensor_hal_br[0] & 0xFFF) == 0) {
+    return false;
+  }
+
+  // read and discard the stabilization shot after a power cycle, which is
+  // inaccurate per datasheet, and take the real measurement
+  if (al_sensor_hal_state->shot == 1) {
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0xec05, 0, 3, false));
+    AL_CHECK(al_sensor_hal_measure());
+    al_sensor_hal_state->shot = 2;
     return false;
   }
 
@@ -267,7 +293,13 @@ al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
   // clear deadline
   al_sensor_hal_state->next = 0;
 
-  // set next measurement in manual mode
+  // power down SCD until the next shot when power-cycled
+  if (al_sensor_hal_cycled()) {
+    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36e0, 0, 0, false));
+  }
+
+  // clear shot and set next measurement in manual mode
+  al_sensor_hal_state->shot = 0;
   if (al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL) {
     al_sensor_hal_state->next = al_sensor_hal_ops.epoch() + al_sensor_hal_state->interval;
   }
