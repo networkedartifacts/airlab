@@ -159,11 +159,11 @@ esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx,
   return err;
 }
 
-al_trigger_t al_sleep(bool deep, uint64_t timeout) {
+al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
   // sleep peripherals
   al_touch_sleep();
 
-  // prepare sensor for ULP handover
+  // prepare sensor for ULP handover (also ensures the heater is off)
   if (deep) {
     al_sensor_sleep();
   }
@@ -186,11 +186,12 @@ al_trigger_t al_sleep(bool deep, uint64_t timeout) {
     ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
     ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
 
-    // start ULP program
-    al_ulp_start();
-
-    // enable ULP wake up
-    ESP_ERROR_CHECK(esp_sleep_enable_ulp_wakeup());
+    // start ULP program and enable its wake up, unless a floor sleep is
+    // requested that leaves the RTC domain unpowered
+    if (ulp) {
+      al_ulp_start();
+      ESP_ERROR_CHECK(esp_sleep_enable_ulp_wakeup());
+    }
   }
 
   // perform sleep

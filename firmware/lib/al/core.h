@@ -36,10 +36,11 @@ al_trigger_t al_init();
  * mode of sleep and just return from this function.
  *
  * @param deep Whether to enter deep sleep.
+ * @param ulp Whether to start the ULP sensor program during deep sleep.
  * @param timeout The timeout in milliseconds or 0 for indefinite sleep.
  * @return The trigger that woke the device.
  */
-al_trigger_t al_sleep(bool deep, uint64_t timeout);
+al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout);
 
 /**
  * Allocates memory from external RAM with the specified size. The function will

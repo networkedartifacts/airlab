@@ -355,8 +355,8 @@ void al_power_off() {
   ESP_ERROR_CHECK_WITHOUT_ABORT(rtc_gpio_set_level(AL_POWER_HOLD, 1));
   ESP_ERROR_CHECK_WITHOUT_ABORT(rtc_gpio_hold_en(AL_POWER_HOLD));
 
-  // go to deep sleep
-  al_sleep(true, 0);
+  // go to deep sleep, without the ULP as the device is meant to be off
+  al_sleep(true, false, 0);
 }
 
 void al_power_ship() {

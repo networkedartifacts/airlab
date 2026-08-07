@@ -202,7 +202,7 @@ static sig_event_t scr_idle_sleep() {
   }
 
   // sleep until next display refresh (no return)
-  al_sleep(true, display_interval * 1000);
+  al_sleep(true, true, display_interval * 1000);
 
   return (sig_event_t){
       .type = SIG_TIMEOUT,
@@ -2416,7 +2416,7 @@ static void* scr_check() {
   // interrupt
   int64_t start = naos_millis();
   gui_write("Checking interrupts...", true);
-  al_sleep(false, 5 * 1000);
+  al_sleep(false, false, 5 * 1000);
   gui_cleanup(false);
   if (naos_millis() - start < 4 * 1000) {
     gui_message("Interrupt check failed!", SCR_MSG_TIMEOUT);
@@ -2826,8 +2826,8 @@ static void* scr_develop() {
         gui_write("Light Sleeping...\nPress <A> to wake up.", true);
       }
 
-      // perform sleep
-      al_trigger_t trigger = al_sleep(deep, 0);
+      // perform sleep, without the ULP to reach the static floor
+      al_trigger_t trigger = al_sleep(deep, false, 0);
 
       // capture enter when unlocked
       if (trigger == AL_BUTTON) {
