@@ -476,12 +476,16 @@ void lvx_chart_draw(lvx_chart_t chart) {
   bar_desc.width = 2;
   for (size_t i = 0; i < LVX_CHART_SIZE; i++) {
     float value = chart.values[i];
-    lv_coord_t h = 2 + (lv_coord_t)al_safe_map(value, 0, chart.range, 0, 78);
     lv_point_t points[2] = {
         {.x = 1 + i * 4, .y = 80},
-        {.x = 1 + i * 4, .y = 80 - h},
+        {.x = 1 + i * 4, .y = 80},
     };
-    lv_canvas_draw_line(chart.canvas, points, 2, &bar_desc);
+    // leave a gap for unavailable values (NaN)
+    if (!isnan(value)) {
+      lv_coord_t h = 2 + (lv_coord_t)al_safe_map(value, 0, chart.range, 0, 78);
+      points[1].y = 80 - h;
+      lv_canvas_draw_line(chart.canvas, points, 2, &bar_desc);
+    }
     if (chart.marks[i] > 0) {
       points[0].y = 82;
       points[1].y = 84;

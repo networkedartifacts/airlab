@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <stdio.h>
+#include <math.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -474,12 +475,23 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
 
     // write samples
     for (size_t j = 0; j < n; j++) {
+      // format gas indices, leaving unavailable values (NaN) empty
+      char voc_str[8] = {0};
+      char nox_str[8] = {0};
+      float voc = al_sample_read(samples[j], AL_SAMPLE_VOC);
+      float nox = al_sample_read(samples[j], AL_SAMPLE_NOX);
+      if (!isnan(voc)) {
+        snprintf(voc_str, sizeof(voc_str), "%.0f", voc);
+      }
+      if (!isnan(nox)) {
+        snprintf(nox_str, sizeof(nox_str), "%.0f", nox);
+      }
+
       // append line to buffer
-      buf_pos += snprintf(buffer + buf_pos, DAT_EXPORT_BUF - buf_pos, "%lld,%.0f,%.2f,%.2f,%.0f,%.0f,%.0f\n",
+      buf_pos += snprintf(buffer + buf_pos, DAT_EXPORT_BUF - buf_pos, "%lld,%.0f,%.2f,%.2f,%s,%s,%.0f\n",
                           file->head.start + (int64_t)samples[j].off, al_sample_read(samples[j], AL_SAMPLE_CO2),
                           al_sample_read(samples[j], AL_SAMPLE_TMP), al_sample_read(samples[j], AL_SAMPLE_HUM),
-                          al_sample_read(samples[j], AL_SAMPLE_VOC), al_sample_read(samples[j], AL_SAMPLE_NOX),
-                          al_sample_read(samples[j], AL_SAMPLE_PRS));
+                          voc_str, nox_str, al_sample_read(samples[j], AL_SAMPLE_PRS));
 
       // flush buffer if full
       if (buf_pos > DAT_EXPORT_BUF - 128) {

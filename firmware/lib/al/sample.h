@@ -48,7 +48,10 @@ void al_sample_set_altitude(float meters);
 bool al_sample_valid(al_sample_t);
 
 /**
- * Reads a value from a sample.
+ * Reads a value from a sample. The gas index fields (VOC, NOx) store zero
+ * when no reading is available (algorithm blackout, duty-cycled NOx or a
+ * disabled SGP) and are read as NaN in that case, so consumers can detect
+ * missing values with isnan() and render them accordingly.
  *
  * @param sample The sample.
  * @param field The field.

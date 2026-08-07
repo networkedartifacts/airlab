@@ -61,6 +61,15 @@ static const char* scr_field_fmt[] = {
 
 /* Helpers */
 
+static const char* scr_field_str(al_sample_field_t field, float value) {
+  // gas indices read as NaN when no reading is available
+  if (isnan(value)) {
+    return field == AL_SAMPLE_NOX ? "n/a NOx" : "n/a VOC";
+  }
+
+  return lvx_fmt(scr_field_fmt[field], value);
+}
+
 static const char* scr_ms2str(int32_t ms) {
   if (ms > 1000 * 60 * 60) {  // hours
     return lvx_fmt("%dh", ms / 1000 / 60 / 60);
@@ -968,9 +977,11 @@ static void* scr_sensor() {
     float prs = al_sample_read(last, AL_SAMPLE_PRS);
 
     // prepare text
+    const char* voc_str = isnan(voc) ? "n/a" : lvx_fmt("%.0f", voc);
+    const char* nox_str = isnan(nox) ? "n/a" : lvx_fmt("%.0f", nox);
     const char* text =
-        lvx_fmt("%.0f ppm, %.2f °C, %.0f %%RH\n%.0f VOC, %.0f NOX, %.0f hPa\n\nShort: %d/%d, Long: %d/%d", co2, tmp,
-                hum, voc, nox, prs, num_short, AL_STORE_NUM_SHORT, num_long, AL_STORE_NUM_LONG);
+        lvx_fmt("%.0f ppm, %.2f °C, %.0f %%RH\n%s VOC, %s NOX, %.0f hPa\n\nShort: %d/%d, Long: %d/%d", co2, tmp, hum,
+                voc_str, nox_str, prs, num_short, AL_STORE_NUM_SHORT, num_long, AL_STORE_NUM_LONG);
 
     // update label
     gfx_begin(false, false);
@@ -1219,8 +1230,10 @@ static void* scr_idle() {
       lv_label_set_text(tmp, lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(sample, AL_SAMPLE_TMP))));
       lv_label_set_text(hum, lvx_fmt("%.1f%% RH", al_sample_read(sample, AL_SAMPLE_HUM)));
     }
-    lv_label_set_text(voc, lvx_fmt("%.0f VOC", al_sample_read(sample, AL_SAMPLE_VOC)));
-    lv_label_set_text(nox, lvx_fmt("%.0f NOX", al_sample_read(sample, AL_SAMPLE_NOX)));
+    float voc_val = al_sample_read(sample, AL_SAMPLE_VOC);
+    float nox_val = al_sample_read(sample, AL_SAMPLE_NOX);
+    lv_label_set_text(voc, isnan(voc_val) ? "n/a VOC" : lvx_fmt("%.0f VOC", voc_val));
+    lv_label_set_text(nox, isnan(nox_val) ? "n/a NOX" : lvx_fmt("%.0f NOX", nox_val));
     lv_label_set_text(prs, lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SAMPLE_PRS)));
 
     // align objects
@@ -1467,7 +1480,7 @@ static void* scr_view() {
     if (field == AL_SAMPLE_TMP) {
       bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(current, field)));
     } else {
-      bar.value = lvx_fmt(scr_field_fmt[field], al_sample_read(current, field));
+      bar.value = scr_field_str(field, al_sample_read(current, field));
     }
     lvx_bar_update(&bar);
 
@@ -3119,7 +3132,7 @@ static void* scr_menu() {
       if (mode == AL_SAMPLE_TMP) {
         bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(sample, mode)));
       } else {
-        bar.value = lvx_fmt(scr_field_fmt[mode], al_sample_read(sample, mode));
+        bar.value = scr_field_str(mode, al_sample_read(sample, mode));
       }
     }
     lvx_bar_update(&bar);

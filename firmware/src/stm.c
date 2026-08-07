@@ -1,4 +1,5 @@
 #include <esp_random.h>
+#include <math.h>
 
 #include <al/store.h>
 
@@ -505,22 +506,22 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
       continue;
     }
 
-    // check VOC
-    if (entry->voc_min != 0 && (!ok || voc < entry->voc_min)) {
+    // check VOC (NaN means no reading is available)
+    if (entry->voc_min != 0 && (!ok || isnan(voc) || voc < entry->voc_min)) {
       entry->selected = false;
       continue;
     }
-    if (entry->voc_max != 0 && (!ok || voc > entry->voc_max)) {
+    if (entry->voc_max != 0 && (!ok || isnan(voc) || voc > entry->voc_max)) {
       entry->selected = false;
       continue;
     }
 
-    // check NOx
-    if (entry->nox_min != 0 && (!ok || nox < entry->nox_min)) {
+    // check NOx (NaN means no reading is available)
+    if (entry->nox_min != 0 && (!ok || isnan(nox) || nox < entry->nox_min)) {
       entry->selected = false;
       continue;
     }
-    if (entry->nox_max != 0 && (!ok || nox > entry->nox_max)) {
+    if (entry->nox_max != 0 && (!ok || isnan(nox) || nox > entry->nox_max)) {
       entry->selected = false;
       continue;
     }

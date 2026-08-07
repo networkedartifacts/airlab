@@ -179,6 +179,13 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
       GasIndexAlgorithm_process(&al_sensor_voc_params, data.voc, &voc_index);
       GasIndexAlgorithm_process(&al_sensor_nox_params, data.nox, &nox_index);
     }
+
+    // report NOx as unavailable while duty cycling, as the duty-cycled signal
+    // is not meaningful for the NOx index (the algorithm keeps running, so
+    // this can be lifted later without changing behavior)
+    if (al_sensor_state.duty > 0) {
+      nox_index = 0;
+    }
   }
 
   // calculate pressure

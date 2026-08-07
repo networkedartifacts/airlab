@@ -33,9 +33,11 @@ float al_sample_read(al_sample_t sample, al_sample_field_t field) {
     case AL_SAMPLE_HUM:
       return (float)sample.hum / 100.f;
     case AL_SAMPLE_VOC:
-      return (float)sample.voc;
+      // a zero index means no reading is available (algorithm blackout,
+      // duty-cycled NOx or disabled SGP) and is reported as NaN
+      return sample.voc != 0 ? (float)sample.voc : NAN;
     case AL_SAMPLE_NOX:
-      return (float)sample.nox;
+      return sample.nox != 0 ? (float)sample.nox : NAN;
     case AL_SAMPLE_PRS:
       return (float)sample.prs / al_sample_prs_factor;
     case AL_SAMPLE_OFF:
@@ -54,8 +56,10 @@ al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset) {
       .co2 = AL_SAMPLE_LERP(a.co2, b.co2, f),
       .tmp = AL_SAMPLE_LERP(a.tmp, b.tmp, f),
       .hum = AL_SAMPLE_LERP(a.hum, b.hum, f),
-      .voc = AL_SAMPLE_LERP(a.voc, b.voc, f),
-      .nox = AL_SAMPLE_LERP(a.nox, b.nox, f),
+      // propagate the gas index no-data sentinel instead of synthesizing
+      // bogus intermediate values at availability boundaries
+      .voc = (a.voc == 0 || b.voc == 0) ? 0 : AL_SAMPLE_LERP(a.voc, b.voc, f),
+      .nox = (a.nox == 0 || b.nox == 0) ? 0 : AL_SAMPLE_LERP(a.nox, b.nox, f),
       .prs = AL_SAMPLE_LERP(a.prs, b.prs, f),
   };
 }
