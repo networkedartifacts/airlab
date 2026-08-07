@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <string.h>
+#include <naos/sys.h>
 #include <ulp_riscv.h>
 #include <ulp_riscv_i2c.h>
 #include <esp_sleep.h>
@@ -16,9 +17,45 @@ extern const uint8_t al_ulp_bin_start[] asm("_binary_ulp_al_bin_start");
 extern const uint8_t al_ulp_bin_end[] asm("_binary_ulp_al_bin_end");
 
 void al_ulp_stop() {
+  // halt ULP program directly if not woken from deep sleep, as in this case
+  // the ULP program was never started
+  if (!esp_sleep_get_wakeup_cause()) {
+    ulp_riscv_timer_stop();
+    ulp_riscv_halt();
+    return;
+  }
+
+  // otherwise, request a handover: new runs will turn off an active heater,
+  // acknowledge and self-halt without touching the sensors otherwise
+  ulp_handover = 1;
+
+  // wait until the ULP program is idle with an inactive heater, or has
+  // acknowledged the handover after cleaning up
+  al_sensor_hal_state_t *state = (al_sensor_hal_state_t *)&ulp_state;
+  for (int i = 0; i < 250; i++) {
+    if (ulp_ack || (!ulp_running && state->heat == 0)) {
+      break;
+    }
+    naos_delay(10);
+  }
+
   // stop ULP program
   ulp_riscv_timer_stop();
   ulp_riscv_halt();
+
+  // if the heater is still flagged active, the handover timed out or the ULP
+  // failed to turn it off, therefore we force it off through the sensor HAL
+  // using the still configured RTC I2C peripheral (the HAL is re-initialized
+  // with the main CPU ops later during sensor initialization)
+  if (state->heat != 0) {
+    naos_log("al-ulp: handover failed: forcing heater off");
+    al_sensor_hal_init((al_sensor_hal_ops_t){.transfer = al_ulp_transfer}, state);
+    al_sensor_hal_err_t err = al_sensor_hal_heater_off();
+    if (err != AL_SENSOR_HAL_OK) {
+      naos_log("al-ulp: HAL error=%d", err);
+    }
+    state->heat = 0;
+  }
 }
 
 void al_ulp_init(bool reset) {
@@ -56,6 +93,11 @@ void al_ulp_start() {
 
   // prevent power down of I2C peripheral during ULP sleep
   ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON));
+
+  // clear handover flags
+  ulp_handover = 0;
+  ulp_running = 0;
+  ulp_ack = 0;
 
   // start ULP program
   ESP_ERROR_CHECK(ulp_riscv_run());

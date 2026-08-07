@@ -24,29 +24,9 @@ volatile al_sensor_hal_data_t readings[READINGS] = {0};
 volatile int num_readings = 0;
 volatile al_ulp_log_t logs[LOGS];
 volatile int num_logs = 0;
-
-static al_sensor_hal_err_t transfer(uint8_t addr, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl) {
-  // set slave address
-  ulp_riscv_i2c_master_set_slave_addr(addr);
-
-  // write data
-  if (wl > 0) {
-    ulp_riscv_i2c_master_set_slave_reg_addr(wd[0]);
-    if (wl > 1) {
-      ulp_riscv_i2c_master_write_to_device(wd + 1, wl - 1);
-    }
-  }
-
-  // read data
-  if (rl > 0) {
-    if (wl == 0 || wl > 1) {
-      ulp_riscv_i2c_master_set_slave_reg_addr(0);
-    }
-    ulp_riscv_i2c_master_read_from_device(rd, rl);
-  }
-
-  return AL_SENSOR_HAL_OK;
-}
+volatile uint32_t handover = 0;
+volatile uint32_t running = 0;
+volatile uint32_t ack = 0;
 
 static void delay(uint32_t ms) {
   // perform delay
@@ -88,27 +68,18 @@ static void log(al_ulp_log_type_t type, int64_t value) {
   num_logs++;
 }
 
-int main(void) {
-  // wire sensor
-  al_sensor_hal_init(
-      (al_sensor_hal_ops_t){
-          .transfer = transfer,
-          .delay = delay,
-          .epoch = epoch,
-      },
-      (al_sensor_hal_state_t*)&state);
-
+static void run(void) {
   // check if ready
   bool ready = al_sensor_hal_ready();
   if (!ready) {
-    return 0;
+    return;
   }
 
   // read sensor
   al_sensor_hal_err_t err = al_sensor_hal_read(&data);
   if (err != AL_SENSOR_HAL_OK) {
     log(AL_ULP_TYPE_ERROR, err);
-    return 0;
+    return;
   }
 
   // store reading
@@ -122,6 +93,44 @@ int main(void) {
     ulp_riscv_timer_stop();
     ulp_riscv_wakeup_main_processor();
   }
+}
+
+int main(void) {
+  // wire sensor
+  al_sensor_hal_init(
+      (al_sensor_hal_ops_t){
+          .transfer = al_ulp_transfer,
+          .delay = delay,
+          .epoch = epoch,
+          .condition = true,
+      },
+      (al_sensor_hal_state_t *)&state);
+
+  // mark run as in progress
+  running = 1;
+
+  // handle a requested handover: turn off an active heater, then acknowledge
+  // and self-halt, so the main CPU can take over a heater-less sensor
+  if (handover) {
+    if (state.heat != 0) {
+      al_sensor_hal_err_t err = al_sensor_hal_heater_off();
+      if (err == AL_SENSOR_HAL_OK) {
+        state.heat = 0;
+      } else {
+        log(AL_ULP_TYPE_ERROR, err);
+      }
+    }
+    ulp_riscv_timer_stop();
+    ack = 1;
+    running = 0;
+    return 0;
+  }
+
+  // perform run
+  run();
+
+  // clear marker
+  running = 0;
 
   return 0;
 }

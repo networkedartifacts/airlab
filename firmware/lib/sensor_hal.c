@@ -120,6 +120,15 @@ static al_sensor_hal_err_t al_sensor_hal_measure() {
   return AL_SENSOR_HAL_OK;
 }
 
+static al_sensor_hal_err_t al_sensor_hal_condition() {
+  // start SGP conditioning with default compensation values
+  al_sensor_hal_bw[0] = 0x8000;
+  al_sensor_hal_bw[1] = 0x6666;
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x2612, 2, 0, false));
+
+  return AL_SENSOR_HAL_OK;
+}
+
 void al_sensor_hal_init(al_sensor_hal_ops_t ops, al_sensor_hal_state_t* state) {
   // store ops and state
   al_sensor_hal_ops = ops;
@@ -155,7 +164,7 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
 
   // turn off SGP heater when sleeping
   if (mode == AL_SENSOR_HAL_SLEEP) {
-    AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x3615, 0, 0, false));
+    AL_CHECK(al_sensor_hal_heater_off());
   }
 
   // configure LPS sensor
@@ -168,6 +177,14 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
   // store mode
   al_sensor_hal_state->mode = mode;
   al_sensor_hal_state->interval = interval;
+  al_sensor_hal_state->heat = 0;
+
+  return AL_SENSOR_HAL_OK;
+}
+
+al_sensor_hal_err_t al_sensor_hal_heater_off() {
+  // turn off SGP heater
+  AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x3615, 0, 0, false));
 
   return AL_SENSOR_HAL_OK;
 }
@@ -183,6 +200,23 @@ bool al_sensor_hal_ready() {
     // limit measurement deadline to current interval
     if (al_sensor_hal_state->next > al_sensor_hal_ops.epoch() + al_sensor_hal_state->interval) {
       al_sensor_hal_state->next = al_sensor_hal_ops.epoch() + al_sensor_hal_state->interval;
+    }
+
+    // manage SGP heater duty cycling if enabled
+    if (al_sensor_hal_ops.condition) {
+      // turn off a heater that is on for too long (e.g. after read errors)
+      if (al_sensor_hal_state->heat != 0 &&
+          al_sensor_hal_ops.epoch() - al_sensor_hal_state->heat > AL_SENSOR_MAX_HEAT) {
+        AL_CHECK(al_sensor_hal_heater_off());
+        al_sensor_hal_state->heat = 0;
+      }
+
+      // start SGP conditioning ahead of the measurement deadline
+      if (al_sensor_hal_state->heat == 0 &&
+          al_sensor_hal_ops.epoch() >= al_sensor_hal_state->next - AL_SENSOR_CND_TIME) {
+        AL_CHECK(al_sensor_hal_condition());
+        al_sensor_hal_state->heat = al_sensor_hal_ops.epoch();
+      }
     }
 
     // take measurement if deadline is reached
@@ -216,6 +250,12 @@ al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
   AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0, 0, 2, false));
   data->voc = al_sensor_hal_br[0];
   data->nox = al_sensor_hal_br[1];
+
+  // turn off SGP heater when duty cycling in manual mode
+  if (al_sensor_hal_state->mode == AL_SENSOR_HAL_MANUAL && al_sensor_hal_ops.condition) {
+    AL_CHECK(al_sensor_hal_heater_off());
+    al_sensor_hal_state->heat = 0;
+  }
 
   // read LPS sensor
   AL_CHECK(al_sensor_hal_read_lps(0x28, al_sensor_hal_bt, 3));

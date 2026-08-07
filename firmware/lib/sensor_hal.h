@@ -3,8 +3,11 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 
-#define AL_SENSOR_MSR_TIME 5000  // ms
+#define AL_SENSOR_MSR_TIME 5000   // ms
+#define AL_SENSOR_CND_TIME 9000   // ms
+#define AL_SENSOR_MAX_HEAT 10000  // ms (SGP41 conditioning limit)
 
 typedef enum {
   AL_SENSOR_HAL_NORMAL,     // 5s
@@ -32,12 +35,14 @@ typedef struct {
   al_sensor_hal_err_t (*transfer)(uint8_t target, uint8_t* wd, size_t wl, uint8_t* rd, size_t rl);
   void (*delay)(uint32_t ms);
   int64_t (*epoch)();
+  bool condition;  // duty-cycle the SGP heater in manual mode
 } al_sensor_hal_ops_t;
 
 typedef struct {
   al_sensor_hal_mode_t mode;
   int interval;
   int64_t next;
+  int64_t heat;
 } al_sensor_hal_state_t;
 
 typedef struct {
@@ -52,6 +57,7 @@ typedef struct {
 
 void al_sensor_hal_init(al_sensor_hal_ops_t ops, al_sensor_hal_state_t* state);
 al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval);
+al_sensor_hal_err_t al_sensor_hal_heater_off();
 bool al_sensor_hal_ready();
 al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data);
 al_sensor_hal_state_t al_sensor_hal_dump();

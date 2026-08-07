@@ -351,6 +351,23 @@ al_sample_t al_sensor_next() {
   return sample;
 }
 
+void al_sensor_sleep() {
+  // acquire mutex
+  naos_lock(al_sensor_mutex);
+
+  // turn off the SGP heater in manual mode, so the ULP can duty-cycle it
+  if (al_sensor_state.mode == AL_SENSOR_HAL_MANUAL) {
+    al_sensor_hal_err_t err = al_sensor_hal_heater_off();
+    if (err != AL_SENSOR_HAL_OK) {
+      naos_log("al-sns: HAL error=%d", err);
+    }
+    al_sensor_state.heat = 0;
+  }
+
+  // release mutex
+  naos_unlock(al_sensor_mutex);
+}
+
 void al_sensor_set_interval(int32_t seconds) {
   // clamp interval
   if (seconds < 5) {

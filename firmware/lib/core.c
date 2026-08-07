@@ -8,6 +8,7 @@
 
 #include <al/core.h>
 #include <al/clock.h>
+#include <al/sensor.h>
 
 #include "internal.h"
 
@@ -161,6 +162,11 @@ esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx,
 al_trigger_t al_sleep(bool deep, uint64_t timeout) {
   // sleep peripherals
   al_touch_sleep();
+
+  // prepare sensor for ULP handover
+  if (deep) {
+    al_sensor_sleep();
+  }
 
   // enable deep sleep hold
   gpio_deep_sleep_hold_en();

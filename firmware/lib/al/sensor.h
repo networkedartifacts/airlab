@@ -36,6 +36,12 @@ al_sample_t al_sensor_next();
 void al_sensor_set_interval(int32_t seconds);
 
 /**
+ * Prepares the sensor for deep sleep. In manual mode the SGP heater is turned
+ * off, so the ULP can duty-cycle it around measurements.
+ */
+void al_sensor_sleep();
+
+/**
  * Returns the latest raw VOC reading from the sensor.
  *
  * @return The raw VOC value.
