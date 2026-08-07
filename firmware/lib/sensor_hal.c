@@ -257,6 +257,20 @@ bool al_sensor_hal_ready() {
       }
     }
 
+    // clear a shot that never completed (e.g. after a partially failed read
+    // that already consumed the SCD data-ready flag), so the next deadline
+    // starts a fresh measurement cycle instead of stalling indefinitely (the
+    // shot was triggered at next - interval, as taking it advances next)
+    if (al_sensor_hal_state->shot != 0 &&
+        al_sensor_hal_ops.epoch() - (al_sensor_hal_state->next - al_sensor_hal_state->interval) >
+            4 * AL_SENSOR_MSR_TIME) {
+      // power down a cycled SCD again, tolerating failures
+      if (al_sensor_hal_cycled()) {
+        AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SCD41, 0x36e0, 0, 0, true));
+      }
+      al_sensor_hal_state->shot = 0;
+    }
+
     // take measurement if deadline is reached, one measurement time earlier
     // when power-cycled to fit the discarded stabilization shot
     int64_t lead = al_sensor_hal_cycled() ? 2 * AL_SENSOR_MSR_TIME : AL_SENSOR_MSR_TIME;
