@@ -41,14 +41,20 @@ static void power_test(int32_t value) {
   al_power_hiz(value >= 1);
 }
 
+static void main_rate(int32_t value) {
+  // update sensor interval (writes only occur while connected and therefore
+  // awake, where the main rate is the active interval)
+  al_sensor_set_interval(value);
+}
+
 static float battery() {
   // return battery level
   return al_power_get().bat_level;
 }
 
 static void wake() {
-  // set fast sensor interval
-  al_sensor_set_interval(5);
+  // set main sensor interval
+  al_sensor_set_interval(naos_get_l("main-rate"));
 }
 
 static void setup() {
@@ -92,6 +98,7 @@ static naos_param_t params[] = {
     {.name = "int-storage", .type = NAOS_DOUBLE, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "ext-storage", .type = NAOS_DOUBLE, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "power-state", .type = NAOS_STRING, .mode = NAOS_VOLATILE | NAOS_LOCKED},
+    {.name = "main-rate", .type = NAOS_LONG, .default_l = 5, .func_l = main_rate, .skip_func_init = true},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
     {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},

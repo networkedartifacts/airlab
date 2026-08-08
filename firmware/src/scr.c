@@ -1546,13 +1546,19 @@ static void* scr_view() {
     } else if (recording) {
       filter |= SIG_APPEND | SIG_STOP;
     }
-    sig_event_t event = sig_await(filter, SCR_IDLE_TIMEOUT);
+    sig_event_t event = sig_await(filter, 10 * 1000);
 
     // handle deadline
     if (event.type & (SIG_SENSOR | SIG_APPEND) && naos_millis() > deadline) {
       event.type = SIG_TIMEOUT;
     } else if (event.type & (SIG_KEYS | SIG_SCROLL)) {
       deadline = naos_millis() + SCR_IDLE_TIMEOUT;
+    }
+
+    // redraw on early timeouts to keep the app bar time and status current
+    // also at slow sensor rates
+    if (event.type == SIG_TIMEOUT && naos_millis() <= deadline) {
+      continue;
     }
 
     // update on append or stop
@@ -3266,7 +3272,7 @@ static void* scr_menu() {
     fun = false;
 
     // await event
-    sig_event_t event = sig_await(SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH | SIG_KEYS, 0);
+    sig_event_t event = sig_await(SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH | SIG_KEYS, 10 * 1000);
 
     // handle deadline (at power-test level 3 the screen is kept active to
     // allow measuring its power consumption)
@@ -3274,6 +3280,12 @@ static void* scr_menu() {
       event.type = SIG_TIMEOUT;
     } else if (event.type & (SIG_KEYS | SIG_LAUNCH)) {
       deadline = naos_millis() + SCR_IDLE_TIMEOUT;
+    }
+
+    // redraw on early timeouts to keep the app bar time and status current
+    // also at slow sensor rates
+    if (event.type == SIG_TIMEOUT && naos_millis() <= deadline) {
+      continue;
     }
 
     // clear statement and action on any key
