@@ -7,6 +7,7 @@
 #include <tinyusb.h>
 #include <tinyusb_msc.h>
 #include <tinyusb_default_config.h>
+#include <esp_pm.h>
 
 #include <al/core.h>
 #include <al/storage.h>
@@ -14,6 +15,8 @@
 #define AL_STORAGE_INT_LABEL "internal"
 #define AL_STORAGE_EXT_LABEL "external"
 #define AL_STORAGE_DEBUG false
+
+static esp_pm_lock_handle_t al_storage_pm_lock = NULL;
 
 static wl_handle_t al_storage_wl_handle;
 static tinyusb_msc_storage_handle_t al_storage_handle = NULL;
@@ -179,6 +182,12 @@ void al_storage_enable_usb(al_storage_eject_t eject) {
   // set eject callback
   al_storage_eject = eject;
 
+  // keep APB at full speed and block light sleep while USB is active
+  if (al_storage_pm_lock == NULL) {
+    ESP_ERROR_CHECK(esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "al-usb", &al_storage_pm_lock));
+  }
+  ESP_ERROR_CHECK(esp_pm_lock_acquire(al_storage_pm_lock));
+
   // unmount storage
   ESP_ERROR_CHECK(esp_vfs_fat_spiflash_unmount_rw_wl(AL_STORAGE_EXTERNAL, al_storage_wl_handle));
 
@@ -225,6 +234,9 @@ void al_storage_enable_usb(al_storage_eject_t eject) {
 void al_storage_disable_usb() {
   // uninstall driver
   ESP_ERROR_CHECK(tinyusb_driver_uninstall());
+
+  // allow frequency scaling and light sleep again
+  ESP_ERROR_CHECK(esp_pm_lock_release(al_storage_pm_lock));
 
   // delete storage
   ESP_ERROR_CHECK(tinyusb_msc_delete_storage(al_storage_handle));

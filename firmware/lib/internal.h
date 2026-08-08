@@ -2,8 +2,10 @@
 #define AL_INTERNAL_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <esp_err.h>
 #include <esp_attr.h>
+#include <esp_sleep.h>
 
 #include "sensor_hal.h"
 
@@ -20,6 +22,11 @@
 #define AL_BUTTONS_D GPIO_NUM_4
 #define AL_BUTTONS_E GPIO_NUM_9
 #define AL_BUTTONS_F GPIO_NUM_13
+
+// the sleep wakeup cause and EXT1 status latched at boot and after manual
+// light sleeps, as automatic light sleeps overwrite the live values
+esp_sleep_wakeup_cause_t al_wakeup_cause();
+uint64_t al_wakeup_status();
 
 void al_accel_init(bool reset);
 void al_buttons_init();

@@ -2,6 +2,7 @@
 #include <naos/sys.h>
 #include <driver/ledc.h>
 #include <esp_timer.h>
+#include <esp_pm.h>
 
 #define BUZZER_DEBUG false
 
@@ -13,10 +14,15 @@ static esp_timer_handle_t al_buzzer_timer;
 static bool al_buzzer_ready = false;
 static bool al_buzzer_wait = false;
 
+static esp_pm_lock_handle_t al_buzzer_pm_lock;
+
 static void al_buzzer_done() {
   // stop channels
   ESP_ERROR_CHECK(ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0));
   ESP_ERROR_CHECK(ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 1));
+
+  // allow light sleep again
+  ESP_ERROR_CHECK(esp_pm_lock_release(al_buzzer_pm_lock));
 
   // signal done
   if (al_buzzer_wait) {
@@ -68,6 +74,9 @@ static void al_buzzer_setup() {
       .dispatch_method = ESP_TIMER_TASK,
   };
   ESP_ERROR_CHECK(esp_timer_create(&args, &al_buzzer_timer));
+
+  // create lock to block light sleep during tones
+  ESP_ERROR_CHECK(esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "al-bzr", &al_buzzer_pm_lock));
 }
 
 static void al_buzzer_tone(int hz, int us, bool wait) {
@@ -97,6 +106,9 @@ static void al_buzzer_tone(int hz, int us, bool wait) {
 
   // clear signal
   naos_trigger(al_buzzer_signal, 1, true);
+
+  // block light sleep until the tone is done
+  ESP_ERROR_CHECK(esp_pm_lock_acquire(al_buzzer_pm_lock));
 
   // start beep
   ESP_ERROR_CHECK(ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, hz));

@@ -316,6 +316,11 @@ void al_epd_init() {
   ESP_ERROR_CHECK(gpio_config(&pin));
   naos_delay(10);
 
+  // keep select and reset driven during light sleep (GPIOs are otherwise
+  // isolated) to not disturb the display while it refreshes on its own
+  ESP_ERROR_CHECK(gpio_sleep_sel_dis(AL_EPD_SEL));
+  ESP_ERROR_CHECK(gpio_sleep_sel_dis(AL_EPD_RST));
+
   // initialize device
   spi_device_interface_config_t dev = {
       .mode = 0,  // CPOL=0, CPHA=0

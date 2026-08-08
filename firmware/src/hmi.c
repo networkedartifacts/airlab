@@ -1,6 +1,7 @@
 #include <naos.h>
 #include <naos/sys.h>
 #include <math.h>
+#include <esp_pm.h>
 
 #include <al/utils.h>
 #include <al/accel.h>
@@ -15,6 +16,7 @@
 #include "sig.h"
 
 #define HMI_BUTTON_REPEAT 750
+#define HMI_PM_TIMEOUT 5000
 #define HMI_DEBUG false
 
 #define HMI_LED_SLOW 5, 0.1f
@@ -40,6 +42,30 @@ static sig_type_t hmi_map[] = {
     [AL_BUTTON_ENTER] = SIG_ENTER, [AL_BUTTON_ESCAPE] = SIG_ESCAPE, [AL_BUTTON_UP] = SIG_UP,
     [AL_BUTTON_RIGHT] = SIG_RIGHT, [AL_BUTTON_DOWN] = SIG_DOWN,     [AL_BUTTON_LEFT] = SIG_LEFT,
 };
+
+static esp_pm_lock_handle_t hmi_pm_lock;
+static int64_t hmi_pm_activity = 0;  // zero if lock is not held
+
+static void hmi_pm_touch() {
+  // block light sleep during interactions, so that rapid feedback like touch
+  // clicks is not chopped up by sleep and wake transitions
+  naos_lock(hmi_mutex);
+  if (hmi_pm_activity == 0) {
+    ESP_ERROR_CHECK(esp_pm_lock_acquire(hmi_pm_lock));
+  }
+  hmi_pm_activity = naos_millis();
+  naos_unlock(hmi_mutex);
+}
+
+static void hmi_pm_check() {
+  // allow light sleep again once the interaction times out
+  naos_lock(hmi_mutex);
+  if (hmi_pm_activity != 0 && naos_millis() - hmi_pm_activity > HMI_PM_TIMEOUT) {
+    ESP_ERROR_CHECK(esp_pm_lock_release(hmi_pm_lock));
+    hmi_pm_activity = 0;
+  }
+  naos_unlock(hmi_mutex);
+}
 
 static void hmi_power_hook(al_power_state_t state) {
   // log power state
@@ -74,6 +100,9 @@ static void hmi_touch_hook(float pos) {
   if (pos == prev_pos) {
     return;
   }
+
+  // mark interaction
+  hmi_pm_touch();
 
   // play click
   al_buzzer_click();
@@ -136,6 +165,12 @@ static void hmi_button_check() {
 
   // get changed buttons
   uint8_t changed = state ^ hmi_button_state;
+
+  // mark interaction on button changes and check for timeouts
+  if (changed != 0) {
+    hmi_pm_touch();
+  }
+  hmi_pm_check();
 
   // get time
   int64_t now = naos_millis();
@@ -280,6 +315,9 @@ void hmi_init() {
 
   // create mutex
   hmi_mutex = naos_mutex();
+
+  // create lock to block light sleep during interactions
+  ESP_ERROR_CHECK(esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "hmi", &hmi_pm_lock));
 
   // register power hook
   al_power_config(hmi_power_hook);

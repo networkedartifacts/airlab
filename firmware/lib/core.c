@@ -5,6 +5,7 @@
 #include <driver/spi_master.h>
 #include <driver/i2c.h>
 #include <esp_sleep.h>
+#include <esp_pm.h>
 
 #include <al/core.h>
 #include <al/clock.h>
@@ -18,10 +19,22 @@
 
 static naos_mutex_t al_i2c_mutex;
 static naos_auth_data_t al_auth_data = {0};
+static esp_sleep_wakeup_cause_t al_wakeup_cause_val;
+static uint64_t al_wakeup_status_val;
+
+static void al_wakeup_capture() {
+  // latch cause and status
+  al_wakeup_cause_val = esp_sleep_get_wakeup_cause();
+  al_wakeup_status_val = esp_sleep_get_ext1_wakeup_status();
+}
+
+esp_sleep_wakeup_cause_t al_wakeup_cause() { return al_wakeup_cause_val; }
+
+uint64_t al_wakeup_status() { return al_wakeup_status_val; }
 
 static al_trigger_t al_trigger() {
-  // get cause
-  esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+  // get latched cause
+  esp_sleep_wakeup_cause_t cause = al_wakeup_cause();
 
   // handle timer
   if (cause == ESP_SLEEP_WAKEUP_TIMER) {
@@ -30,12 +43,17 @@ static al_trigger_t al_trigger() {
 
   // handle external
   if (cause == ESP_SLEEP_WAKEUP_EXT1) {
-    uint64_t status = esp_sleep_get_ext1_wakeup_status();
+    uint64_t status = al_wakeup_status();
     if ((status & AL_BUTTONS) != 0) {
       return AL_BUTTON;
     } else if ((status & BIT64(AL_INT_IN)) != 0) {
       return AL_INTERRUPT;
     }
+  }
+
+  // handle digital GPIO (light sleep interrupt line wakeup)
+  if (cause == ESP_SLEEP_WAKEUP_GPIO) {
+    return AL_INTERRUPT;
   }
 
   return AL_RESET;
@@ -57,6 +75,10 @@ static void al_int_signal() {
 }
 
 al_trigger_t al_init() {
+  // latch the wakeup cause and status before automatic light sleeps can
+  // overwrite them with their own timer wakeups
+  al_wakeup_capture();
+
   // stop ULP program
   al_ulp_stop();
 
@@ -96,7 +118,7 @@ al_trigger_t al_init() {
   ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c));
 
   // determine reset
-  bool reset = !esp_sleep_get_wakeup_cause();
+  bool reset = !al_wakeup_cause();
 
   // initialize modules
   al_power_init();
@@ -127,8 +149,26 @@ al_trigger_t al_init() {
   ESP_ERROR_CHECK(gpio_config(&cfg));
   ESP_ERROR_CHECK(gpio_isr_handler_add(AL_INT_IN, al_int_signal, NULL));
 
+  // edge interrupts are missed during light sleep, therefore also wake on the
+  // level-latched interrupt line to not lose accelerometer and power events
+  ESP_ERROR_CHECK(gpio_wakeup_enable(AL_INT_IN, GPIO_INTR_LOW_LEVEL));
+  ESP_ERROR_CHECK(esp_sleep_enable_gpio_wakeup());
+
   // hold GPIO during sleep
   ESP_ERROR_CHECK(gpio_hold_en(AL_INT_IN));
+
+  // initialize power management with a pinned CPU frequency, as frequency
+  // switches race the crypto engines whose clocks scale with the CPU clock
+  // (observed SHA hang during WiFi roams; only the MPI driver guards itself
+  // with locks) and also the MSPI timing retune when switching down to the
+  // XTAL frequency (IDF v5.4.3); automatic light sleep provides the actual
+  // savings and already covers the busy-waited display refreshes
+  esp_pm_config_t pm = {
+      .max_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+      .min_freq_mhz = CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ,
+      .light_sleep_enable = true,
+  };
+  ESP_ERROR_CHECK(esp_pm_configure(&pm));
 
   // get trigger
   al_trigger_t trigger = al_trigger();
@@ -206,6 +246,9 @@ al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
   } else {
     ESP_ERROR_CHECK(esp_light_sleep_start());
   }
+
+  // re-latch the wakeup cause and status right away
+  al_wakeup_capture();
 
   // disable deep sleep hold
   gpio_deep_sleep_hold_dis();

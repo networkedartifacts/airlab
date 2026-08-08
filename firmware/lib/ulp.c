@@ -8,6 +8,7 @@
 
 #include <al/clock.h>
 
+#include "internal.h"
 #include "sensor_hal.h"
 
 #include "ulp_al.h"
@@ -19,7 +20,7 @@ extern const uint8_t al_ulp_bin_end[] asm("_binary_ulp_al_bin_end");
 void al_ulp_stop() {
   // halt ULP program directly if not woken from deep sleep, as in this case
   // the ULP program was never started
-  if (!esp_sleep_get_wakeup_cause()) {
+  if (!al_wakeup_cause()) {
     ulp_riscv_timer_stop();
     ulp_riscv_halt();
     return;
@@ -129,7 +130,7 @@ void al_ulp_sync() {
 
 void al_ulp_load_state(al_sensor_hal_state_t *state) {
   // check if ULP woke up
-  if (!esp_sleep_get_wakeup_cause()) {
+  if (!al_wakeup_cause()) {
     return;
   }
 
@@ -140,7 +141,7 @@ void al_ulp_load_state(al_sensor_hal_state_t *state) {
 
 int al_ulp_readings() {
   // check if ULP woke up
-  if (!esp_sleep_get_wakeup_cause()) {
+  if (!al_wakeup_cause()) {
     return 0;
   }
 
