@@ -415,6 +415,9 @@ static void com_task() {
   naos_ble_init((naos_ble_config_t){
       .pairing = naos_get_b("ble-pairing"),
       .bonding = naos_get_b("ble-bonding"),
+      .adv_int_min_ms = 500,
+      .adv_int_max_ms = 1000,
+      .adaptive = true,
   });
   naos_wifi_init();
   naos_mqtt_init(1);
