@@ -286,6 +286,16 @@ bool al_sensor_hal_ready() {
     if (al_sensor_hal_state->shot == 0) {
       return false;
     }
+
+    // also skip the data-ready poll until the measurement is about to
+    // complete, to save the I2C traffic and wakeups of futile early polls
+    // (the shot was triggered at next - interval; a power-cycled SCD runs
+    // the discarded stabilization shot before the real measurement)
+    int64_t due = al_sensor_hal_state->next - al_sensor_hal_state->interval +
+                  (al_sensor_hal_state->shot == 2 && al_sensor_hal_cycled() ? 2 : 1) * AL_SENSOR_MSR_TIME;
+    if (al_sensor_hal_ops.epoch() < due - 500) {
+      return false;
+    }
   }
 
   // otherwise, check if SCD measurement is available
