@@ -29,6 +29,6 @@ int gui_list_strings(int start, int* offset, const char** strings, const char* s
 bool gui_wheel(const char* title, int* value, int min, int step, int max, const char* ok, const char* cancel,
                const char* format, int64_t timeout);
 
-void gui_cycle(bool small, const char** texts, const char* next, const char* back);
+void gui_cycle(bool small, const char* const* texts, const char* next, const char* back);
 
 #endif  // GUI_H

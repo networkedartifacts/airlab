@@ -116,7 +116,7 @@ static char *eng_exec_mkstr(const uint8_t *buf, int len) {
   return str;
 }
 
-static bool eng_valid_buf(wasm_exec_env_t env, void *ptr, size_t len, bool allow_null) {
+static bool eng_valid_buf(wasm_exec_env_t env, const void *ptr, size_t len, bool allow_null) {
   // check null
   if (ptr == NULL) {
     return allow_null && (len == 0);
@@ -126,7 +126,7 @@ static bool eng_valid_buf(wasm_exec_env_t env, void *ptr, size_t len, bool allow
   wasm_module_inst_t inst = wasm_runtime_get_module_inst(env);
 
   // check native address
-  return wasm_runtime_validate_native_addr(inst, ptr, len);
+  return wasm_runtime_validate_native_addr(inst, (void *)ptr, len);
 }
 
 static bool eng_has_perm(wasm_exec_env_t env, eng_perm_t perm) {

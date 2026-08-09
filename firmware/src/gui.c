@@ -409,7 +409,7 @@ bool gui_wheel(const char* title, int* value, int min, int step, int max, const 
   }
 }
 
-void gui_cycle(bool small, const char** texts, const char* next, const char* back) {
+void gui_cycle(bool small, const char* const* texts, const char* next, const char* back) {
   // count texts
   int num = 0;
   while (texts[num] != NULL) {

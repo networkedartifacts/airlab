@@ -96,7 +96,7 @@ int main(void) {
           .delay = delay,
           .epoch = epoch,
       },
-      &state);
+      (al_sensor_hal_state_t*)&state);
 
   // check if ready
   bool ready = al_sensor_hal_ready();

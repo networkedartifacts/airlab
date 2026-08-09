@@ -1,4 +1,5 @@
 #include <naos.h>
+#include <string.h>
 #include <ulp_riscv.h>
 #include <ulp_riscv_i2c.h>
 #include <esp_sleep.h>
@@ -23,8 +24,8 @@ void al_ulp_stop() {
 void al_ulp_init(bool reset) {
   // clear memory on reset to prevent access of uninitialized memory
   if (reset) {
-    ulp_offset = 0;
-    ulp_start = 0;
+    memset(ulp_offset, 0, sizeof(ulp_offset));
+    memset(ulp_start, 0, sizeof(ulp_start));
     ulp_num_readings = 0;
     ulp_num_logs = 0;
   }

@@ -68,7 +68,7 @@ void eng_reload() {
     eng_plugin_t *info = &eng_list[eng_list_len];
 
     // copy file name
-    strncpy(info->file, entry->d_name, sizeof(info->file));
+    strcpy(info->file, entry->d_name);
 
     // set size
     info->size = al_storage_stat(AL_STORAGE_INT, ENG_DIR, info->file);
@@ -96,9 +96,9 @@ void eng_reload() {
     }
 
     // copy attributes
-    strncpy(info->name, name, sizeof(info->name));
-    strncpy(info->title, title, sizeof(info->title));
-    strncpy(info->version, version, sizeof(info->version));
+    snprintf(info->name, sizeof(info->name), "%s", name);
+    snprintf(info->title, sizeof(info->title), "%s", title);
+    snprintf(info->version, sizeof(info->version), "%s", version);
 
     // check for binaries
     info->has_main = eng_bundle_locate(b, ENG_BUNDLE_TYPE_BINARY, "main", NULL) >= 0;
