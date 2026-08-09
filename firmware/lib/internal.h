@@ -27,6 +27,7 @@
 // light sleeps, as automatic light sleeps overwrite the live values
 esp_sleep_wakeup_cause_t al_wakeup_cause();
 uint64_t al_wakeup_status();
+bool al_wakeup_reboot();
 
 void al_accel_init(bool reset);
 void al_buttons_init();

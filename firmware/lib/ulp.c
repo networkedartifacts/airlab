@@ -18,9 +18,10 @@ extern const uint8_t al_ulp_bin_start[] asm("_binary_ulp_al_bin_start");
 extern const uint8_t al_ulp_bin_end[] asm("_binary_ulp_al_bin_end");
 
 void al_ulp_stop() {
-  // halt ULP program directly if not woken from deep sleep, as in this case
-  // the ULP program was never started
-  if (!al_wakeup_cause()) {
+  // halt ULP program directly if not woken from deep sleep or woken from a
+  // deep-sleep based reboot, as in these cases the ULP program was never
+  // started and the handover flags and state are stale
+  if (!al_wakeup_cause() || al_wakeup_reboot()) {
     ulp_riscv_timer_stop();
     ulp_riscv_halt();
     return;
@@ -130,7 +131,7 @@ void al_ulp_sync() {
 
 void al_ulp_load_state(al_sensor_hal_state_t *state) {
   // check if ULP woke up
-  if (!al_wakeup_cause()) {
+  if (!al_wakeup_cause() || al_wakeup_reboot()) {
     return;
   }
 
@@ -141,7 +142,7 @@ void al_ulp_load_state(al_sensor_hal_state_t *state) {
 
 int al_ulp_readings() {
   // check if ULP woke up
-  if (!al_wakeup_cause()) {
+  if (!al_wakeup_cause() || al_wakeup_reboot()) {
     return 0;
   }
 

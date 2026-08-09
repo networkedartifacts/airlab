@@ -2345,7 +2345,7 @@ static void* scr_config() {
         naos_set_b("ble-pairing", value);
         if (gui_confirm(lvx_fmt("Pairing: %s\n\nRestart now?", value ? "ON" : "OFF"), scr_trans()->yes, scr_trans()->no,
                         false, SCR_ACTION_TIMEOUT)) {
-          esp_restart();
+          naos_reboot();
         }
 
         break;
@@ -2357,7 +2357,7 @@ static void* scr_config() {
         naos_set_b("ble-bonding", value);
         if (gui_confirm(lvx_fmt("Bonding: %s\n\nRestart now?", value ? "ON" : "OFF"), scr_trans()->yes, scr_trans()->no,
                         false, SCR_ACTION_TIMEOUT)) {
-          esp_restart();
+          naos_reboot();
         }
 
         break;
@@ -2418,7 +2418,7 @@ static void* scr_config() {
         gui_message(scr_trans()->reset__reset, SCR_MSG_TIMEOUT);
 
         // restart device
-        esp_restart();
+        naos_reboot();
 
         break;
       }
@@ -2870,7 +2870,7 @@ static void* scr_develop() {
 
     // handle power reset
     if (selected == 5) {
-      esp_restart();
+      naos_reboot();
     }
 
     // handle power off
