@@ -64,6 +64,12 @@ void eng_reload() {
 
     /* otherwise, handle files */
 
+    // skip overlong file names
+    if (strlen(entry->d_name) >= sizeof(eng_list[0].file)) {
+      naos_log("eng_reload: file name too long '%s'", entry->d_name);
+      continue;
+    }
+
     // get list entry
     eng_plugin_t *info = &eng_list[eng_list_len];
 
