@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #define AL_SENSOR_MSR_TIME 5000   // ms
+#define AL_SENSOR_RAW_TIME 60     // ms (SGP41 raw measurement, 50ms max plus light-sleep timing margin)
 #define AL_SENSOR_CND_TIME 9000   // ms (SGP41 conditioning time, below the 10s limit)
 #define AL_SENSOR_MAX_HEAT 10000  // ms (grace beyond the active window before the heater is forced off)
 #define AL_SENSOR_CYCLE_TIME (180 * 1000 - AL_SENSOR_MSR_TIME)  // manual interval from which the SCD is power-cycled

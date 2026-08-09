@@ -331,7 +331,7 @@ al_sensor_hal_err_t al_sensor_hal_read(al_sensor_hal_data_t* data) {
     al_sensor_hal_bw[0] = data->hum;
     al_sensor_hal_bw[1] = data->tmp;
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0x2619, 2, 0, false));
-    al_sensor_hal_ops.delay(50);
+    al_sensor_hal_ops.delay(AL_SENSOR_RAW_TIME);
     AL_CHECK(al_sensor_hal_transfer(AL_SENSOR_HAL_SGP41, 0, 0, 2, false));
     data->voc = al_sensor_hal_br[0];
     data->nox = al_sensor_hal_br[1];
