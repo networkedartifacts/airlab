@@ -176,7 +176,8 @@ void al_power_check() {
     naos_unlock(al_power_mutex);
     return;
   }
-  bool charging = al_power_memory.reg8.chrg_stat != 0;
+  bool charging =
+      al_power_memory.reg8.chrg_stat == AL_POWER_PHASE_PRE || al_power_memory.reg8.chrg_stat == AL_POWER_PHASE_FAST;
   bool power_good = al_power_memory.reg8.pg_stat == 1;
   bool any_fault = al_power_memory.reg9.raw != 0;
   bool usb_pwr = al_power_memory.regA.vbus_gd == 1;
