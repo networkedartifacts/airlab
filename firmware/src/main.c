@@ -105,7 +105,7 @@ void app_main() {
   // run naos
   naos_init(&config);
   naos_cpu_init();
-  naos_serial_init_secio_usj();
+  naos_serial_init_secio_usj(1);
   naos_time_init();
   naos_start();
 
