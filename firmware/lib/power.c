@@ -3,7 +3,7 @@
 #include <driver/adc.h>
 #include <driver/rtc_io.h>
 #include <esp_adc_cal.h>
-#include <art32/numbers.h>
+#include <al/utils.h>
 #include <math.h>
 
 #include <al/core.h>
@@ -234,7 +234,7 @@ void al_power_check() {
   // prepare state
   al_power_state_t state = {
       .bat_voltage = (float)bat / 1000.f,
-      .bat_level = a32_safe_map_f((float)bat, 3200.f, 4000.f, 0.f, 1.f),
+      .bat_level = al_safe_map((float)bat, 3200.f, 4000.f, 0.f, 1.f),
       .bat_low = low || bat < 3450,
       .has_usb = has_usb,
       .can_fast = can_fast,

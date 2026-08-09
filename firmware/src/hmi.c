@@ -1,8 +1,8 @@
 #include <naos.h>
 #include <naos/sys.h>
 #include <math.h>
-#include <art32/numbers.h>
 
+#include <al/utils.h>
 #include <al/accel.h>
 #include <al/buttons.h>
 #include <al/touch.h>
@@ -86,7 +86,7 @@ static void hmi_touch_hook(float pos) {
   float delta_fast = 0;
   if (!isnan(prev_pos) && !isnan(pos)) {
     delta = pos - prev_pos;
-    delta_fast = delta * a32_safe_map_f((float)(now - prev_time), 0, 500, 4, 1);
+    delta_fast = delta * al_safe_map((float)(now - prev_time), 0, 500, 4, 1);
   }
 
   // log

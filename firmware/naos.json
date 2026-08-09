@@ -59,10 +59,6 @@
       "repository": "https://github.com/lvgl/lvgl.git",
       "version": "v8.4.0"
     },
-    "art32": {
-      "repository": "https://github.com/256dpi/art32.git",
-      "version": "origin/master"
-    },
     "tinyusb": {
       "registry": "espressif/tinyusb",
       "version": "^0.17.0"

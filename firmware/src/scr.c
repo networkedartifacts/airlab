@@ -5,11 +5,11 @@
 #include <naos/auth.h>
 #include <esp_err.h>
 #include <esp_system.h>
-#include <art32/numbers.h>
 #include <lvgl.h>
 #include <math.h>
 #include <string.h>
 
+#include <al/utils.h>
 #include <al/core.h>
 #include <al/accel.h>
 #include <al/buttons.h>
@@ -1396,7 +1396,7 @@ static void* scr_view() {
     }
 
     // calculate index
-    size_t index = (size_t)roundf(a32_safe_map_f((float)position, (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
+    size_t index = (size_t)roundf(al_safe_map((float)position, (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
 
     // query samples (only if parameters changed)
     lvx_modal_t modal = {0};
@@ -1432,7 +1432,7 @@ static void* scr_view() {
       for (uint8_t i = 0; i < DAT_MARKS; i++) {
         if (file->head.marks[i] > 0) {
           int32_t mark =
-              (int32_t)roundf(a32_map_f((float)file->head.marks[i], (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
+              (int32_t)roundf(al_map((float)file->head.marks[i], (float)start, (float)end, 0, LVX_CHART_SIZE - 1));
           if (mark >= 0 && mark <= LVX_CHART_SIZE - 1) {
             marks[(size_t)mark] = i + 1;
           }
@@ -3133,8 +3133,8 @@ static void* scr_menu() {
     lv_canvas_fill_bg(chart, lv_color_white(), LV_OPA_COVER);
     lv_point_t points[SCR_HIST_POINTS] = {0};
     for (size_t i = 0; i < SCR_HIST_POINTS; i++) {
-      points[i].x = (lv_coord_t)a32_safe_map_i((int32_t)i, 0, SCR_HIST_POINTS - 1, 0, 24);
-      points[i].y = (lv_coord_t)a32_safe_map_f(values[i], min, max, 14, 2);
+      points[i].x = (lv_coord_t)(i * 24 / (SCR_HIST_POINTS - 1));
+      points[i].y = (lv_coord_t)al_safe_map(values[i], min, max, 14, 2);
     }
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
@@ -3143,7 +3143,7 @@ static void* scr_menu() {
 
     // draw drain
     lv_canvas_fill_bg(drain, lv_color_white(), LV_OPA_COVER);
-    lv_coord_t drain_height = (lv_coord_t)a32_safe_map_f(values[SCR_HIST_POINTS - 1], min, max, 0, 9);
+    lv_coord_t drain_height = (lv_coord_t)al_safe_map(values[SCR_HIST_POINTS - 1], min, max, 0, 9);
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.bg_color = lv_color_black();

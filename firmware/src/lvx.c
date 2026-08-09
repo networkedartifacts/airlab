@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <art32/numbers.h>
 
+#include <al/utils.h>
 #include <al/power.h>
 #include <al/clock.h>
 
@@ -476,7 +476,7 @@ void lvx_chart_draw(lvx_chart_t chart) {
   bar_desc.width = 2;
   for (size_t i = 0; i < LVX_CHART_SIZE; i++) {
     float value = chart.values[i];
-    lv_coord_t h = 2 + (lv_coord_t)a32_safe_map_f(value, 0, chart.range, 0, 78);
+    lv_coord_t h = 2 + (lv_coord_t)al_safe_map(value, 0, chart.range, 0, 78);
     lv_point_t points[2] = {
         {.x = 1 + i * 4, .y = 80},
         {.x = 1 + i * 4, .y = 80 - h},
@@ -521,7 +521,7 @@ void lvx_chart_draw(lvx_chart_t chart) {
     const char* str = lvx_fmt("%02d:%02d", hour, minute);
 
     // calculate coordinate
-    lv_coord_t x = (lv_coord_t)a32_map_f(pos, (float)chart.start, (float)chart.end, 0, 288);
+    lv_coord_t x = (lv_coord_t)al_map(pos, (float)chart.start, (float)chart.end, 0, 288);
     x -= lv_txt_get_width(str, strlen(str), &fnt_8, 0, 0) / 2;
 
     // draw label
