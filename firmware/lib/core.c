@@ -65,13 +65,25 @@ static void al_int_task() {
 
   // check power
   al_power_check();
+
+  // re-arm the interrupt now that the sources have been cleared; if the line
+  // is still or again low, a new interrupt fires and loops through here again
+  // at a bounded, scheduler-paced rate
+  ESP_ERROR_CHECK(gpio_intr_enable(AL_INT_IN));
 }
 
 static void al_int_signal() {
-  // defer check
-  if (gpio_get_level(AL_INT_IN) == 0) {
-    naos_defer_isr("al-int", al_int_task);
-  }
+  // quell the interrupt until serviced: gpio_wakeup_enable() rewires the pin
+  // from edge to low-level triggering, and the line is latched low until the
+  // sources are cleared over I2C; left enabled, the interrupt re-fires
+  // continuously and starves the deferred task (and the I2C interrupt) on the
+  // same core that would clear it, tripping the interrupt watchdog; therefore,
+  // the interrupt is strictly re-armed from the task only
+  gpio_intr_disable(AL_INT_IN);
+
+  // defer check; on the rare failure, the interrupt stays disabled and the
+  // periodic checks will still clear the sources
+  naos_defer_isr("al-int", al_int_task);
 }
 
 al_trigger_t al_init() {
