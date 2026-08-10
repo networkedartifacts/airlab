@@ -15,6 +15,9 @@
 
 #define AL_SENSOR_DEBUG false
 
+// cache lifetime of continuous PM readings (s)
+#define AL_SENSOR_PM_TTL 60
+
 static naos_mutex_t al_sensor_mutex;
 static naos_signal_t al_sensor_signal;
 static al_sensor_hook_t al_sensor_hook;
@@ -31,6 +34,7 @@ AL_KEEP static int32_t al_sensor_gas_window = 0;
 AL_KEEP static int32_t al_sensor_gas_grace = 0;
 AL_KEEP static int64_t al_sensor_unpowered_since = 0;
 AL_KEEP static int32_t al_sensor_seconds = 0;
+AL_KEEP static int32_t al_sensor_pm_rate = 0;
 static float al_sensor_last_raw_temp = NAN;
 static uint16_t al_sensor_last_raw_voc = 0;
 static uint16_t al_sensor_last_raw_nox = 0;
@@ -242,19 +246,8 @@ static void al_sensor_read() {
     return;
   }
 
-  // capture PM2.5, which is only available live while awake, with a present
-  // and unobstructed sensor
-  al_pm_state_t pm = al_pm_get();
-  int16_t pm25 = -1;
-  if (pm.valid && !pm.obstructed) {
-    float value = pm.pm2_5 * 10.f;
-    if (value < 0.f) value = 0.f;
-    if (value > 30000.f) value = 30000.f;
-    pm25 = (int16_t)value;
-  }
-
-  // ingest data
-  al_sample_t sample = al_sensor_ingest(data, pm25);
+  // ingest data with the cached PM value
+  al_sample_t sample = al_sensor_ingest(data, al_pm_sample(data.epoch));
 
   // release mutex
   naos_unlock(al_sensor_mutex);
@@ -299,6 +292,27 @@ static void al_sensor_monitor() {
   // power return), the call is skipped internally if nothing changed
   if (al_sensor_seconds != 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
     al_sensor_set_interval(al_sensor_seconds);
+  }
+
+  /* apply the PM measurement policy */
+
+  // follow the sensor interval while powered (continuously below the duty
+  // cycling minimum), otherwise idle the sensor and refresh its cache at the
+  // PM rate with burst measurements
+  if (al_pm_present()) {
+    al_power_state_t power = al_power_get();
+    if (power.has_usb && !power.hiz && al_sensor_seconds > 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
+      if (al_sensor_seconds >= AL_PM_CYCLE_MIN) {
+        al_pm_run(AL_PM_CYCLED, al_sensor_seconds, 2 * al_sensor_seconds);
+      } else {
+        al_pm_run(AL_PM_CONTINUOUS, 0, AL_SENSOR_PM_TTL);
+      }
+    } else {
+      al_pm_run(AL_PM_IDLE, 0, 0);
+      if (al_sensor_pm_rate > 0 && al_pm_age() >= al_sensor_pm_rate) {
+        al_pm_burst(2 * al_sensor_pm_rate);
+      }
+    }
   }
 
   /* check if clock has been changed */
@@ -403,8 +417,9 @@ void al_sensor_init(bool reset) {
   // ingest ULP readings
   naos_log("al-sns: ULP readings=%d", al_ulp_readings());
   for (int i = 0; i < al_ulp_readings(); i++) {
-    // PM is unavailable during deep sleep
-    al_sensor_ingest(al_ulp_get_reading(i), -1);
+    // backfill PM from the cache where its lifetime covers the reading
+    al_sensor_hal_data_t reading = al_ulp_get_reading(i);
+    al_sensor_ingest(reading, al_pm_sample(reading.epoch));
   }
 
   // run check and monitor tasks
@@ -560,6 +575,34 @@ void al_sensor_set_gas_grace(int32_t seconds) {
   naos_lock(al_sensor_mutex);
   al_sensor_gas_grace = seconds;
   naos_unlock(al_sensor_mutex);
+}
+
+void al_sensor_set_pm_rate(int32_t seconds) {
+  // store rate, applied by the sensor monitor
+  al_sensor_pm_rate = seconds;
+}
+
+void al_sensor_pm_prepare() {
+  // idle the sensor, request a final burst measurement if one is due and
+  // await its completion, extending the wake by the burst duration
+  al_pm_run(AL_PM_IDLE, 0, 0);
+  if (al_pm_present() && al_sensor_pm_rate > 0 && al_pm_age() >= al_sensor_pm_rate) {
+    al_pm_burst(2 * al_sensor_pm_rate);
+  }
+  al_pm_flush();
+}
+
+int32_t al_sensor_pm_due() {
+  // return seconds until the next burst measurement is due
+  if (!al_pm_present() || al_sensor_pm_rate <= 0) {
+    return INT32_MAX;
+  }
+  int32_t age = al_pm_age();
+  if (age >= al_sensor_pm_rate) {
+    return 0;
+  }
+
+  return al_sensor_pm_rate - age;
 }
 
 float al_sensor_raw_temp() {

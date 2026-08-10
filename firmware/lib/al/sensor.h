@@ -67,6 +67,30 @@ void al_sensor_set_gas_window(int32_t seconds);
 void al_sensor_set_gas_grace(int32_t seconds);
 
 /**
+ * Set the PM measurement rate on battery. While USB powered, the PM sensor
+ * follows the sensor interval (continuously below the duty cycling minimum,
+ * duty cycled otherwise). On battery, the sensor stays off and its cache is
+ * refreshed with burst measurements at the given rate, either while awake or
+ * by extending a wake before deep sleep. When zero (the default), no PM
+ * measurements are taken on battery.
+ *
+ * @param seconds The battery measurement rate in seconds (0 = off).
+ */
+void al_sensor_set_pm_rate(int32_t seconds);
+
+/**
+ * Prepares the PM sensor for deep sleep: performs a final burst measurement
+ * if one is due (extending the wake by its duration) and idles the sensor.
+ */
+void al_sensor_pm_prepare();
+
+/**
+ * Returns the seconds until the next PM burst measurement is due, or
+ * INT32_MAX if none are scheduled.
+ */
+int32_t al_sensor_pm_due();
+
+/**
  * Prepares the sensor for deep sleep. When duty cycling in manual mode the
  * SGP heater is turned off, so the ULP can cycle it around measurements. In
  * continuous operation the heater stays on.

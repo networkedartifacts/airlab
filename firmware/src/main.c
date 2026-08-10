@@ -55,6 +55,9 @@ static float battery() {
 static void wake() {
   // set main sensor interval
   al_sensor_set_interval(naos_get_l("main-rate"));
+
+  // set PM rate
+  al_sensor_set_pm_rate(naos_get_l("pm-rate"));
 }
 
 static void setup() {
@@ -101,15 +104,22 @@ static naos_param_t params[] = {
     {.name = "main-rate", .type = NAOS_LONG, .default_l = 5, .func_l = main_rate, .skip_func_init = true},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
+    {.name = "pm-rate", .type = NAOS_LONG, .default_l = 0},  // PM measure rate on battery (s, 0 = off)
     {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},
     {.name = "gas-window", .type = NAOS_LONG, .default_l = 0},  // SGP41 active window (s, 0 = continuous, <0 = off)
-    {.name = "gas-grace", .type = NAOS_LONG, .default_l = 0},   // unpowered time before gas-window applies (s, 0 = always)
+    {.name = "gas-grace",
+     .type = NAOS_LONG,
+     .default_l = 0},  // unpowered time before gas-window applies (s, 0 = always)
     {.name = "long-interval", .type = NAOS_LONG, .default_l = 60, .func_l = long_interval, .skip_func_init = true},
     {.name = "altitude", .type = NAOS_LONG, .default_l = 0, .func_l = altitude, .skip_func_init = true},
     {.name = "language", .type = NAOS_STRING, .default_s = "en"},
     {.name = "fahrenheit", .type = NAOS_BOOL, .default_b = false},
     {.name = "developer", .type = NAOS_BOOL, .default_b = true},
-    {.name = "power-test", .type = NAOS_LONG, .default_l = 0, .func_l = power_test, .skip_func_init = true},  // 0: off, 1: hi-Z, 2: + stay awake, 3: + keep screen
+    {.name = "power-test",
+     .type = NAOS_LONG,
+     .default_l = 0,
+     .func_l = power_test,
+     .skip_func_init = true},  // 0: off, 1: hi-Z, 2: + stay awake, 3: + keep screen
     {.name = "clock-cal", .type = NAOS_LONG, .func_l = clock_cal, .skip_func_init = true},  // ppm: -63..+126
 };
 

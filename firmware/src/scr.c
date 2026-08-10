@@ -185,6 +185,9 @@ static sig_event_t scr_idle_sleep() {
   al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_gas_grace(naos_get_l("gas-grace"));
 
+  // set PM rate, applied by the sensor monitor based on the power state
+  al_sensor_set_pm_rate(naos_get_l("pm-rate"));
+
   // check BLE and MQTT
   bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
   bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
@@ -209,12 +212,21 @@ static sig_event_t scr_idle_sleep() {
   // set sensor interval
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
 
+  // finish a due PM measurement and idle the sensor before sleeping
+  al_sensor_pm_prepare();
+
   // determine display interval (a full ULP reading buffer may wake us earlier)
   int32_t display_interval = naos_get_l("display-rate");
   if (display_interval < 60) {
     display_interval = 60;
   } else if (display_interval > 300) {
     display_interval = 300;
+  }
+
+  // wake earlier if a PM measurement becomes due
+  int32_t pm_due = al_sensor_pm_due();
+  if (pm_due < display_interval) {
+    display_interval = pm_due < 60 ? 60 : pm_due;
   }
 
   // sleep until next display refresh (no return)
@@ -1239,7 +1251,7 @@ static void* scr_idle() {
     float voc_val = al_sample_read(sample, AL_SAMPLE_VOC);
     float nox_val = al_sample_read(sample, AL_SAMPLE_NOX);
     float pm_val = al_sample_read(sample, AL_SAMPLE_PM);
-    bool has_pm = al_pm_get().valid || !isnan(pm_val);
+    bool has_pm = al_pm_present() || !isnan(pm_val);
     if (has_pm) {
       // combine VOC and NOx into one line to make room for PM
       char voc_str[8] = "n/a";
@@ -3150,7 +3162,7 @@ static void* scr_menu() {
     al_sample_t sample = al_store_last();
 
     // determine PM availability and leave the PM mode if it became unavailable
-    bool has_pm = al_pm_get().valid || sample.pm >= 0;
+    bool has_pm = al_pm_present() || sample.pm >= 0;
     if (mode == AL_SAMPLE_PM && !has_pm) {
       mode = 0;
     }
