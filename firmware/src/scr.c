@@ -55,6 +55,37 @@ DEV_KEEP static int32_t scr_screen_index = 0;
 static int64_t scr_screen_start = 0;
 static bool scr_auto_cycle = true;
 
+// The device distinguishes two wake states. It dozes when it woke up on its
+// own to perform background work (refresh the display, take a measurement)
+// and returns to sleep right after, and it is awake when a user is present or
+// a client is connected. Dozing keeps the sleep measurement interval and the
+// radios off, while waking up applies the main interval and starts the
+// radios. The state is derived from the wake up trigger and is not carried
+// across sleep.
+typedef enum {
+  SCR_DOZE,
+  SCR_AWAKE,
+} scr_mode_t;
+
+static scr_mode_t scr_mode = SCR_DOZE;
+
+static void scr_wake_up(const char* reason) {
+  // skip if already awake
+  if (scr_mode == SCR_AWAKE) {
+    return;
+  }
+
+  // enter awake state
+  scr_mode = SCR_AWAKE;
+  naos_log("scr: awake reason=%s", reason);
+
+  // apply the main interval, which is the active interval while awake
+  al_sensor_set_interval(naos_get_l("main-rate"));
+
+  // start the radios
+  com_start();
+}
+
 static const char* scr_field_fmt[] = {
     [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
     [AL_SAMPLE_VOC] = "%.0f VOC",     [AL_SAMPLE_NOX] = "%.0f NOx", [AL_SAMPLE_PRS] = "%.0f hPa",
@@ -203,6 +234,9 @@ static sig_event_t scr_idle_sleep() {
   // check if powered or connected via BLE/MQTT (in hi-Z mode the device runs
   // from the battery, so an attached USB cable should not prevent sleep)
   if ((power.has_usb && !power.hiz) || has_ble || has_mqtt || stay_awake) {
+    // the device stays awake, so wake up fully
+    scr_wake_up(stay_awake ? "test" : (has_ble ? "ble" : (has_mqtt ? "mqtt" : "usb")));
+
     // wait some time
     sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_INTERRUPT | SIG_LAUNCH | SIG_REFRESH, 60 * 1000);
 
@@ -219,6 +253,16 @@ static sig_event_t scr_idle_sleep() {
 
   // finish a due PM measurement and idle the sensor before sleeping
   al_sensor_pm_prepare();
+
+  // check for a key press that arrived while preparing, as a PM measurement
+  // may have extended the wake by several seconds, and wake up instead of
+  // sleeping through it (other events are dropped, the sleep discards them
+  // anyway)
+  sig_event_t pending = sig_await(SIG_KEYS, 10);
+  if (pending.type & SIG_KEYS) {
+    scr_wake_up("key");
+    return pending;
+  }
 
   // determine display interval (a full ULP reading buffer may wake us earlier)
   int32_t display_interval = naos_get_l("display-rate");
@@ -1163,6 +1207,7 @@ static void* scr_idle() {
 
     // exit on other keys
     if (event.type & SIG_KEYS) {
+      scr_wake_up("key");
       gui_cleanup(false);
       if (scr_return_unlock == NULL) {
         return scr_menu;
@@ -1316,6 +1361,7 @@ static void* scr_idle() {
 
     // exit on keys
     if (event.type & SIG_KEYS) {
+      scr_wake_up("key");
       break;
     }
   }
@@ -3559,6 +3605,15 @@ void scr_run(al_trigger_t trigger) {
   } else if ((trigger == AL_TIMEOUT || trigger == AL_INTERRUPT) && scr_return_timeout != NULL) {
     scr_handler = scr_return_timeout;
     scr_return_timeout = NULL;
+  }
+
+  // determine wake state: a reset or a button press means a user is present,
+  // while timer and interrupt wake ups only perform background work before
+  // returning to sleep
+  if (trigger == AL_RESET || trigger == AL_BUTTON) {
+    scr_wake_up("trigger");
+  } else {
+    naos_log("scr: dozing");
   }
 
   // run screen task

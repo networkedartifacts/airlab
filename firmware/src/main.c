@@ -52,14 +52,6 @@ static float battery() {
   return al_power_get().bat_level;
 }
 
-static void wake() {
-  // set main sensor interval
-  al_sensor_set_interval(naos_get_l("main-rate"));
-
-  // set PM rate
-  al_sensor_set_pm_rate(naos_get_l("pm-rate"));
-}
-
 static void setup() {
   // init core
   al_trigger_t trigger = al_init();
@@ -76,6 +68,9 @@ static void setup() {
   // apply charger hi-Z mode
   al_power_hiz(naos_get_l("power-test") >= 1);
 
+  // set PM rate, which applies in both wake states
+  al_sensor_set_pm_rate(naos_get_l("pm-rate"));
+
   // determine reset
   bool reset = trigger == AL_RESET;
 
@@ -90,10 +85,8 @@ static void setup() {
   // allow allocations in external memory
   heap_caps_malloc_extmem_enable(2048);
 
-  // defer wake
-  naos_defer("wake", 5000, wake);
-
-  // run screen
+  // run screen, which owns the wake state and configures the sensor and the
+  // radios accordingly
   scr_run(trigger);
 }
 

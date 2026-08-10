@@ -36,6 +36,7 @@ typedef enum {
 } com_cmd_t;
 
 static bool com_mqtt_ha = false;
+static naos_signal_t com_signal;
 static bool com_did_start = false;
 static char *com_plugin_file = NULL;
 static char *com_plugin_mode = NULL;
@@ -407,7 +408,11 @@ static void com_sync() {
   naos_set_s("power-state", com_power_state_str(al_power_get()));
 }
 
-static void com_task() {
+static void com_start_task() {
+  // await a start request, as a device that merely wakes up to refresh the
+  // display or take a measurement must not pay for the radios
+  naos_await(com_signal, 1, true, -1);
+
   // wait some time
   naos_delay(2000);
 
@@ -429,7 +434,9 @@ static void com_task() {
 
   // set flag
   com_did_start = true;
+}
 
+static void com_task() {
   for (;;) {
     // await sample
     al_sample_t sample = al_sensor_next();
@@ -504,9 +511,18 @@ void com_init() {
     naos_clear("time-sntp-list");  // pool.ntp.org
   }
 
+  // create signal
+  com_signal = naos_signal();
+
   // run tasks
   naos_run("com", 4096, 1, com_task);
+  naos_run("com-start", 4096, 1, com_start_task);
   naos_repeat_defer("com-discovery", 10000, com_online);
+}
+
+void com_start() {
+  // signal the start task
+  naos_trigger(com_signal, 1, false);
 }
 
 bool com_started() {
