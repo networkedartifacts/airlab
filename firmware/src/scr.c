@@ -1699,14 +1699,15 @@ static void* scr_view() {
       continue;
     }
 
-    // change mode on up/down (PM is only offered if available)
-    if (event.type == SIG_UP) {
+    // change mode on up/down, down advances like in lists (PM is only offered
+    // if available)
+    if (event.type == SIG_DOWN) {
       field++;
       if (field > (has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS)) {
         field = 0;
       }
       continue;
-    } else if (event.type == SIG_DOWN) {
+    } else if (event.type == SIG_UP) {
       field--;
       if (field < 0) {
         field = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
@@ -3380,14 +3381,15 @@ static void* scr_menu() {
       return scr_menu;
     }
 
-    // change mode on up/down (PM is only offered if available)
-    if (event.type == SIG_UP) {
+    // change mode on up/down, down advances like in lists (PM is only offered
+    // if available)
+    if (event.type == SIG_DOWN) {
       mode++;
       if (mode > (has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS)) {
         mode = 0;
       }
       continue;
-    } else if (event.type == SIG_DOWN) {
+    } else if (event.type == SIG_UP) {
       mode--;
       if (mode < 0) {
         mode = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
