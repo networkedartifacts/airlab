@@ -164,6 +164,7 @@ enum {
   ENG_INFO_SENSOR_VOC_RAW,
   ENG_INFO_SENSOR_VOC_NOX,
   ENG_INFO_ALTITUDE,
+  ENG_INFO_SENSOR_PM,
 };
 
 static float eng_exec_op_info(wasm_exec_env_t env, int i) {
@@ -197,6 +198,8 @@ static float eng_exec_op_info(wasm_exec_env_t env, int i) {
       return al_sample_read(al_store_last(), AL_SAMPLE_NOX);
     case ENG_INFO_SENSOR_PRESSURE:
       return al_sample_read(al_store_last(), AL_SAMPLE_PRS);
+    case ENG_INFO_SENSOR_PM:
+      return al_sample_read(al_store_last(), AL_SAMPLE_PM);
     case ENG_INFO_STORE_SHORT:
       return (float)al_store_count(AL_STORE_SHORT);
     case ENG_INFO_STORE_LONG:
