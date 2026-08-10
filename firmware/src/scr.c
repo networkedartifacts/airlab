@@ -185,7 +185,7 @@ static sig_event_t scr_idle_sleep() {
   al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_gas_grace(naos_get_l("gas-grace"));
 
-  // set PM rate, applied by the sensor monitor based on the power state
+  // set PM rate, applied to cache refreshes while asleep
   al_sensor_set_pm_rate(naos_get_l("pm-rate"));
 
   // check BLE and MQTT

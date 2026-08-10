@@ -15,9 +15,6 @@
 
 #define AL_SENSOR_DEBUG false
 
-// cache lifetime of continuous PM readings (s)
-#define AL_SENSOR_PM_TTL 60
-
 static naos_mutex_t al_sensor_mutex;
 static naos_signal_t al_sensor_signal;
 static al_sensor_hook_t al_sensor_hook;
@@ -296,17 +293,13 @@ static void al_sensor_monitor() {
 
   /* apply the PM measurement policy */
 
-  // follow the sensor interval while powered (continuously below the duty
-  // cycling minimum), otherwise idle the sensor and refresh its cache at the
-  // PM rate with burst measurements
+  // follow the sensor interval while awake (floored at the duty cycling
+  // minimum to bound sensor runtime and wear), otherwise idle the sensor and
+  // refresh its cache at the PM rate with burst measurements
   if (al_pm_present()) {
-    al_power_state_t power = al_power_get();
-    if (power.has_usb && !power.hiz && al_sensor_seconds > 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
-      if (al_sensor_seconds >= AL_PM_CYCLE_MIN) {
-        al_pm_run(AL_PM_CYCLED, al_sensor_seconds, 2 * al_sensor_seconds);
-      } else {
-        al_pm_run(AL_PM_CONTINUOUS, 0, AL_SENSOR_PM_TTL);
-      }
+    if (al_sensor_seconds > 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
+      int32_t period = al_sensor_seconds < AL_PM_CYCLE_MIN ? AL_PM_CYCLE_MIN : al_sensor_seconds;
+      al_pm_run(AL_PM_CYCLED, period, 2 * period);
     } else {
       al_pm_run(AL_PM_IDLE, 0, 0);
       if (al_sensor_pm_rate > 0 && al_pm_age() >= al_sensor_pm_rate) {

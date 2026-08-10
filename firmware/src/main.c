@@ -104,7 +104,7 @@ static naos_param_t params[] = {
     {.name = "main-rate", .type = NAOS_LONG, .default_l = 5, .func_l = main_rate, .skip_func_init = true},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
-    {.name = "pm-rate", .type = NAOS_LONG, .default_l = 0},  // PM measure rate on battery (s, 0 = off)
+    {.name = "pm-rate", .type = NAOS_LONG, .default_l = 0},  // PM measure rate while asleep (s, 0 = off)
     {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},
     {.name = "gas-window", .type = NAOS_LONG, .default_l = 0},  // SGP41 active window (s, 0 = continuous, <0 = off)
     {.name = "gas-grace",
