@@ -1,68 +1,43 @@
 #include <naos.h>
 #include <naos/sys.h>
-#include <driver/gpio.h>
 
-#include <al/core.h>
 #include <al/accel.h>
 
 #include "internal.h"
+#include "accel.h"
 
-// Chip: FXLS8974CF
+typedef enum {
+  AL_ACCEL_NONE,
+  AL_ACCEL_FXL,
+  AL_ACCEL_LIS,
+} al_accel_chip_t;
 
-#define AL_ACCEL_ADDR 0x18
-#define AL_ACCEL_DEBUG false
-
+static al_accel_chip_t al_accel_chip = AL_ACCEL_NONE;
 static naos_mutex_t al_accel_mutex;
 static al_accel_state_t al_accel_state = {0};
-static uint16_t al_accel_rot_map[] = {180, 0, 90, 270};
 static al_accel_hook_t al_accel_hook = NULL;
 
-static void al_accel_write(uint8_t reg, uint8_t val) {
-  // write data
-  uint8_t data[2] = {reg, val};
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_ACCEL_ADDR, data, 2, NULL, 0, 1000));
-}
-
-static bool al_accel_read(uint8_t reg, uint8_t *val) {
-  // read data
-  esp_err_t err = al_i2c_transfer(AL_ACCEL_ADDR, &reg, 1, val, 1, 1000);
-  ESP_ERROR_CHECK_WITHOUT_ABORT(err);
-
-  return err == ESP_OK;
-}
-
 void al_accel_init(bool reset) {
-  // force reset if interrupt config is incorrect
-  uint8_t int_cfg = 0;
-  bool ok = al_accel_read(0x18, &int_cfg);
-  if (!ok || int_cfg != 0b00010010) {
-    naos_log("al-acc: forcing reset: int_cfg=%d ok=%d", int_cfg, ok);
-    reset = true;
+  // detect chip
+  const char *chip = "none";
+  if (al_accel_lis_detect()) {
+    al_accel_chip = AL_ACCEL_LIS;
+    chip = "LIS2DH12";
+  } else if (al_accel_fxl_detect()) {
+    al_accel_chip = AL_ACCEL_FXL;
+    chip = "FXLS8974CF";
   }
+  naos_log("al-acc: chip=%s", chip);
 
-  // perform reset
-  if (reset) {
-    // reset device
-    al_accel_write(0x15, 0b10000000);
-
-    // wait for reset to complete
-    naos_delay(5);  // 1ms per datasheet
-
-    // configure interrupt driver, polarity and wake from sleep
-    al_accel_write(0x18, 0b00010010);
-
-    // enable orientation interrupt
-    al_accel_write(0x20, 0b00001000);
-
-    // enable orientation detection with debounce
-    al_accel_write(0x29, 0b01000000);
-    al_accel_write(0x2A, 6);
-
-    // set ODR to 6.25Hz
-    al_accel_write(0x17, 0b10011001);
-
-    // activate device
-    al_accel_write(0x15, 0b00000001);
+  // initialize chip; quiesce a legacy chip mounted alongside the new one, so
+  // it releases the shared interrupt line
+  if (al_accel_chip == AL_ACCEL_LIS) {
+    if (al_accel_fxl_detect()) {
+      al_accel_fxl_quiesce();
+    }
+    al_accel_lis_init(reset);
+  } else if (al_accel_chip == AL_ACCEL_FXL) {
+    al_accel_fxl_init(reset);
   }
 
   // create mutex
@@ -76,29 +51,26 @@ void al_accel_init(bool reset) {
 }
 
 void al_accel_check() {
-  // lock mutex
-  naos_lock(al_accel_mutex);
-
-  // read orientation
-  uint8_t orientation = 0;
-  if (!al_accel_read(0x28, &orientation)) {
-    naos_unlock(al_accel_mutex);
+  // skip if no chip was detected
+  if (al_accel_chip == AL_ACCEL_NONE) {
     return;
   }
 
-  // check orientation
-  bool front = orientation & 0b1;
-  uint16_t rot = al_accel_rot_map[(orientation >> 1) & 0b11];
-  bool lock = orientation & 0b1000000;
-  if (AL_ACCEL_DEBUG) {
-    naos_log("al-acc: front=%d rot=%d lock=%d", front, rot, lock);
-  }
+  // lock mutex
+  naos_lock(al_accel_mutex);
 
-  // prepare state
-  al_accel_state_t state = {
-      .front = front,
-      .rotation = rot,
-  };
+  // update state, starting from the previous state
+  al_accel_state_t state = al_accel_state;
+  bool ok;
+  if (al_accel_chip == AL_ACCEL_LIS) {
+    ok = al_accel_lis_check(&state);
+  } else {
+    ok = al_accel_fxl_check(&state);
+  }
+  if (!ok) {
+    naos_unlock(al_accel_mutex);
+    return;
+  }
 
   // determine if state changed
   bool changed = state.front != al_accel_state.front || state.rotation != al_accel_state.rotation;

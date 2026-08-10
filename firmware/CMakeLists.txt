@@ -23,6 +23,9 @@ set(SOURCE_FILES
         lib/al/touch.h
         lib/ulp/main.c
         lib/accel.c
+        lib/accel.h
+        lib/accel_fxl.c
+        lib/accel_lis.c
         lib/buttons.c
         lib/buzzer.c
         lib/clock.c
