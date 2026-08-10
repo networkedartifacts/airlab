@@ -7,6 +7,7 @@
 #include <al/clock.h>
 #include <al/store.h>
 #include <al/power.h>
+#include <al/pm.h>
 
 #include "internal.h"
 #include "sensor_hal.h"
@@ -95,7 +96,7 @@ static float al_sensor_comp_rh(float rh, float t_raw, float t_comp) {
   return (ah / es_comp) * 100.0f;   // recomputed RH at compensated T
 }
 
-static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
+static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data, int16_t pm) {
   // calculate ppm, °C, % rH
   float co2 = (float)data.co2;
   float tmp = -45.f + 175.f * ((float)data.tmp / (float)(UINT16_MAX));
@@ -214,6 +215,7 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data) {
       .voc = (int16_t)voc_index,
       .nox = (int16_t)nox_index,
       .prs = (int16_t)prs,
+      .pm = pm,
   };
   if (AL_SENSOR_DEBUG) {
     int64_t diff = sample.off - al_store_last().off;
@@ -240,8 +242,19 @@ static void al_sensor_read() {
     return;
   }
 
+  // capture PM2.5, which is only available live while awake, with a present
+  // and unobstructed sensor
+  al_pm_state_t pm = al_pm_get();
+  int16_t pm25 = -1;
+  if (pm.valid && !pm.obstructed) {
+    float value = pm.pm2_5 * 10.f;
+    if (value < 0.f) value = 0.f;
+    if (value > 30000.f) value = 30000.f;
+    pm25 = (int16_t)value;
+  }
+
   // ingest data
-  al_sample_t sample = al_sensor_ingest(data);
+  al_sample_t sample = al_sensor_ingest(data, pm25);
 
   // release mutex
   naos_unlock(al_sensor_mutex);
@@ -390,7 +403,8 @@ void al_sensor_init(bool reset) {
   // ingest ULP readings
   naos_log("al-sns: ULP readings=%d", al_ulp_readings());
   for (int i = 0; i < al_ulp_readings(); i++) {
-    al_sensor_ingest(al_ulp_get_reading(i));
+    // PM is unavailable during deep sleep
+    al_sensor_ingest(al_ulp_get_reading(i), -1);
   }
 
   // run check and monitor tasks

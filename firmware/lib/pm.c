@@ -104,6 +104,7 @@ static void al_pm_data_ready(bmv080_output_t output, void* param) {
   // update state
   naos_lock(al_pm_mutex);
   al_pm_state = (al_pm_state_t){
+      .valid = true,
       .pm1 = output.pm1_mass_concentration,
       .pm2_5 = output.pm2_5_mass_concentration,
       .pm10 = output.pm10_mass_concentration,

@@ -8,7 +8,12 @@
 
 #define DAT_MARKS 99
 
+#define DAT_MAGIC 0x42414C41  // "ALAB"
+#define DAT_VERSION 1
+
 typedef struct __attribute__((packed)) {
+  uint32_t magic;    // DAT_MAGIC
+  uint16_t version;  // DAT_VERSION
   uint16_t num;
   int64_t start;             // ms since 1970
   int32_t marks[DAT_MARKS];  // ms since start

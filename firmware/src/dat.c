@@ -114,6 +114,12 @@ void dat_init() {
       continue;
     }
 
+    // skip files with a foreign format
+    if (head.magic != DAT_MAGIC || head.version != DAT_VERSION) {
+      naos_log("dat: skipping foreign file: %s", entry->d_name);
+      continue;
+    }
+
     // prepare file
     dat_file_t file = {.head = head};
     file.size = (size - sizeof(dat_head_t)) / sizeof(al_sample_t);
@@ -195,6 +201,8 @@ uint16_t dat_create(int64_t start) {
 
   // prepare head
   dat_head_t head = {
+      .magic = DAT_MAGIC,
+      .version = DAT_VERSION,
       .num = counter,
       .start = start,
   };
@@ -446,7 +454,7 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
   snprintf(name, sizeof(name), DAT_EXPORT_FMT, num);
 
   // write header
-  const char *header = "time,co2,tmp,hum,voc,nox,prs\n";
+  const char *header = "time,co2,tmp,hum,voc,nox,prs,pm\n";
   al_storage_write(AL_STORAGE_EXT, DAT_EXPORT_DIR, name, (void *)header, 0, strlen(header), true);
 
   // prepare pos
@@ -478,20 +486,25 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
       // format gas indices, leaving unavailable values (NaN) empty
       char voc_str[8] = {0};
       char nox_str[8] = {0};
+      char pm_str[8] = {0};
       float voc = al_sample_read(samples[j], AL_SAMPLE_VOC);
       float nox = al_sample_read(samples[j], AL_SAMPLE_NOX);
+      float pm = al_sample_read(samples[j], AL_SAMPLE_PM);
       if (!isnan(voc)) {
         snprintf(voc_str, sizeof(voc_str), "%.0f", voc);
       }
       if (!isnan(nox)) {
         snprintf(nox_str, sizeof(nox_str), "%.0f", nox);
       }
+      if (!isnan(pm)) {
+        snprintf(pm_str, sizeof(pm_str), "%.1f", pm);
+      }
 
       // append line to buffer
-      buf_pos += snprintf(buffer + buf_pos, DAT_EXPORT_BUF - buf_pos, "%lld,%.0f,%.2f,%.2f,%s,%s,%.0f\n",
+      buf_pos += snprintf(buffer + buf_pos, DAT_EXPORT_BUF - buf_pos, "%lld,%.0f,%.2f,%.2f,%s,%s,%.0f,%s\n",
                           file->head.start + (int64_t)samples[j].off, al_sample_read(samples[j], AL_SAMPLE_CO2),
-                          al_sample_read(samples[j], AL_SAMPLE_TMP), al_sample_read(samples[j], AL_SAMPLE_HUM),
-                          voc_str, nox_str, al_sample_read(samples[j], AL_SAMPLE_PRS));
+                          al_sample_read(samples[j], AL_SAMPLE_TMP), al_sample_read(samples[j], AL_SAMPLE_HUM), voc_str,
+                          nox_str, al_sample_read(samples[j], AL_SAMPLE_PRS), pm_str);
 
       // flush buffer if full
       if (buf_pos > DAT_EXPORT_BUF - 128) {

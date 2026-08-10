@@ -16,6 +16,7 @@ typedef struct __attribute__((packed)) {
   int16_t voc;  // indexed
   int16_t nox;  // indexed
   int16_t prs;  // hPa
+  int16_t pm;   // PM2.5 ug/m3 (shifted by 10, -1 = no reading)
 } al_sample_t;
 
 /**
@@ -28,6 +29,7 @@ typedef enum {
   AL_SAMPLE_VOC,
   AL_SAMPLE_NOX,
   AL_SAMPLE_PRS,
+  AL_SAMPLE_PM,
   AL_SAMPLE_OFF,
 } al_sample_field_t;
 

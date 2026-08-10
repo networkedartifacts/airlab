@@ -4,8 +4,10 @@
 #include <stdbool.h>
 
 /**
- * The particulate matter measurement state.
+ * The particulate matter measurement state. Only PM2.5 is a specified
+ * measurement, PM1 and PM10 are estimates derived from it.
  *
+ * @param valid Whether a measurement has been received.
  * @param pm1 PM1 mass concentration in ug/m3.
  * @param pm2_5 PM2.5 mass concentration in ug/m3.
  * @param pm10 PM10 mass concentration in ug/m3.
@@ -13,6 +15,7 @@
  * @param out_of_range Whether the PM2.5 value is outside the measurement range.
  */
 typedef struct {
+  bool valid;
   float pm1;
   float pm2_5;
   float pm10;

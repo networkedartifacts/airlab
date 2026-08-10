@@ -446,6 +446,7 @@ static void com_task() {
     com_pub_sensor(sample, AL_SAMPLE_VOC, "voc", 0);
     com_pub_sensor(sample, AL_SAMPLE_NOX, "nox", 0);
     com_pub_sensor(sample, AL_SAMPLE_PRS, "prs", 0);
+    com_pub_sensor(sample, AL_SAMPLE_PM, "pm", 1);
 
     // get power state
     al_power_state_t power = al_power_get();

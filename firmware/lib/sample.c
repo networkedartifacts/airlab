@@ -45,6 +45,10 @@ float al_sample_read(al_sample_t sample, al_sample_field_t field) {
     }
     case AL_SAMPLE_PRS:
       return (float)sample.prs / al_sample_prs_factor;
+    case AL_SAMPLE_PM:
+      // a negative value means no reading is available (no or obstructed
+      // sensor) and is reported as NaN
+      return sample.pm >= 0 ? (float)sample.pm / 10.f : NAN;
     case AL_SAMPLE_OFF:
       return (float)sample.off;
     default:
@@ -75,6 +79,7 @@ al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset) {
       .voc = (voc_a == 0 || voc_b == 0) ? 0 : (int16_t)AL_SAMPLE_LERP(voc_a, voc_b, f) | voc_flags,
       .nox = (nox_a == 0 || nox_b == 0) ? 0 : (int16_t)AL_SAMPLE_LERP(nox_a, nox_b, f) | nox_flags,
       .prs = AL_SAMPLE_LERP(a.prs, b.prs, f),
+      .pm = (a.pm < 0 || b.pm < 0) ? -1 : (int16_t)AL_SAMPLE_LERP(a.pm, b.pm, f),
   };
 }
 
