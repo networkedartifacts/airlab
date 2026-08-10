@@ -1,0 +1,9 @@
+[mapping:bmv080]
+archive: lib_bmv080.a
+entries:
+    * (extram_bss)
+
+[mapping:postProcessor]
+archive: lib_postProcessor.a
+entries:
+    * (extram_bss)

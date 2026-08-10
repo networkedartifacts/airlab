@@ -15,6 +15,7 @@
     "CONFIG_SPIRAM_USE_CAPS_ALLOC": "y",
     "CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP": "y",
     "CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY": "y",
+    "CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY": "y",
     "CONFIG_SPIRAM_MEMTEST": "n",
     "CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST": "y",
     "CONFIG_BT_GATTC_ENABLE": "n",
@@ -62,6 +63,9 @@
   "components": {
     "lib": {
       "path": "./lib"
+    },
+    "bmv080": {
+      "path": "./bmv080"
     },
     "lvgl": {
       "repository": "https://github.com/lvgl/lvgl.git",

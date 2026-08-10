@@ -1,6 +1,6 @@
 file(GLOB srcs ./*.c)
 list(APPEND srcs "ulp/transfer.c")
-idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES naos driver esp_adc ulp esp_tinyusb littlefs)
+idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES naos driver esp_adc ulp esp_tinyusb littlefs bmv080)
 
 set_source_files_properties(ulp.c PROPERTIES COMPILE_FLAGS -Wno-array-bounds)
 

@@ -1,0 +1,13 @@
+# header-only component exposing the prebuilt BMV080 SDK; the linker fragment
+# moves the SDK's sizeable static state (~16 KB) to external RAM
+idf_component_register(INCLUDE_DIRS "." LDFRAGMENTS "linker.lf")
+
+# register the prebuilt static libraries
+add_prebuilt_library(bmv080 "lib_bmv080.a")
+add_prebuilt_library(postProcessor "lib_postProcessor.a")
+
+# lib_bmv080.a references postProcessor_* symbols
+target_link_libraries(bmv080 INTERFACE postProcessor)
+
+# expose the libraries to anything that requires this component
+target_link_libraries(${COMPONENT_LIB} INTERFACE bmv080)

@@ -173,6 +173,7 @@ al_trigger_t al_init() {
   al_store_init();
   al_ulp_init(reset);
   al_sensor_init(reset);
+  al_pm_init(reset);
   al_storage_init();
 
   // configure wakeup source

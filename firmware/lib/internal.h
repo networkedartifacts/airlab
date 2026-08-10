@@ -34,6 +34,7 @@ void al_buttons_init();
 void al_buzzer_init();
 void al_epd_init();
 void al_led_init(bool reset);
+void al_pm_init(bool reset);
 void al_power_init();
 void al_sensor_init(bool reset);
 void al_storage_init();
