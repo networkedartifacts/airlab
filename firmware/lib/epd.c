@@ -297,8 +297,10 @@ void al_epd_init() {
   // create mutex
   al_epd_mutex = naos_mutex();
 
-  // allocate buffers
-  al_epd_buffer = heap_caps_calloc(AL_EPD_BUFFER, sizeof(uint8_t), MALLOC_CAP_SPIRAM);
+  // allocate transfer buffer from internal DMA-capable memory, so the SPI
+  // driver never has to allocate a bounce buffer per transfer, which fails
+  // under internal memory pressure
+  al_epd_buffer = heap_caps_calloc(AL_EPD_BUFFER, sizeof(uint8_t), MALLOC_CAP_DMA);
   if (al_epd_buffer == NULL) {
     ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
   }
