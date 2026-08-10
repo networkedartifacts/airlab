@@ -64,9 +64,14 @@ static const char* scr_field_fmt[] = {
 /* Helpers */
 
 static const char* scr_field_str(al_sample_field_t field, float value) {
-  // gas indices read as NaN when no reading is available
+  // gas indices and PM read as NaN when no reading is available
   if (isnan(value)) {
-    return field == AL_SAMPLE_NOX ? "n/a NOx" : "n/a VOC";
+    if (field == AL_SAMPLE_NOX) {
+      return "n/a NOx";
+    } else if (field == AL_SAMPLE_PM) {
+      return "n/a PM";
+    }
+    return "n/a VOC";
   }
 
   return lvx_fmt(scr_field_fmt[field], value);
