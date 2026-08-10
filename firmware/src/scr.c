@@ -1497,12 +1497,13 @@ static void* scr_view() {
       }
     }
 
-    // determine PM availability and leave the PM field if it became unavailable
-    bool has_pm = false;
-    for (size_t i = 0; i < num; i++) {
+    // determine PM availability and leave the PM field if it became
+    // unavailable; the live view offers the field already with a present chip
+    // before data has arrived, matching the menu
+    bool has_pm = file == NULL && al_pm_present();
+    for (size_t i = 0; i < num && !has_pm; i++) {
       if (samples[i].pm >= 0) {
         has_pm = true;
-        break;
       }
     }
     if (field == AL_SAMPLE_PM && !has_pm) {
