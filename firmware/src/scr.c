@@ -18,6 +18,7 @@
 #include <al/sensor.h>
 #include <al/storage.h>
 #include <al/store.h>
+#include <al/pm.h>
 #include <al/buzzer.h>
 #include <al/led.h>
 
@@ -57,6 +58,7 @@ static bool scr_auto_cycle = true;
 static const char* scr_field_fmt[] = {
     [AL_SAMPLE_CO2] = "%.0f ppm CO2", [AL_SAMPLE_TMP] = "%.1f °C",  [AL_SAMPLE_HUM] = "%.1f %% RH",
     [AL_SAMPLE_VOC] = "%.0f VOC",     [AL_SAMPLE_NOX] = "%.0f NOx", [AL_SAMPLE_PRS] = "%.0f hPa",
+    [AL_SAMPLE_PM] = "%.1f µg/m3 PM",
 };
 
 /* Helpers */
@@ -1169,8 +1171,8 @@ static void* scr_idle() {
   lv_obj_t* co2 = lv_label_create(lv_scr_act());
   lv_obj_t* tmp = lv_label_create(lv_scr_act());
   lv_obj_t* hum = lv_label_create(lv_scr_act());
-  lv_obj_t* voc = lv_label_create(lv_scr_act());
-  lv_obj_t* nox = lv_label_create(lv_scr_act());
+  lv_obj_t* gas = lv_label_create(lv_scr_act());
+  lv_obj_t* pm = lv_label_create(lv_scr_act());
   lv_obj_t* prs = lv_label_create(lv_scr_act());
 
   // add big values
@@ -1236,8 +1238,25 @@ static void* scr_idle() {
     }
     float voc_val = al_sample_read(sample, AL_SAMPLE_VOC);
     float nox_val = al_sample_read(sample, AL_SAMPLE_NOX);
-    lv_label_set_text(voc, isnan(voc_val) ? "n/a VOC" : lvx_fmt("%.0f VOC", voc_val));
-    lv_label_set_text(nox, isnan(nox_val) ? "n/a NOX" : lvx_fmt("%.0f NOX", nox_val));
+    float pm_val = al_sample_read(sample, AL_SAMPLE_PM);
+    bool has_pm = al_pm_get().valid || !isnan(pm_val);
+    if (has_pm) {
+      // combine VOC and NOx into one line to make room for PM
+      char voc_str[8] = "n/a";
+      char nox_str[8] = "n/a";
+      if (!isnan(voc_val)) {
+        snprintf(voc_str, sizeof(voc_str), "%.0f", voc_val);
+      }
+      if (!isnan(nox_val)) {
+        snprintf(nox_str, sizeof(nox_str), "%.0f", nox_val);
+      }
+      lv_label_set_text(gas, lvx_fmt("%s/%s VOC/NOX", voc_str, nox_str));
+      lv_label_set_text(pm, isnan(pm_val) ? "n/a PM" : lvx_fmt("%.1f µg/m3 PM", pm_val));
+    } else {
+      // without PM, keep VOC and NOx on separate lines
+      lv_label_set_text(gas, isnan(voc_val) ? "n/a VOC" : lvx_fmt("%.0f VOC", voc_val));
+      lv_label_set_text(pm, isnan(nox_val) ? "n/a NOX" : lvx_fmt("%.0f NOX", nox_val));
+    }
     lv_label_set_text(prs, lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SAMPLE_PRS)));
 
     // align objects
@@ -1248,8 +1267,8 @@ static void* scr_idle() {
       lv_obj_align(tmp, LV_ALIGN_TOP_MID, 0, 79 + 27);
       lv_obj_align(hum_big, LV_ALIGN_TOP_MID, 0, 136);
       lv_obj_align(hum, LV_ALIGN_TOP_MID, 0, 136 + 27);
-      lv_obj_align(voc, LV_ALIGN_BOTTOM_MID, 0, -85);
-      lv_obj_align(nox, LV_ALIGN_BOTTOM_MID, 0, -65);
+      lv_obj_align(gas, LV_ALIGN_BOTTOM_MID, 0, -85);
+      lv_obj_align(pm, LV_ALIGN_BOTTOM_MID, 0, -65);
       lv_obj_align(prs, LV_ALIGN_BOTTOM_MID, 0, -45);
       lv_obj_align(time, LV_ALIGN_BOTTOM_RIGHT, -25, -13);
       lv_obj_align(status.row, LV_ALIGN_BOTTOM_LEFT, 25, -15);
@@ -1259,8 +1278,8 @@ static void* scr_idle() {
       lv_obj_align(tmp, LV_ALIGN_TOP_LEFT, 19, 74);
       lv_obj_align(hum, LV_ALIGN_TOP_LEFT, 19, 95);
       lv_obj_align(time, LV_ALIGN_TOP_LEFT, 148, 21);
-      lv_obj_align(voc, LV_ALIGN_TOP_LEFT, 148, 53);
-      lv_obj_align(nox, LV_ALIGN_TOP_LEFT, 148, 74);
+      lv_obj_align(gas, LV_ALIGN_TOP_LEFT, 148, 53);
+      lv_obj_align(pm, LV_ALIGN_TOP_LEFT, 148, 74);
       lv_obj_align(prs, LV_ALIGN_TOP_LEFT, 148, 95);
       lv_obj_align(co2_big, 0, -100, -100);
       lv_obj_align(tmp_big, 0, -100, -100);
@@ -1461,6 +1480,18 @@ static void* scr_view() {
       }
     }
 
+    // determine PM availability and leave the PM field if it became unavailable
+    bool has_pm = false;
+    for (size_t i = 0; i < num; i++) {
+      if (samples[i].pm >= 0) {
+        has_pm = true;
+        break;
+      }
+    }
+    if (field == AL_SAMPLE_PM && !has_pm) {
+      field = 0;
+    }
+
     // select current sample
     al_sample_t current = samples[index];
 
@@ -1503,6 +1534,8 @@ static void* scr_view() {
       range = 50;
     } else if (field == AL_SAMPLE_PRS) {
       range = 1500;
+    } else if (field == AL_SAMPLE_PM) {
+      range = 50;
     }
 
     // collect values and flags
@@ -1654,17 +1687,17 @@ static void* scr_view() {
       continue;
     }
 
-    // change mode on up/down
+    // change mode on up/down (PM is only offered if available)
     if (event.type == SIG_UP) {
       field++;
-      if (field > AL_SAMPLE_PRS) {
+      if (field > (has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS)) {
         field = 0;
       }
       continue;
     } else if (event.type == SIG_DOWN) {
       field--;
       if (field < 0) {
-        field = AL_SAMPLE_PRS;
+        field = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
       }
       continue;
     }
@@ -3033,7 +3066,7 @@ static void* scr_develop() {
 
 static void* scr_menu() {
   // prepare variables
-  static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs
+  static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs, pm
   static int8_t opt = 0;   // create, explore, settings, usb, ble, plugins, develop
   static bool fan_alt = false;
 
@@ -3115,6 +3148,12 @@ static void* scr_menu() {
 
     // get last sample
     al_sample_t sample = al_store_last();
+
+    // determine PM availability and leave the PM mode if it became unavailable
+    bool has_pm = al_pm_get().valid || sample.pm >= 0;
+    if (mode == AL_SAMPLE_PM && !has_pm) {
+      mode = 0;
+    }
 
     // query sensor
     float values[SCR_HIST_POINTS] = {0};
@@ -3329,17 +3368,17 @@ static void* scr_menu() {
       return scr_menu;
     }
 
-    // change mode on up/down
+    // change mode on up/down (PM is only offered if available)
     if (event.type == SIG_UP) {
       mode++;
-      if (mode > 5) {
+      if (mode > (has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS)) {
         mode = 0;
       }
       continue;
     } else if (event.type == SIG_DOWN) {
       mode--;
       if (mode < 0) {
-        mode = 5;
+        mode = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
       }
       continue;
     }
