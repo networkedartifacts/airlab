@@ -247,6 +247,10 @@ static sig_event_t scr_idle_sleep() {
     return event;
   }
 
+  // enter doze state, so an abort below or a later awake condition performs a
+  // real transition and re-applies the awake configuration
+  scr_mode = SCR_DOZE;
+
   // set sensor interval
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
 
