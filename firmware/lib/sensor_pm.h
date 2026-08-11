@@ -43,9 +43,9 @@ void al_sensor_pm_burst(int32_t ttl);
 // bursts, bounded in case the sensor persistently fails
 void al_sensor_pm_flush();
 
-// returns the cached PM2.5 sample value (ug/m3 shifted by 10) if the given
-// epoch (in milliseconds) falls within the cache lifetime, or -1 if no reading
-// is available
+// returns the cached PM2.5 sample value (encoded as the samples PM field, see
+// AL_SAMPLE_PM_VALUE) if the given epoch (in milliseconds) falls within the
+// cache lifetime, or -1 if no reading is available
 int16_t al_sensor_pm_sample(int64_t epoch);
 
 #endif  // AL_SENSOR_PM_H

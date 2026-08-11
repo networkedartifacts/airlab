@@ -1618,7 +1618,7 @@ static void* scr_view() {
     for (size_t i = 0; i < num; i++) {
       al_sample_t sample = samples[i];
       values[i] = al_sample_read(sample, field);
-      flags[i] = al_sample_gas_flags(sample, field) != 0;
+      flags[i] = al_sample_flags(sample, field) != 0;
       if (field == AL_SAMPLE_TMP && fahrenheit) {
         values[i] = scr_temp_convert(values[i]);
       }
@@ -3195,13 +3195,15 @@ static void* scr_develop() {
       gfx_end(true, false);
 
       for (;;) {
-        // read PM value of the last sample
-        float pm = al_sample_read(al_store_last(), AL_SAMPLE_PM);
+        // read PM value and flags of the last sample
+        al_sample_t last = al_store_last();
+        float pm = al_sample_read(last, AL_SAMPLE_PM);
+        bool obstructed = (al_sample_flags(last, AL_SAMPLE_PM) & AL_SAMPLE_PM_OBSTRUCTED) != 0;
 
         // prepare texts
         int32_t due = al_sensor_pm_due();
         int32_t age = al_sensor_pm_age();
-        const char* pm_str = isnan(pm) ? "n/a" : lvx_fmt("%.1f µg/m3", pm);
+        const char* pm_str = isnan(pm) ? "n/a" : lvx_fmt("%.1f µg/m3%s", pm, obstructed ? " (obstructed)" : "");
         const char* due_str = due == INT32_MAX ? "n/a" : lvx_fmt("%lds", due);
         const char* age_str = age == INT32_MAX ? "n/a" : lvx_fmt("%lds", age);
 

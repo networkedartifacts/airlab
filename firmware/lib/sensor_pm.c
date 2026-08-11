@@ -5,6 +5,7 @@
 
 #include <al/core.h>
 #include <al/clock.h>
+#include <al/sample.h>
 
 #include "internal.h"
 #include "sensor_pm.h"
@@ -58,7 +59,7 @@ static bool al_sensor_pm_established = false;
 static bool al_sensor_pm_settle = false;
 static int64_t al_sensor_pm_retry_after = 0;
 
-// last unobstructed reading, kept across deep sleep
+// last reading, kept across deep sleep
 AL_KEEP static int16_t al_sensor_pm_cache_value = -1;
 AL_KEEP static int64_t al_sensor_pm_cache_time = 0;
 AL_KEEP static int32_t al_sensor_pm_cache_ttl = 0;
@@ -161,28 +162,25 @@ static void al_sensor_pm_data_ready(bmv080_output_t output, void* param) {
       .obstructed = output.is_obstructed,
       .out_of_range = output.is_outside_measurement_range,
   };
-  if (!output.is_obstructed) {
-    float value = output.pm2_5_mass_concentration * 10.f;
-    if (value < 0.f) {
-      value = 0.f;
-    } else if (value > 30000.f) {
-      value = 30000.f;
-    }
-    al_sensor_pm_cache_value = (int16_t)value;
-    al_sensor_pm_cache_time = al_clock_get_epoch();
-    al_sensor_pm_cache_ttl = al_sensor_pm_ttl;
+  float value = output.pm2_5_mass_concentration * 10.f;
+  if (value < 0.f) {
+    value = 0.f;
+  } else if (value > (float)AL_SAMPLE_PM_VALUE) {
+    value = (float)AL_SAMPLE_PM_VALUE;
   }
+  al_sensor_pm_cache_value = (int16_t)((int16_t)value | (output.is_obstructed ? AL_SAMPLE_PM_OBSTRUCTED : 0));
+  al_sensor_pm_cache_time = al_clock_get_epoch();
+  al_sensor_pm_cache_ttl = al_sensor_pm_ttl;
   al_sensor_pm_established = true;
   al_sensor_pm_state_t state = al_sensor_pm_state;
   int16_t cache_value = al_sensor_pm_cache_value;
   int32_t cache_ttl = al_sensor_pm_cache_ttl;
   naos_unlock(al_sensor_pm_mutex);
 
-  // log data, an obstructed reading is not cached
+  // log data, an obstructed reading is cached with its flag set
   if (AL_SENSOR_PM_DEBUG) {
     naos_log("al-pm: pm1=%.1f pm2.5=%.1f pm10=%.1f obstructed=%d range=%d cache=%d ttl=%d", state.pm1, state.pm2_5,
-             state.pm10, state.obstructed, state.out_of_range, state.obstructed ? -1 : (int)cache_value,
-             (int)cache_ttl);
+             state.pm10, state.obstructed, state.out_of_range, (int)cache_value, (int)cache_ttl);
   }
 }
 

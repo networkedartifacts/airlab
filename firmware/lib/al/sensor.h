@@ -107,7 +107,8 @@ int32_t al_sensor_pm_due();
 
 /**
  * Returns the seconds since the last cached PM reading, or INT32_MAX if there
- * is none.
+ * is none. Obstructed readings are cached like any other, flagged with
+ * AL_SAMPLE_PM_OBSTRUCTED.
  */
 int32_t al_sensor_pm_age();
 

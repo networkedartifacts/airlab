@@ -16,7 +16,7 @@ typedef struct __attribute__((packed)) {
   int16_t voc;  // indexed
   int16_t nox;  // indexed
   int16_t prs;  // hPa
-  int16_t pm;   // PM2.5 ug/m3 (shifted by 10, -1 = no reading)
+  int16_t pm;   // PM2.5 ug/m3 (shifted by 10, flagged, -1 = no reading)
 } al_sample_t;
 
 /**
@@ -48,6 +48,17 @@ typedef enum {
 #define AL_SAMPLE_GAS_LEARNING 0x0800  // algorithm in initial learning phase
 
 /**
+ * The PM field stores the value in the lower bits and carries additional flags
+ * in the upper bits, with a negative value meaning no reading is available (no
+ * sensor, or none taken yet). Consumers of raw samples must mask the value
+ * with AL_SAMPLE_PM_VALUE before use. The obstructed flag is set when the
+ * sensor reported a blocked field of view: the reading is still recorded to
+ * keep the measurement cadence going, but its value is unreliable.
+ */
+#define AL_SAMPLE_PM_VALUE 0x3FFF       // value mask (0-1638.3 ug/m3)
+#define AL_SAMPLE_PM_OBSTRUCTED 0x4000  // sensor obstructed, value unreliable
+
+/**
  * Sets the altitude in meters used to convert the raw station pressure stored
  * in samples to sea-level-corrected pressure (QNH) when read. Zero disables
  * the correction.
@@ -76,13 +87,13 @@ bool al_sample_valid(al_sample_t);
 float al_sample_read(al_sample_t sample, al_sample_field_t field);
 
 /**
- * Reads the gas flags from a sample.
+ * Reads the flags from a sample.
  *
  * @param sample The sample.
- * @param field The field (AL_SAMPLE_VOC or AL_SAMPLE_NOX).
+ * @param field The field (AL_SAMPLE_VOC, AL_SAMPLE_NOX or AL_SAMPLE_PM).
  * @return The flag bits, or zero for other fields.
  */
-int32_t al_sample_gas_flags(al_sample_t sample, al_sample_field_t field);
+int32_t al_sample_flags(al_sample_t sample, al_sample_field_t field);
 
 /**
  * Linearly interpolates between two samples.

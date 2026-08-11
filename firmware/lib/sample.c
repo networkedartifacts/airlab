@@ -46,9 +46,9 @@ float al_sample_read(al_sample_t sample, al_sample_field_t field) {
     case AL_SAMPLE_PRS:
       return (float)sample.prs / al_sample_prs_factor;
     case AL_SAMPLE_PM:
-      // a negative value means no reading is available (no or obstructed
-      // sensor) and is reported as NaN
-      return sample.pm >= 0 ? (float)sample.pm / 10.f : NAN;
+      // mask out the PM flags, a negative value means no reading is available
+      // (no sensor, or none taken yet) and is reported as NaN
+      return sample.pm >= 0 ? (float)(sample.pm & AL_SAMPLE_PM_VALUE) / 10.f : NAN;
     case AL_SAMPLE_OFF:
       return (float)sample.off;
     default:
@@ -68,6 +68,12 @@ al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset) {
   int16_t voc_flags = (int16_t)((a.voc | b.voc) & ~AL_SAMPLE_GAS_VALUE);
   int16_t nox_flags = (int16_t)((a.nox | b.nox) & ~AL_SAMPLE_GAS_VALUE);
 
+  // split PM into value and flags (only valid if both endpoints have a
+  // reading, which the sentinel check below ensures)
+  int16_t pm_a = (int16_t)(a.pm & AL_SAMPLE_PM_VALUE);
+  int16_t pm_b = (int16_t)(b.pm & AL_SAMPLE_PM_VALUE);
+  int16_t pm_flags = (int16_t)((a.pm | b.pm) & ~AL_SAMPLE_PM_VALUE);
+
   return (al_sample_t){
       .off = offset,
       .co2 = AL_SAMPLE_LERP(a.co2, b.co2, f),
@@ -79,16 +85,21 @@ al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset) {
       .voc = (voc_a == 0 || voc_b == 0) ? 0 : (int16_t)AL_SAMPLE_LERP(voc_a, voc_b, f) | voc_flags,
       .nox = (nox_a == 0 || nox_b == 0) ? 0 : (int16_t)AL_SAMPLE_LERP(nox_a, nox_b, f) | nox_flags,
       .prs = AL_SAMPLE_LERP(a.prs, b.prs, f),
-      .pm = (a.pm < 0 || b.pm < 0) ? -1 : (int16_t)AL_SAMPLE_LERP(a.pm, b.pm, f),
+      // propagate the PM no-data sentinel instead of synthesizing bogus
+      // intermediate values at availability boundaries, and combine the flags
+      // of both endpoints otherwise
+      .pm = (a.pm < 0 || b.pm < 0) ? -1 : (int16_t)AL_SAMPLE_LERP(pm_a, pm_b, f) | pm_flags,
   };
 }
 
-int32_t al_sample_gas_flags(al_sample_t sample, al_sample_field_t field) {
-  // return flag bits of gas index fields
+int32_t al_sample_flags(al_sample_t sample, al_sample_field_t field) {
+  // return flag bits of flagged fields
   if (field == AL_SAMPLE_VOC) {
     return sample.voc & ~AL_SAMPLE_GAS_VALUE;
   } else if (field == AL_SAMPLE_NOX) {
     return sample.nox & ~AL_SAMPLE_GAS_VALUE;
+  } else if (field == AL_SAMPLE_PM && sample.pm >= 0) {
+    return sample.pm & ~AL_SAMPLE_PM_VALUE;
   }
 
   return 0;
