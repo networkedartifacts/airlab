@@ -52,6 +52,9 @@ void lvx_sign_create(lvx_sign_t *sign, lv_obj_t *parent);
 /* Status */
 
 typedef struct {
+  // set to hide the connectivity icons, e.g. when the device is about to sleep
+  bool offline;
+  // ---
   lv_obj_t *row;
   lv_obj_t *pwr;
   lv_obj_t *rec;

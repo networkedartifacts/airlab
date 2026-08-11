@@ -238,6 +238,38 @@ static void scr_launch(const char* file, const char* mode) {
   }
 }
 
+// Reports why the device stays awake in its current state, or NULL if it goes
+// to sleep instead. The idle screen consults this before drawing, to hide the
+// connectivity icons that do not survive the sleep.
+static const char* scr_stay_awake() {
+  // read power state
+  al_power_state_t power = al_power_get();
+
+  // check BLE and MQTT
+  bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
+  bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
+
+  // check if sleep is prevented at power-test level 2
+  if (naos_get_l("power-test") >= 2) {
+    return "test";
+  }
+
+  // check if connected via BLE/MQTT
+  if (has_ble) {
+    return "ble";
+  } else if (has_mqtt) {
+    return "mqtt";
+  }
+
+  // check if powered (in hi-Z mode the device runs from the battery, so an
+  // attached USB cable should not prevent sleep)
+  if (power.has_usb && !power.hiz) {
+    return "usb";
+  }
+
+  return NULL;
+}
+
 static sig_event_t scr_idle_sleep() {
   // read power state
   al_power_state_t power = al_power_get();
@@ -252,18 +284,11 @@ static sig_event_t scr_idle_sleep() {
   al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_gas_grace(naos_get_l("gas-grace"));
 
-  // check BLE and MQTT
-  bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
-  bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
-
-  // check if sleep is prevented at power-test level 2
-  bool stay_awake = naos_get_l("power-test") >= 2;
-
-  // check if powered or connected via BLE/MQTT (in hi-Z mode the device runs
-  // from the battery, so an attached USB cable should not prevent sleep)
-  if ((power.has_usb && !power.hiz) || has_ble || has_mqtt || stay_awake) {
+  // check if the device stays awake
+  const char* stay_awake = scr_stay_awake();
+  if (stay_awake != NULL) {
     // the device stays awake, so wake up fully
-    scr_wake_up(stay_awake ? "test" : (has_ble ? "ble" : (has_mqtt ? "mqtt" : "usb")));
+    scr_wake_up(stay_awake);
 
     // wait some time
     sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_INTERRUPT | SIG_LAUNCH | SIG_REFRESH, 60 * 1000);
@@ -1324,7 +1349,9 @@ static void* scr_idle() {
     // set display rotation
     lv_disp_set_rotation(NULL, acc.rotation / 90);
 
-    // update status
+    // update status, hiding the connectivity icons if the device goes to
+    // sleep after this draw, as the radios do not survive the sleep
+    status.offline = scr_stay_awake() == NULL;
     lvx_status_update(&status);
 
     // update values

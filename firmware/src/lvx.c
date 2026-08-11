@@ -365,10 +365,10 @@ void lvx_status_update(lvx_status_t* status) {
   }
 
   // update network
-  if (naos_status() == NAOS_NETWORKED) {
+  if (!status->offline && naos_status() == NAOS_NETWORKED) {
     lv_obj_clear_flag(status->net, LV_OBJ_FLAG_HIDDEN);
     lv_img_set_src(status->net, &img_networked);
-  } else if (naos_status() == NAOS_CONNECTED) {
+  } else if (!status->offline && naos_status() == NAOS_CONNECTED) {
     lv_obj_clear_flag(status->net, LV_OBJ_FLAG_HIDDEN);
     lv_img_set_src(status->net, &img_connected);
   } else {
@@ -376,7 +376,7 @@ void lvx_status_update(lvx_status_t* status) {
   }
 
   // update BLE connection
-  if (naos_ble_connections() > 0) {
+  if (!status->offline && naos_ble_connections() > 0) {
     lv_obj_clear_flag(status->ble, LV_OBJ_FLAG_HIDDEN);
   } else {
     lv_obj_add_flag(status->ble, LV_OBJ_FLAG_HIDDEN);
