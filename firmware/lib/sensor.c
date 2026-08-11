@@ -632,16 +632,23 @@ void al_sensor_pm_measure() {
 }
 
 int32_t al_sensor_pm_due() {
-  // return seconds until the next burst measurement is due
-  if (!al_sensor_pm_present() || al_sensor_pm_rate <= 0) {
+  // capture rate
+  naos_lock(al_sensor_mutex);
+  int32_t rate = al_sensor_pm_rate;
+  naos_unlock(al_sensor_mutex);
+
+  // skip if no chip was detected or no rate is set
+  if (!al_sensor_pm_present() || rate <= 0) {
     return INT32_MAX;
   }
+
+  // return seconds until the next burst measurement is due
   int32_t age = al_sensor_pm_age();
-  if (age >= al_sensor_pm_rate) {
+  if (age >= rate) {
     return 0;
   }
 
-  return al_sensor_pm_rate - age;
+  return rate - age;
 }
 
 float al_sensor_raw_temp() {
