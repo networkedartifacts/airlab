@@ -73,13 +73,11 @@ void al_sensor_set_gas_grace(int32_t seconds);
 bool al_sensor_pm_present();
 
 /**
- * Set the PM measurement rate. The PM sensor is measured at the given rate,
- * independent of the sensor interval, as it has its own power and wear
- * characteristics: while the sensor is running it is duty cycled at the rate,
- * otherwise it stays off and its cache is refreshed with burst measurements.
- * When zero, no PM measurements are taken at all. Values are clamped to 30-600
- * seconds, as duty cycling requires the period to exceed the sensors
- * integration time and readings are cached for twice the rate.
+ * Set the PM measurement rate. The PM sensor is duty cycled at the given rate,
+ * independent of the main sensor and its interval, as it has its own power and
+ * wear characteristics. When zero, no PM measurements are taken at all. Values
+ * are clamped to 30-600 seconds, as duty cycling requires the period to exceed
+ * the sensors integration time and readings are cached for twice the rate.
  *
  * In manual mode the sensor is never measured on its own and the rate only
  * determines when a measurement is due: the caller takes them at will with
@@ -96,8 +94,8 @@ void al_sensor_set_pm_rate(int32_t seconds, bool manual);
  * Performs a burst measurement and awaits its completion, blocking the caller
  * for the burst duration. The measurement is taken whether one is due or not,
  * so callers that want to follow the configured rate should check
- * al_sensor_pm_due() first. Requires manual mode and a non-zero rate, as
- * bursts are discarded while the sensor measures on its own.
+ * al_sensor_pm_due() first. Does nothing without manual mode and a non-zero
+ * rate, as bursts are discarded while the sensor measures on its own.
  */
 void al_sensor_pm_measure();
 

@@ -223,10 +223,6 @@ static sig_event_t scr_idle_sleep() {
   al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_gas_grace(naos_get_l("gas-grace"));
 
-  // set PM rate in manual mode while dozing, so the sensor never runs on its
-  // own and measurements are taken below before sleeping
-  al_sensor_set_pm_rate(naos_get_l("pm-rate"), true);
-
   // check BLE and MQTT
   bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
   bool has_mqtt = naos_get_b("mqtt-prev-sleep") && naos_status() == NAOS_NETWORKED;
@@ -253,6 +249,12 @@ static sig_event_t scr_idle_sleep() {
 
   // set sensor interval
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
+
+  // set the PM rate in manual mode, so the sensor never runs on its own while
+  // dozing and measurements are taken below before sleeping (this must stay
+  // below the awake return above, as scr_wake_up() applies the awake rate only
+  // on the state transition and would not restore it)
+  al_sensor_set_pm_rate(naos_get_l("pm-rate"), true);
 
   // finish a PM measurement before sleeping if one is due, the sensor itself
   // is idled by the sleep

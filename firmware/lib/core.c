@@ -241,20 +241,20 @@ esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx,
 }
 
 al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
-  // prepare the sensor for the ULP handover, or turn it off entirely and
-  // sync the ULP memory if the ULP stays disabled
   if (deep) {
+    // stop PM measurements first, as suspending the PM sensor also prevents
+    // the sensor monitor from starting a new measurement while we prepare to
+    // sleep, which would then have to be stopped again below
+    al_sensor_pm_sleep();
+
+    // prepare the sensor for the ULP handover, or turn it off entirely and
+    // sync the ULP memory if the ULP stays disabled
     if (ulp) {
       al_sensor_sleep();
     } else {
       al_sensor_off();
       al_ulp_sync();
     }
-  }
-
-  // stop PM measurements before deep sleep
-  if (deep) {
-    al_sensor_pm_sleep();
   }
 
   // sleep peripherals after all other I2C traffic

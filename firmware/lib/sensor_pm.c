@@ -13,7 +13,7 @@
 
 #define AL_SENSOR_PM_TIMEOUT 1000
 #define AL_SENSOR_PM_MAX_WORDS 512
-#define AL_SENSOR_PM_DEBUG true
+#define AL_SENSOR_PM_DEBUG false
 
 // duration of a burst measurement (ms), matching the sensors integration time
 #define AL_SENSOR_PM_BURST_TIME 10000
@@ -47,7 +47,6 @@ static naos_mutex_t al_sensor_pm_mutex;
 static naos_signal_t al_sensor_pm_signal;
 static bmv080_handle_t al_sensor_pm_handle = NULL;
 static al_sensor_pm_state_t al_sensor_pm_state = {0};
-static al_sensor_pm_hook_t al_sensor_pm_hook = NULL;
 static int32_t al_sensor_pm_want_period = 0;
 static int32_t al_sensor_pm_want_ttl = 0;
 static al_sensor_pm_mode_t al_sensor_pm_mode = AL_SENSOR_PM_IDLE;
@@ -175,7 +174,6 @@ static void al_sensor_pm_data_ready(bmv080_output_t output, void* param) {
   }
   al_sensor_pm_established = true;
   al_sensor_pm_state_t state = al_sensor_pm_state;
-  al_sensor_pm_hook_t hook = al_sensor_pm_hook;
   int16_t cache_value = al_sensor_pm_cache_value;
   int32_t cache_ttl = al_sensor_pm_cache_ttl;
   naos_unlock(al_sensor_pm_mutex);
@@ -185,11 +183,6 @@ static void al_sensor_pm_data_ready(bmv080_output_t output, void* param) {
     naos_log("al-pm: pm1=%.1f pm2.5=%.1f pm10=%.1f obstructed=%d range=%d cache=%d ttl=%d", state.pm1, state.pm2_5,
              state.pm10, state.obstructed, state.out_of_range, state.obstructed ? -1 : (int)cache_value,
              (int)cache_ttl);
-  }
-
-  // dispatch state
-  if (hook != NULL) {
-    hook(state);
   }
 }
 
@@ -525,8 +518,9 @@ void al_sensor_pm_flush() {
   }
 
   // wait until the requested mode is applied and requested bursts are done,
-  // bounded in case the sensor persistently fails
-  int64_t deadline = naos_millis() + AL_SENSOR_PM_BURST_TIME + 5000;
+  // bounded in case the sensor persistently fails, covering the burst duration
+  // plus the wait for an established measurement when stopping it
+  int64_t deadline = naos_millis() + AL_SENSOR_PM_BURST_TIME + 10000;
   while (naos_millis() < deadline) {
     naos_lock(al_sensor_pm_mutex);
     int32_t period = al_sensor_pm_suspended ? 0 : al_sensor_pm_want_period;
@@ -620,13 +614,6 @@ void al_sensor_pm_wake() {
   if (AL_SENSOR_PM_DEBUG) {
     naos_log("al-pm: resuming");
   }
-}
-
-void al_sensor_pm_config(al_sensor_pm_hook_t hook) {
-  // store hook
-  naos_lock(al_sensor_pm_mutex);
-  al_sensor_pm_hook = hook;
-  naos_unlock(al_sensor_pm_mutex);
 }
 
 al_sensor_pm_state_t al_sensor_pm_get() {

@@ -42,9 +42,11 @@ static void power_test(int32_t value) {
 }
 
 static void main_rate(int32_t value) {
-  // update sensor interval (writes only occur while connected and therefore
-  // awake, where the main rate is the active interval)
+  // update sensor interval and PM rate (writes only occur while connected and
+  // therefore awake, where the main rate is the active interval and the PM
+  // sensor measures on its own)
   al_sensor_set_interval(value);
+  al_sensor_set_pm_rate(value, false);
 }
 
 static float battery() {

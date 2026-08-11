@@ -271,25 +271,23 @@ static void al_sensor_check() {
   }
 }
 
+// applies the PM measurement policy, requires the mutex to be held, as the
+// policy is driven from the monitor task and the rate setter alike and a stale
+// snapshot would issue a conflicting request
 static void al_sensor_pm_apply() {
   // skip if no chip was detected
   if (!al_sensor_pm_present()) {
     return;
   }
 
-  // measure at the PM rate, independent of the sensor interval: duty cycle the
-  // sensor while it is running, otherwise idle it and refresh its cache with
-  // burst measurements (the rate is clamped to the duty cycling bounds). in
+  // duty cycle the sensor at the PM rate, fully independent of the main sensor
+  // and its interval (the rate is clamped to the duty cycling bounds). in
   // manual mode the sensor is never measured on its own, the rate then only
   // determines when al_sensor_pm_measure() takes one
-  bool automatic = al_sensor_pm_rate > 0 && !al_sensor_pm_manual;
-  if (automatic && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
+  if (al_sensor_pm_rate > 0 && !al_sensor_pm_manual) {
     al_sensor_pm_run(al_sensor_pm_rate, 2 * al_sensor_pm_rate);
   } else {
     al_sensor_pm_run(0, 0);
-    if (automatic && al_sensor_pm_age() >= al_sensor_pm_rate) {
-      al_sensor_pm_burst(2 * al_sensor_pm_rate);
-    }
   }
 }
 
@@ -316,9 +314,11 @@ static void al_sensor_monitor() {
 
   /* apply the PM measurement policy */
 
-  // re-apply the PM policy, which applies pending sensor mode changes and
-  // requests due burst measurements
+  // re-apply the PM policy, which applies pending sensor mode changes, the
+  // call is skipped internally if nothing changed
+  naos_lock(al_sensor_mutex);
   al_sensor_pm_apply();
+  naos_unlock(al_sensor_mutex);
 
   /* check if clock has been changed */
 
@@ -596,6 +596,9 @@ void al_sensor_set_pm_rate(int32_t seconds, bool manual) {
     seconds = AL_SENSOR_PM_CYCLE_MAX;
   }
 
+  // lock mutex
+  naos_lock(al_sensor_mutex);
+
   // store rate and mode
   al_sensor_pm_rate = seconds;
   al_sensor_pm_manual = manual;
@@ -603,15 +606,28 @@ void al_sensor_set_pm_rate(int32_t seconds, bool manual) {
   // apply the policy right away, so the sensor mode does not lag behind until
   // the next sensor monitor run
   al_sensor_pm_apply();
+
+  // unlock mutex
+  naos_unlock(al_sensor_mutex);
 }
 
 void al_sensor_pm_measure() {
+  // capture rate and mode
+  naos_lock(al_sensor_mutex);
+  int32_t rate = al_sensor_pm_rate;
+  bool manual = al_sensor_pm_manual;
+  naos_unlock(al_sensor_mutex);
+
+  // skip if no chip was detected, no rate is set, or the sensor measures on
+  // its own, as the burst would just be discarded
+  if (!al_sensor_pm_present() || rate <= 0 || !manual) {
+    return;
+  }
+
   // request a burst measurement and await its completion, blocking the caller
   // for the burst duration; whether a measurement is warranted is left to the
   // caller (al_sensor_pm_due())
-  if (al_sensor_pm_present() && al_sensor_pm_rate > 0) {
-    al_sensor_pm_burst(2 * al_sensor_pm_rate);
-  }
+  al_sensor_pm_burst(2 * rate);
   al_sensor_pm_flush();
 }
 

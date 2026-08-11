@@ -15,14 +15,8 @@ typedef struct {
   bool out_of_range;  // whether the PM2.5 value is outside the measurement range
 } al_sensor_pm_state_t;
 
-// the particulate matter hook, invoked on every new measurement
-typedef void (*al_sensor_pm_hook_t)(al_sensor_pm_state_t state);
-
 // initialize the particulate matter sensor
 void al_sensor_pm_init(bool reset);
-
-// configure the particulate matter sensor
-void al_sensor_pm_config(al_sensor_pm_hook_t hook);
 
 // returns the cached particulate matter state
 al_sensor_pm_state_t al_sensor_pm_get();
