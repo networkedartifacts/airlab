@@ -118,7 +118,6 @@ static naos_param_t params[] = {
 static naos_config_t config = {
     .online_callback = com_online,
     .battery_callback = battery,
-    .reboot_callback = al_reboot,
     .parameters = params,
     .num_parameters = sizeof(params) / sizeof(naos_param_t),
 };

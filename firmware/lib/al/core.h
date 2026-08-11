@@ -41,16 +41,6 @@ al_trigger_t al_init();
 void al_sleep(bool ulp, uint64_t timeout);
 
 /**
- * Restarts the device via a minimal deep sleep. To be used as the naos reboot
- * callback. The function does not return.
- *
- * @note: Boots following a warm software reset (esp_restart) repeatedly tripped
- * the interrupt watchdog under automatic light sleep, while boots following
- * deep sleep are proven stable.
- */
-void al_reboot();
-
-/**
  * Allocates memory from external RAM with the specified size. The function will
  * abort if the allocation fails.
  *

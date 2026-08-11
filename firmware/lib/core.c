@@ -6,7 +6,6 @@
 #include <driver/i2c.h>
 #include <esp_sleep.h>
 #include <esp_pm.h>
-#include <esp_attr.h>
 
 #include <al/core.h>
 #include <al/clock.h>
@@ -28,43 +27,18 @@ static naos_mutex_t al_i2c_mutex;
 static naos_auth_data_t al_auth_data = {0};
 static esp_sleep_wakeup_cause_t al_wakeup_cause_val;
 static uint64_t al_wakeup_status_val;
-static RTC_NOINIT_ATTR uint32_t al_reboot_marker;
-static bool al_reboot_flag = false;
 
 static void al_wakeup_capture() {
   // latch cause and status
   al_wakeup_cause_val = esp_sleep_get_wakeup_cause();
   al_wakeup_status_val = esp_sleep_get_ext1_wakeup_status();
-
-  // latch and clear a deep-sleep based reboot (see al_reboot)
-  al_reboot_flag = al_reboot_marker == AL_REBOOT_MAGIC;
-  al_reboot_marker = 0;
-}
-
-void al_reboot() {
-  // restart via a minimal deep sleep instead of esp_restart(): boots following
-  // a warm software reset repeatedly tripped the interrupt watchdog under
-  // automatic light sleep, while boots following deep sleep are proven stable;
-  // a concurrent automatic light sleep is safe, as all sleep entries serialize
-  // on the same sleep config lock before stalling the other core (unlike
-  // esp_restart, whose raw stall may cross-stall and deadlock); the marker
-  // lets the next boot treat the wake as a full reset
-  al_reboot_marker = AL_REBOOT_MAGIC;
-  esp_deep_sleep(1000);
 }
 
 esp_sleep_wakeup_cause_t al_wakeup_cause() { return al_wakeup_cause_val; }
 
 uint64_t al_wakeup_status() { return al_wakeup_status_val; }
 
-bool al_wakeup_reboot() { return al_reboot_flag; }
-
 static al_trigger_t al_trigger() {
-  // handle deep-sleep based reboots as resets
-  if (al_reboot_flag) {
-    return AL_RESET;
-  }
-
   // get latched cause
   esp_sleep_wakeup_cause_t cause = al_wakeup_cause();
 
@@ -157,7 +131,7 @@ al_trigger_t al_init() {
   ESP_ERROR_CHECK(i2c_param_config(I2C_NUM_0, &i2c));
 
   // determine reset
-  bool reset = !al_wakeup_cause() || al_reboot_flag;
+  bool reset = !al_wakeup_cause();
 
   // initialize modules
   al_power_init();
