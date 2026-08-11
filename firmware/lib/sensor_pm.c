@@ -24,12 +24,18 @@
 // possible I2C addresses (ABS strapping), probed in order
 static const uint8_t al_sensor_pm_addrs[] = {0x54, 0x57};
 
+// the measurement modes, continuous is only used for burst measurements
+typedef enum {
+  AL_SENSOR_PM_IDLE,
+  AL_SENSOR_PM_CONTINUOUS,
+  AL_SENSOR_PM_CYCLED,
+} al_sensor_pm_mode_t;
+
 static naos_mutex_t al_sensor_pm_mutex;
 static naos_signal_t al_sensor_pm_signal;
 static bmv080_handle_t al_sensor_pm_handle = NULL;
 static al_sensor_pm_state_t al_sensor_pm_state = {0};
 static al_sensor_pm_hook_t al_sensor_pm_hook = NULL;
-static al_sensor_pm_mode_t al_sensor_pm_want_mode = AL_SENSOR_PM_IDLE;
 static int32_t al_sensor_pm_want_period = 0;
 static int32_t al_sensor_pm_want_ttl = 0;
 static al_sensor_pm_mode_t al_sensor_pm_mode = AL_SENSOR_PM_IDLE;
@@ -288,11 +294,14 @@ static void al_sensor_pm_task() {
     // capture control state
     naos_lock(al_sensor_pm_mutex);
     bool suspended = al_sensor_pm_suspended;
-    al_sensor_pm_mode_t want = suspended ? AL_SENSOR_PM_IDLE : al_sensor_pm_want_mode;
-    int32_t period = al_sensor_pm_want_period;
+    int32_t period = suspended ? 0 : al_sensor_pm_want_period;
+    al_sensor_pm_mode_t want = period > 0 ? AL_SENSOR_PM_CYCLED : AL_SENSOR_PM_IDLE;
     int32_t ttl = al_sensor_pm_want_ttl;
-    int32_t burst_ttl = suspended ? 0 : al_sensor_pm_burst_ttl;
-    if (suspended) {
+    // discard a requested burst while suspended or if a measurement mode is
+    // wanted, as a running measurement refreshes the cache by itself
+    bool blocked = suspended || want != AL_SENSOR_PM_IDLE;
+    int32_t burst_ttl = blocked ? 0 : al_sensor_pm_burst_ttl;
+    if (blocked) {
       al_sensor_pm_burst_ttl = 0;
     }
     naos_unlock(al_sensor_pm_mutex);
@@ -403,15 +412,14 @@ bool al_sensor_pm_present() {
   return al_sensor_pm_handle != NULL;
 }
 
-void al_sensor_pm_run(al_sensor_pm_mode_t mode, int32_t period, int32_t ttl) {
+void al_sensor_pm_run(int32_t period, int32_t ttl) {
   // skip if no chip was detected
   if (al_sensor_pm_handle == NULL) {
     return;
   }
 
-  // request mode
+  // request period
   naos_lock(al_sensor_pm_mutex);
-  al_sensor_pm_want_mode = mode;
   al_sensor_pm_want_period = period;
   al_sensor_pm_want_ttl = ttl;
   naos_unlock(al_sensor_pm_mutex);
@@ -442,7 +450,8 @@ void al_sensor_pm_flush() {
   int64_t deadline = naos_millis() + AL_SENSOR_PM_BURST_TIME + 5000;
   while (naos_millis() < deadline) {
     naos_lock(al_sensor_pm_mutex);
-    al_sensor_pm_mode_t want = al_sensor_pm_suspended ? AL_SENSOR_PM_IDLE : al_sensor_pm_want_mode;
+    int32_t period = al_sensor_pm_suspended ? 0 : al_sensor_pm_want_period;
+    al_sensor_pm_mode_t want = period > 0 ? AL_SENSOR_PM_CYCLED : AL_SENSOR_PM_IDLE;
     bool settled = !al_sensor_pm_settle && al_sensor_pm_burst_ttl == 0 && al_sensor_pm_mode == want;
     naos_unlock(al_sensor_pm_mutex);
     if (settled) {

@@ -299,9 +299,9 @@ static void al_sensor_monitor() {
   if (al_sensor_pm_present()) {
     if (al_sensor_seconds > 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
       int32_t period = al_sensor_seconds < AL_SENSOR_PM_CYCLE_MIN ? AL_SENSOR_PM_CYCLE_MIN : al_sensor_seconds;
-      al_sensor_pm_run(AL_SENSOR_PM_CYCLED, period, 2 * period);
+      al_sensor_pm_run(period, 2 * period);
     } else {
-      al_sensor_pm_run(AL_SENSOR_PM_IDLE, 0, 0);
+      al_sensor_pm_run(0, 0);
       if (al_sensor_pm_rate > 0 && al_sensor_pm_age() >= al_sensor_pm_rate) {
         al_sensor_pm_burst(2 * al_sensor_pm_rate);
       }
@@ -581,7 +581,7 @@ void al_sensor_set_pm_rate(int32_t seconds) {
 void al_sensor_pm_prepare() {
   // idle the sensor, request a final burst measurement if one is due and
   // await its completion, extending the wake by the burst duration
-  al_sensor_pm_run(AL_SENSOR_PM_IDLE, 0, 0);
+  al_sensor_pm_run(0, 0);
   if (al_sensor_pm_present() && al_sensor_pm_rate > 0 && al_sensor_pm_age() >= al_sensor_pm_rate) {
     al_sensor_pm_burst(2 * al_sensor_pm_rate);
   }

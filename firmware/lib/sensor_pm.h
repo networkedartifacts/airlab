@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <al/sensor.h>  // al_sensor_pm_present()
-
 // the particulate matter measurement state, only PM2.5 is a specified
 // measurement, PM1 and PM10 are estimates derived from it
 typedef struct {
@@ -29,25 +27,18 @@ void al_sensor_pm_config(al_sensor_pm_hook_t hook);
 // returns the cached particulate matter state
 al_sensor_pm_state_t al_sensor_pm_get();
 
-// the measurement modes
-typedef enum {
-  AL_SENSOR_PM_IDLE,
-  AL_SENSOR_PM_CONTINUOUS,
-  AL_SENSOR_PM_CYCLED,
-} al_sensor_pm_mode_t;
-
-// the cadence below which the sensor should measure continuously, as duty
-// cycling requires the period to exceed the 10s integration time
+// the minimum duty cycling period, as duty cycling requires the period to
+// exceed the 10s integration time
 #define AL_SENSOR_PM_CYCLE_MIN 30
 
-// request the given measurement mode, applied asynchronously, with the duty
-// cycling period in seconds (cycled mode only) and the cache lifetime of
+// request a duty cycled measurement with the given period in seconds, or an
+// idle sensor if zero, applied asynchronously, with the cache lifetime of
 // readings in seconds
-void al_sensor_pm_run(al_sensor_pm_mode_t mode, int32_t period, int32_t ttl);
+void al_sensor_pm_run(int32_t period, int32_t ttl);
 
 // request a burst measurement over the sensors integration time to refresh the
 // cache with the given lifetime, executed asynchronously once the sensor is
-// idle
+// idle, discarded if a measurement mode is requested or the sensor is suspended
 void al_sensor_pm_burst(int32_t ttl);
 
 // awaits the application of the requested mode and completion of requested
