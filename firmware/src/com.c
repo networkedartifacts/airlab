@@ -555,6 +555,12 @@ void com_online() {
   com_ha_config_sensor(hat, did, av, bt, hwr, "al-nox", "nox", "NOx", "", "aqi", 0);
   com_ha_config_sensor(hat, did, av, bt, hwr, "al-prs", "prs", "Pressure", "hPa", "atmospheric_pressure", 0);
 
+  // configure the PM sensor only with a present chip, as the topic otherwise
+  // just carries "nan" and would show up as an unavailable entity
+  if (al_sensor_pm_present()) {
+    com_ha_config_sensor(hat, did, av, bt, hwr, "al-pm", "pm", "PM2.5", "µg/m³", "pm25", 1);
+  }
+
   // configure power sensors
   com_ha_config_sensor(hat, did, av, bt, hwr, "al-bat", "bat", "Battery", "%", "battery", 0);
   com_ha_config_binary_sensor(hat, did, av, bt, hwr, "al-usb", "usb", "USB", "plug");
