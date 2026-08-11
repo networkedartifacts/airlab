@@ -3492,7 +3492,7 @@ static void* scr_menu() {
     fun = false;
 
     // await event
-    sig_event_t event = sig_await(SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH | SIG_KEYS, 10 * 1000);
+    sig_event_t event = sig_await(SIG_SENSOR | SIG_INTERRUPT | SIG_LAUNCH | SIG_KEYS | SIG_IDLE, 10 * 1000);
 
     // handle deadline (at power-test level 3 the screen is kept active to
     // allow measuring its power consumption)
@@ -3516,7 +3516,7 @@ static void* scr_menu() {
     }
 
     // enter idle screen on escape
-    if (event.type == SIG_ESCAPE) {
+    if (event.type & (SIG_ESCAPE|SIG_IDLE)) {
       // cleanup
       gui_cleanup(false);
 
