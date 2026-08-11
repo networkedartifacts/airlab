@@ -22,6 +22,10 @@
 // retry delay after a failed measurement start (ms)
 #define AL_SENSOR_PM_RETRY_DELAY 60000
 
+// time to await the first reading of a continuous measurement (ms), which the
+// sensor reports once per second
+#define AL_SENSOR_PM_SETTLE_TIME 5000
+
 // possible I2C addresses (ABS strapping), probed in order
 static const uint8_t al_sensor_pm_addrs[] = {0x54, 0x57};
 
@@ -199,6 +203,85 @@ static void al_sensor_pm_serve() {
   }
 }
 
+static void al_sensor_pm_algorithm() {
+  // select balanced measurement algorithm (trades steady-state precision for
+  // a faster response, notably a quicker return to baseline)
+  bmv080_measurement_algorithm_t algo = E_BMV080_MEASUREMENT_ALGORITHM_BALANCED;
+  bmv080_status_code_t code = bmv080_set_parameter(al_sensor_pm_handle, "measurement_algorithm", &algo);
+  if (code != E_BMV080_OK) {
+    naos_log("al-pm: set algorithm failed: %d", code);
+  } else if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: algorithm=balanced");
+  }
+}
+
+static void al_sensor_pm_settle_ready(bmv080_output_t output, void* param) {
+  // ignore the reading, as a settle only proves that the sensor measures and
+  // its cache lifetime is undefined, while the kept cache may still be needed
+  // to backfill readings taken during the last sleep
+  (void)output;
+  (void)param;
+
+  // mark measurement as established
+  naos_lock(al_sensor_pm_mutex);
+  al_sensor_pm_established = true;
+  naos_unlock(al_sensor_pm_mutex);
+}
+
+// resets the sensor and settles it into its low-power sleep mode via a short
+// continuous measurement, as only stopping an established measurement enters
+// that mode, and returns whether the sensor ended up in it
+static bool al_sensor_pm_settle_sensor() {
+  // reset the sensor, which leaves it in its active boot state
+  bmv080_status_code_t code = bmv080_reset(al_sensor_pm_handle);
+  if (code != E_BMV080_OK) {
+    naos_log("al-pm: reset failed: %d", code);
+  }
+
+  // clear establishment, as the reset dropped any running measurement
+  naos_lock(al_sensor_pm_mutex);
+  al_sensor_pm_established = false;
+  naos_unlock(al_sensor_pm_mutex);
+
+  // start a continuous measurement, which reports once per second, unlike a
+  // duty cycled one that only reports at the end of its integration time
+  bool established = false;
+  code = bmv080_start_continuous_measurement(al_sensor_pm_handle);
+  if (code != E_BMV080_OK) {
+    naos_log("al-pm: settle start failed: %d", code);
+  } else {
+    // await the first reading
+    int64_t deadline = naos_millis() + AL_SENSOR_PM_SETTLE_TIME;
+    while (!established && naos_millis() < deadline) {
+      bmv080_serve_interrupt(al_sensor_pm_handle, al_sensor_pm_settle_ready, NULL);
+      naos_delay(100);
+      naos_lock(al_sensor_pm_mutex);
+      established = al_sensor_pm_established;
+      naos_unlock(al_sensor_pm_mutex);
+    }
+
+    // stop the measurement, which enters the low-power sleep mode
+    code = bmv080_stop_measurement(al_sensor_pm_handle);
+    if (code != E_BMV080_OK) {
+      naos_log("al-pm: settle stop failed: %d", code);
+    }
+  }
+
+  // re-apply the measurement algorithm, as the reset reverted it
+  al_sensor_pm_algorithm();
+
+  // report the outcome, an unestablished or failed settle leaves the sensor in
+  // its active state and must be retried
+  bool clean = established && code == E_BMV080_OK;
+  if (!clean) {
+    naos_log("al-pm: settle failed: established=%d code=%d", established, code);
+  } else if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: settled");
+  }
+
+  return clean;
+}
+
 static void al_sensor_pm_start(al_sensor_pm_mode_t mode, int32_t period, int32_t ttl) {
   // set cache lifetime for upcoming readings
   naos_lock(al_sensor_pm_mutex);
@@ -238,25 +321,11 @@ static void al_sensor_pm_start(al_sensor_pm_mode_t mode, int32_t period, int32_t
 }
 
 static void al_sensor_pm_stop() {
-  // await an established measurement (first reading arrived), as stopping
-  // during the start sequence leaves the sensor in its active state
+  // capture establishment (first reading arrived), as stopping during the
+  // start sequence leaves the sensor in its active state
   naos_lock(al_sensor_pm_mutex);
   bool established = al_sensor_pm_established;
   naos_unlock(al_sensor_pm_mutex);
-  int64_t deadline = naos_millis() + 5000;
-  while (!established && naos_millis() < deadline) {
-    bmv080_serve_interrupt(al_sensor_pm_handle, al_sensor_pm_data_ready, NULL);
-    naos_delay(100);
-    naos_lock(al_sensor_pm_mutex);
-    established = al_sensor_pm_established;
-    naos_unlock(al_sensor_pm_mutex);
-  }
-
-  // warn if the measurement never established, as the sensor is then left in
-  // its active state instead of entering the low-power sleep mode
-  if (!established) {
-    naos_log("al-pm: stopping an unestablished measurement");
-  }
 
   // stop measurement
   bmv080_status_code_t code = bmv080_stop_measurement(al_sensor_pm_handle);
@@ -264,11 +333,21 @@ static void al_sensor_pm_stop() {
     naos_log("al-pm: stop failed: %d", code);
   }
 
+  // settle the sensor if the measurement did not stop cleanly, as it is then
+  // left in its active state instead of entering the low-power sleep mode. a
+  // duty cycled measurement only reports at the end of its integration time,
+  // so stopping one shortly after its start cannot find it established, and
+  // awaiting that takes longer than settling via a continuous measurement
+  bool clean = established && code == E_BMV080_OK;
+  if (!clean) {
+    naos_log("al-pm: settling unclean stop: established=%d code=%d", established, code);
+    clean = al_sensor_pm_settle_sensor();
+  }
+
   // update mode
   naos_lock(al_sensor_pm_mutex);
   al_sensor_pm_mode = AL_SENSOR_PM_IDLE;
-  al_sensor_pm_clean = code == E_BMV080_OK && established;
-  bool clean = al_sensor_pm_clean;
+  al_sensor_pm_clean = clean;
   naos_unlock(al_sensor_pm_mutex);
 
   // log stop
@@ -285,47 +364,15 @@ static void al_sensor_pm_task() {
     if (AL_SENSOR_PM_DEBUG) {
       naos_log("al-pm: settling");
     }
-    bool valid = false;
-    bmv080_status_code_t code = bmv080_reset(al_sensor_pm_handle);
-    if (code != E_BMV080_OK) {
-      naos_log("al-pm: reset failed: %d", code);
-    }
-    code = bmv080_start_continuous_measurement(al_sensor_pm_handle);
-    if (code == E_BMV080_OK) {
-      int64_t deadline = naos_millis() + 5000;
-      while (naos_millis() < deadline && !al_sensor_pm_get().valid) {
-        bmv080_serve_interrupt(al_sensor_pm_handle, al_sensor_pm_data_ready, NULL);
-        naos_delay(100);
-      }
-      valid = al_sensor_pm_get().valid;
-      code = bmv080_stop_measurement(al_sensor_pm_handle);
-    }
-    if (code != E_BMV080_OK) {
-      naos_log("al-pm: settle failed: %d", code);
-    }
-    // a settle without a reading leaves the sensor active, as only stopping an
-    // established measurement enters the low-power sleep mode
-    if (!valid) {
-      naos_log("al-pm: settled without a reading");
-    }
+    bool clean = al_sensor_pm_settle_sensor();
     naos_lock(al_sensor_pm_mutex);
-    al_sensor_pm_clean = true;
+    al_sensor_pm_clean = clean;
     al_sensor_pm_settle = false;
     naos_unlock(al_sensor_pm_mutex);
-    if (AL_SENSOR_PM_DEBUG) {
-      naos_log("al-pm: settled valid=%d", valid);
-    }
-  }
-
-  // select balanced measurement algorithm (trades steady-state precision for
-  // a faster response, notably a quicker return to baseline), a potential
-  // reset reverted it to the default
-  bmv080_measurement_algorithm_t algo = E_BMV080_MEASUREMENT_ALGORITHM_BALANCED;
-  bmv080_status_code_t code = bmv080_set_parameter(al_sensor_pm_handle, "measurement_algorithm", &algo);
-  if (code != E_BMV080_OK) {
-    naos_log("al-pm: set algorithm failed: %d", code);
-  } else if (AL_SENSOR_PM_DEBUG) {
-    naos_log("al-pm: algorithm=balanced");
+  } else {
+    // select the measurement algorithm, which a settle applies by itself as
+    // its reset reverts it to the default
+    al_sensor_pm_algorithm();
   }
 
   for (;;) {
@@ -517,8 +564,8 @@ void al_sensor_pm_flush() {
 
   // wait until the requested mode is applied and requested bursts are done,
   // bounded in case the sensor persistently fails, covering the burst duration
-  // plus the wait for an established measurement when stopping it
-  int64_t deadline = naos_millis() + AL_SENSOR_PM_BURST_TIME + 10000;
+  // plus a settle when stopping a measurement leaves the sensor active
+  int64_t deadline = naos_millis() + AL_SENSOR_PM_BURST_TIME + 15000;
   while (naos_millis() < deadline) {
     naos_lock(al_sensor_pm_mutex);
     int32_t period = al_sensor_pm_suspended ? 0 : al_sensor_pm_want_period;
@@ -584,8 +631,9 @@ void al_sensor_pm_sleep() {
     naos_log("al-pm: suspending");
   }
 
-  // await an idle sensor, bounded in case the sensor persistently fails
-  int64_t deadline = naos_millis() + 10000;
+  // await an idle sensor, bounded in case the sensor persistently fails,
+  // covering a settle when stopping a measurement leaves the sensor active
+  int64_t deadline = naos_millis() + 15000;
   while (naos_millis() < deadline) {
     naos_lock(al_sensor_pm_mutex);
     bool idle = !al_sensor_pm_settle && al_sensor_pm_mode == AL_SENSOR_PM_IDLE && al_sensor_pm_burst_ttl == 0;
