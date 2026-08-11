@@ -8,6 +8,27 @@
 
 #include "storage.h"
 
+bool al_storage_access(const char *path) {
+  // create test file
+  FILE *file = fopen(path, "w");
+  if (file == NULL) {
+    naos_log("al-sto: failed to create test file, error=%d", errno);
+    return false;
+  }
+
+  // close file
+  fclose(file);
+
+  // remove test file
+  int ret = remove(path);
+  if (ret != 0) {
+    naos_log("al-sto: failed to remove test file, error=%d", ret);
+    return false;
+  }
+
+  return true;
+}
+
 void al_storage_init() {
   al_storage_internal_init();
   al_storage_external_init();

@@ -16,6 +16,8 @@
 #define AL_STORAGE_EXT_PSRAM_SIZE (2 * 1024 * 1024)
 #define AL_STORAGE_EXT_PSRAM_SECTOR_SIZE 512
 
+bool al_storage_access(const char *path);
+
 void al_storage_internal_init(void);
 al_storage_info_t al_storage_internal_info(void);
 void al_storage_internal_reset(void);

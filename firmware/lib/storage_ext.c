@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <string.h>
 
 #include <naos.h>
@@ -104,27 +103,6 @@ static DRESULT al_storage_psram_disk_ioctl(BYTE pdrv, BYTE cmd, void *buff) {
     default:
       return RES_PARERR;
   }
-}
-
-static bool al_storage_access(const char *path) {
-  // create test file
-  FILE *file = fopen(path, "w");
-  if (file == NULL) {
-    naos_log("al-sto: failed to create test file, error=%d", errno);
-    return false;
-  }
-
-  // close file
-  fclose(file);
-
-  // remove test file
-  int ret = remove(path);
-  if (ret != 0) {
-    naos_log("al-sto: failed to remove test file, error=%d", ret);
-    return false;
-  }
-
-  return true;
 }
 
 static size_t al_storage_fat_allocation_unit_size(size_t sector_size, size_t requested_size) {
