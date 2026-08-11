@@ -420,8 +420,8 @@ static void com_start_task() {
   naos_ble_init((naos_ble_config_t){
       .pairing = naos_get_b("ble-pairing"),
       .bonding = naos_get_b("ble-bonding"),
-      .adv_int_min_ms = 500,
-      .adv_int_max_ms = 1000,
+      .adv_int_min_ms = 100,
+      .adv_int_max_ms = 150,
       .adaptive = true,
   });
   naos_wifi_init();
