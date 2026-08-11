@@ -15,6 +15,7 @@
 #define AL_STORAGE_DEBUG false
 #define AL_STORAGE_EXT_PSRAM_SIZE (2 * 1024 * 1024)
 #define AL_STORAGE_EXT_PSRAM_SECTOR_SIZE 512
+#define AL_STORAGE_EXT_PSRAM_WORK_SIZE 4096
 
 bool al_storage_access(const char *path);
 

@@ -107,32 +107,26 @@ static DRESULT al_storage_psram_disk_ioctl(BYTE pdrv, BYTE cmd, void *buff) {
   }
 }
 
-static size_t al_storage_fat_allocation_unit_size(size_t sector_size, size_t requested_size) {
-  size_t alloc_unit_size = requested_size;
-  const size_t max_size = sector_size * 128;
-  if (alloc_unit_size < sector_size) {
-    alloc_unit_size = sector_size;
-  }
-  if (alloc_unit_size > max_size) {
-    alloc_unit_size = max_size;
-  }
-  return alloc_unit_size;
-}
-
-static esp_err_t al_storage_psram_format(const char *drv, size_t allocation_unit_size) {
+static esp_err_t al_storage_psram_format(const char *drv) {
   // allocate mkfs work buffer
-  void *workbuf = malloc(4096);
+  void *workbuf = malloc(AL_STORAGE_EXT_PSRAM_WORK_SIZE);
   if (workbuf == NULL) {
     return ESP_ERR_NO_MEM;
   }
 
-  // format file system using bounded allocation units
-  size_t unit = al_storage_fat_allocation_unit_size(AL_STORAGE_EXT_PSRAM_SECTOR_SIZE, allocation_unit_size);
-  const MKFS_PARM opt = {(BYTE)(FM_ANY | FM_SFD), 0, 0, 0, unit};
-  FRESULT res = f_mkfs(drv, &opt, workbuf, 4096);
+  // format file system, leaving the allocation unit to FatFs; forcing a single
+  // sector per cluster leaves this volume with slightly too few clusters for
+  // FAT16, and the IDF build aborts there instead of falling back to FAT12,
+  // while the auto-selection picks a unit that lands on a valid configuration
+  const MKFS_PARM opt = {(BYTE)(FM_ANY | FM_SFD), 0, 0, 0, 0};
+  FRESULT res = f_mkfs(drv, &opt, workbuf, AL_STORAGE_EXT_PSRAM_WORK_SIZE);
   free(workbuf);
+  if (res != FR_OK) {
+    naos_log("al-sto: failed to format disk, error=%d", res);
+    return ESP_FAIL;
+  }
 
-  return res == FR_OK ? ESP_OK : ESP_FAIL;
+  return ESP_OK;
 }
 
 static void al_storage_mount_external(const esp_vfs_fat_mount_config_t *mount_config) {
@@ -182,7 +176,7 @@ static void al_storage_mount_external(const esp_vfs_fat_mount_config_t *mount_co
       ff_diskio_unregister(pdrv);
       ESP_ERROR_CHECK(ESP_FAIL);
     }
-    ESP_ERROR_CHECK(al_storage_psram_format(drv, mount_config->allocation_unit_size));
+    ESP_ERROR_CHECK(al_storage_psram_format(drv));
     res = f_mount(al_storage_psram_fs, drv, 0);
     if (res != FR_OK) {
       esp_vfs_fat_unregister_path(AL_STORAGE_EXTERNAL);
@@ -340,7 +334,6 @@ void al_storage_external_mount(void) {
   const esp_vfs_fat_mount_config_t mount_config = {
       .max_files = 2,
       .format_if_mount_failed = true,
-      .allocation_unit_size = AL_STORAGE_EXT_PSRAM_SECTOR_SIZE,
   };
   al_storage_mount_external(&mount_config);
 }
