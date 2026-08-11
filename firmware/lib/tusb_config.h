@@ -17,9 +17,12 @@ extern "C" {
 #define CFG_TUSB_OS OPT_OS_FREERTOS
 #endif
 
+// clang-format off
+// the trailing slash is pasted into an include path and must not be separated
 #if TUSB_MCU_VENDOR_ESPRESSIF
 #define CFG_TUSB_OS_INC_PATH freertos/
 #endif
+// clang-format on
 
 #ifndef CFG_TUSB_DEBUG
 #define CFG_TUSB_DEBUG 0
