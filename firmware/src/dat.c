@@ -444,6 +444,9 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
   // calculate size
   size_t size = sizeof(dat_head_t) + (file->size * sizeof(al_sample_t)) + 1024;
 
+  // prepare storage, as the info of an unprepared storage is only nominal
+  al_storage_prepare(AL_STORAGE_EXT);
+
   // check space
   if (size > al_storage_info(AL_STORAGE_EXT).free) {
     return false;

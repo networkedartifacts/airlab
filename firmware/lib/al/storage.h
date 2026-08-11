@@ -33,6 +33,16 @@ typedef struct {
 typedef void (*al_storage_eject_t)();
 
 /**
+ * Prepares the storage for use. The external storage is backed by PSRAM that is
+ * allocated and formatted on demand and only lives until the device sleeps. The
+ * file operations prepare the storage themselves, but it must be prepared
+ * explicitly before querying the info of an unused external storage.
+ *
+ * @param type The storage type.
+ */
+void al_storage_prepare(al_storage_type_t type);
+
+/**
  * Returns the storage information.
  *
  * @return The storage information.

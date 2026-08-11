@@ -97,6 +97,7 @@ static void al_storage_external_prepare_usb(al_storage_eject_t eject) {
   al_storage_eject = eject;
   al_storage_usb_ejected = false;
   al_storage_usb_enabled = true;
+  al_storage_external_ensure();
   al_storage_external_unmount();
 }
 

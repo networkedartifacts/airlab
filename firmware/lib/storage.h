@@ -23,6 +23,8 @@ al_storage_info_t al_storage_internal_info(void);
 void al_storage_internal_reset(void);
 
 void al_storage_external_init(void);
+void al_storage_external_ensure(void);
+void al_storage_external_release(void);
 al_storage_info_t al_storage_external_info(void);
 void al_storage_external_reset(void);
 void al_storage_external_mount(void);

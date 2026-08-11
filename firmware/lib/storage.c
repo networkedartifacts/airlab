@@ -30,8 +30,16 @@ bool al_storage_access(const char *path) {
 }
 
 void al_storage_init() {
+  // only mount the internal file system, as the external disk is backed by
+  // PSRAM that is allocated and formatted on demand
   al_storage_internal_init();
   al_storage_external_init();
+}
+
+void al_storage_prepare(al_storage_type_t type) {
+  if (type == AL_STORAGE_EXT) {
+    al_storage_external_ensure();
+  }
 }
 
 al_storage_info_t al_storage_info(al_storage_type_t type) {
@@ -51,6 +59,9 @@ void al_storage_reset() {
 }
 
 int al_storage_stat(al_storage_type_t type, const char *dir, const char *name) {
+  // prepare storage
+  al_storage_prepare(type);
+
   // prepare path
   char path[32] = {0};
   strcat(path, type == AL_STORAGE_INT ? AL_STORAGE_INTERNAL : AL_STORAGE_EXTERNAL);
@@ -79,6 +90,9 @@ int al_storage_stat(al_storage_type_t type, const char *dir, const char *name) {
 
 bool al_storage_read(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,
                      size_t length) {
+  // prepare storage
+  al_storage_prepare(type);
+
   // prepare path
   char path[32] = {0};
   strcat(path, type == AL_STORAGE_INT ? AL_STORAGE_INTERNAL : AL_STORAGE_EXTERNAL);
@@ -145,6 +159,9 @@ void *al_storage_load(al_storage_type_t type, const char *dir, const char *name,
 
 void al_storage_write(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,
                       size_t length, bool truncate) {
+  // prepare storage
+  al_storage_prepare(type);
+
   // prepare path
   char path[32] = {0};
   strcat(path, type == AL_STORAGE_INT ? AL_STORAGE_INTERNAL : AL_STORAGE_EXTERNAL);
@@ -188,6 +205,9 @@ void al_storage_write(al_storage_type_t type, const char *dir, const char *name,
 }
 
 void al_storage_delete(al_storage_type_t type, const char *dir, const char *name) {
+  // prepare storage
+  al_storage_prepare(type);
+
   // prepare path
   char path[32] = {0};
   strcat(path, type == AL_STORAGE_INT ? AL_STORAGE_INTERNAL : AL_STORAGE_EXTERNAL);

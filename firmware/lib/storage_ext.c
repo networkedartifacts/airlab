@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include <naos.h>
+#include <naos/sys.h>
 #include <diskio_impl.h>
 #include <esp_heap_caps.h>
 #include <esp_vfs_fat.h>
@@ -13,6 +14,7 @@ static uint8_t *al_storage_psram_disk = NULL;
 static size_t al_storage_psram_disk_size = AL_STORAGE_EXT_PSRAM_SIZE;
 static BYTE al_storage_psram_pdrv = FF_DRV_NOT_USED;
 static FATFS *al_storage_psram_fs = NULL;
+static naos_mutex_t al_storage_psram_mutex = NULL;
 
 static void al_storage_psram_drive(BYTE pdrv, char *drv) {
   // format the FatFs volume prefix, as the drive number is allocated
@@ -22,7 +24,7 @@ static void al_storage_psram_drive(BYTE pdrv, char *drv) {
   drv[2] = 0;
 }
 
-static esp_err_t al_storage_psram_ensure_disk(void) {
+static esp_err_t al_storage_psram_alloc_disk(void) {
   // keep previously allocated storage
   if (al_storage_psram_disk != NULL) {
     return ESP_OK;
@@ -140,7 +142,7 @@ static void al_storage_mount_external(const esp_vfs_fat_mount_config_t *mount_co
   }
 
   // ensure backing storage
-  ESP_ERROR_CHECK(al_storage_psram_ensure_disk());
+  ESP_ERROR_CHECK(al_storage_psram_alloc_disk());
 
   // allocate FatFs drive number
   BYTE pdrv = FF_DRV_NOT_USED;
@@ -193,31 +195,66 @@ static void al_storage_mount_external(const esp_vfs_fat_mount_config_t *mount_co
 }
 
 void al_storage_external_init(void) {
-  // mount FAT file system
-  al_storage_external_mount();
+  // only create the mutex, as the disk itself is prepared on demand
+  al_storage_psram_mutex = naos_mutex();
+}
 
-  // check access
-  if (!al_storage_access(AL_STORAGE_EXTERNAL "/TEST")) {
-    naos_log("al-sto: no EXTERNAL access, formatting...");
-    al_storage_external_unmount();
-    memset(al_storage_psram_disk, 0, al_storage_psram_disk_size);
+void al_storage_external_ensure(void) {
+  // synchronize preparation, as file operations from multiple tasks may find
+  // the disk unprepared at the same time
+  naos_lock(al_storage_psram_mutex);
+
+  // keep prepared storage, as the disk is only dropped explicitly
+  if (al_storage_psram_disk == NULL) {
+    // mount FAT file system, which allocates and formats the fresh PSRAM disk
     al_storage_external_mount();
+
+    // check access
+    if (!al_storage_access(AL_STORAGE_EXTERNAL "/TEST")) {
+      naos_log("al-sto: no EXTERNAL access, formatting...");
+      al_storage_external_unmount();
+      memset(al_storage_psram_disk, 0, al_storage_psram_disk_size);
+      al_storage_external_mount();
+    }
+
+    // set volume label
+    char label[16];
+    al_storage_psram_drive(al_storage_psram_pdrv, label);
+    strcat(label, "AIRLAB");
+    FRESULT res = f_setlabel(label);
+    if (res != FR_OK) {
+      naos_log("al-sto: failed to set label, error=%d", res);
+    }
   }
 
-  // set volume label
-  char label[16];
-  al_storage_psram_drive(al_storage_psram_pdrv, label);
-  strcat(label, "AIRLAB");
-  FRESULT res = f_setlabel(label);
-  if (res != FR_OK) {
-    naos_log("al-sto: failed to set label, error=%d", res);
+  naos_unlock(al_storage_psram_mutex);
+}
+
+void al_storage_external_release(void) {
+  naos_lock(al_storage_psram_mutex);
+
+  // ignore released storage
+  if (al_storage_psram_disk != NULL) {
+    // detach file system
+    al_storage_external_unmount();
+
+    // free backing storage
+    free(al_storage_psram_disk);
+    al_storage_psram_disk = NULL;
   }
+
+  naos_unlock(al_storage_psram_mutex);
 }
 
 al_storage_info_t al_storage_external_info(void) {
-  // report empty info while unmounted, as the storage is handed to USB
+  // report the nominal capacity while unmounted, as the disk is either not yet
+  // allocated, and therefore empty, or currently handed over to USB
   if (al_storage_psram_pdrv == FF_DRV_NOT_USED) {
-    return (al_storage_info_t){0};
+    return (al_storage_info_t){
+        .total = AL_STORAGE_EXT_PSRAM_SIZE,
+        .free = AL_STORAGE_EXT_PSRAM_SIZE,
+        .usage = 0,
+    };
   }
 
   // get free external FATFS clusters
@@ -245,13 +282,9 @@ al_storage_info_t al_storage_external_info(void) {
 }
 
 void al_storage_external_reset(void) {
-  // clear mount and storage contents
-  al_storage_external_unmount();
-  ESP_ERROR_CHECK(al_storage_psram_ensure_disk());
-  memset(al_storage_psram_disk, 0, al_storage_psram_disk_size);
-
-  // remount file system
-  al_storage_external_mount();
+  // drop the contents by releasing the disk, as it is re-created empty on
+  // demand by the next access
+  al_storage_external_release();
 }
 
 void al_storage_external_unmount(void) {
