@@ -206,10 +206,15 @@ eng_bundle_t *eng_bundle_parse(void *buf, size_t len) {
 }
 
 eng_bundle_t *eng_bundle_load(const char *dir, const char *file) {
-  // get bundle size
+  // get bundle size (missing bundles are not an error)
   int size = al_storage_stat(AL_STORAGE_INT, dir, file);
   if (size < 0) {
-    naos_log("eng_bundle_load: failed to get bundle size");
+    return NULL;
+  }
+
+  // check bundle size
+  if (size == 0) {
+    naos_log("eng_bundle_load: empty bundle");
     return NULL;
   }
 
