@@ -18,7 +18,6 @@
 #include <al/sensor.h>
 #include <al/storage.h>
 #include <al/store.h>
-#include <al/pm.h>
 #include <al/buzzer.h>
 #include <al/led.h>
 
@@ -1301,7 +1300,7 @@ static void* scr_idle() {
     float voc_val = al_sample_read(sample, AL_SAMPLE_VOC);
     float nox_val = al_sample_read(sample, AL_SAMPLE_NOX);
     float pm_val = al_sample_read(sample, AL_SAMPLE_PM);
-    bool has_pm = al_pm_present() || !isnan(pm_val);
+    bool has_pm = al_sensor_pm_present() || !isnan(pm_val);
     if (has_pm) {
       // combine VOC and NOx into one line to make room for PM
       char voc_str[8] = "n/a";
@@ -1546,7 +1545,7 @@ static void* scr_view() {
     // determine PM availability and leave the PM field if it became
     // unavailable; the live view offers the field already with a present chip
     // before data has arrived, matching the menu
-    bool has_pm = file == NULL && al_pm_present();
+    bool has_pm = file == NULL && al_sensor_pm_present();
     for (size_t i = 0; i < num && !has_pm; i++) {
       if (samples[i].pm >= 0) {
         has_pm = true;
@@ -3215,7 +3214,7 @@ static void* scr_menu() {
     al_sample_t sample = al_store_last();
 
     // determine PM availability and leave the PM mode if it became unavailable
-    bool has_pm = al_pm_present() || sample.pm >= 0;
+    bool has_pm = al_sensor_pm_present() || sample.pm >= 0;
     if (mode == AL_SAMPLE_PM && !has_pm) {
       mode = 0;
     }

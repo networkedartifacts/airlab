@@ -7,11 +7,11 @@
 #include <al/clock.h>
 #include <al/store.h>
 #include <al/power.h>
-#include <al/pm.h>
 
 #include "internal.h"
 #include "sensor_hal.h"
 #include "sensor_gas.h"
+#include "sensor_pm.h"
 
 #define AL_SENSOR_DEBUG false
 
@@ -568,6 +568,11 @@ void al_sensor_set_gas_grace(int32_t seconds) {
   naos_lock(al_sensor_mutex);
   al_sensor_gas_grace = seconds;
   naos_unlock(al_sensor_mutex);
+}
+
+bool al_sensor_pm_present() {
+  // return whether a PM sensor has been detected
+  return al_pm_present();
 }
 
 void al_sensor_set_pm_rate(int32_t seconds) {

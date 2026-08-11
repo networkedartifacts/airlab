@@ -18,7 +18,6 @@ set(SOURCE_FILES
         lib/al/core.h
         lib/al/epd.h
         lib/al/led.h
-        lib/al/pm.h
         lib/al/power.h
         lib/al/sample.h
         lib/al/sensor.h
@@ -36,7 +35,6 @@ set(SOURCE_FILES
         lib/internal.h
         lib/epd.c
         lib/led.c
-        lib/pm.c
         lib/power.c
         lib/sample.c
         lib/sensor.c
@@ -44,6 +42,8 @@ set(SOURCE_FILES
         lib/sensor_gas.h
         lib/sensor_hal.c
         lib/sensor_hal.h
+        lib/sensor_pm.c
+        lib/sensor_pm.h
         lib/storage.c
         lib/store.c
         lib/touch.c

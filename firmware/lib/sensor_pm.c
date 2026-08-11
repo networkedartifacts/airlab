@@ -5,9 +5,9 @@
 
 #include <al/core.h>
 #include <al/clock.h>
-#include <al/pm.h>
 
 #include "internal.h"
+#include "sensor_pm.h"
 
 // Chip: BMV080
 

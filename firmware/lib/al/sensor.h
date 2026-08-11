@@ -1,6 +1,7 @@
 #ifndef AL_SENSOR_H
 #define AL_SENSOR_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <al/sample.h>
@@ -65,6 +66,11 @@ void al_sensor_set_gas_window(int32_t seconds);
  * @param seconds The grace period in seconds (0 = window always applies).
  */
 void al_sensor_set_gas_grace(int32_t seconds);
+
+/**
+ * Returns whether a PM sensor has been detected at boot.
+ */
+bool al_sensor_pm_present();
 
 /**
  * Set the PM measurement rate on battery. While USB powered, the PM sensor
