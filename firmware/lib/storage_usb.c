@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <naos.h>
 #include <naos/sys.h>
 #include <driver/gpio.h>
@@ -9,12 +11,14 @@
 
 #define AL_STORAGE_USB_RHPORT 0
 #define AL_STORAGE_USB_VBUS_MONITOR_IO GPIO_NUM_18
+#define AL_STORAGE_USB_POLL 100
 
 static bool al_storage_usb_enabled = false;
 static bool al_storage_usb_ejected = false;
+static bool al_storage_usb_running = false;
 static al_storage_eject_t al_storage_eject = NULL;
 static usb_phy_handle_t al_storage_usb_phy = NULL;
-static naos_task_t al_storage_usb_task = NULL;
+static naos_signal_t al_storage_usb_signal = NULL;
 static esp_pm_lock_handle_t al_storage_usb_pm_lock = NULL;
 
 static tusb_desc_device_t al_storage_usb_dev_desc = {
@@ -65,9 +69,7 @@ static esp_err_t al_storage_usb_install_phy(void) {
   return usb_new_phy(&phy_conf, &al_storage_usb_phy);
 }
 
-static void al_storage_usb_task_main(void *arg) {
-  (void)arg;
-
+static void al_storage_usb_task_main() {
   // initialize TinyUSB device stack
   const tusb_rhport_init_t dev_init = {
       .role = TUSB_ROLE_DEVICE,
@@ -75,14 +77,19 @@ static void al_storage_usb_task_main(void *arg) {
   };
   if (!tusb_init(AL_STORAGE_USB_RHPORT, &dev_init)) {
     naos_log("al-sto: failed to initialize TinyUSB");
-    al_storage_usb_task = NULL;
+    naos_trigger(al_storage_usb_signal, 1, false);
     return;
   }
 
-  // process USB events
-  while (true) {
-    tud_task();
+  // process USB events until stopped, polling instead of blocking forever, so
+  // that the stack is torn down from a known state rather than by deleting the
+  // task in the middle of a transfer
+  while (al_storage_usb_running) {
+    tud_task_ext(AL_STORAGE_USB_POLL, false);
   }
+
+  // signal exit
+  naos_trigger(al_storage_usb_signal, 1, false);
 }
 
 static void al_storage_external_prepare_usb(al_storage_eject_t eject) {
@@ -116,10 +123,16 @@ void al_storage_external_enable_usb(al_storage_eject_t eject) {
   }
   ESP_ERROR_CHECK(esp_pm_lock_acquire(al_storage_usb_pm_lock));
 
+  // ensure exit signal
+  if (al_storage_usb_signal == NULL) {
+    al_storage_usb_signal = naos_signal();
+  }
+
   // hand storage to USB and bring up TinyUSB
   al_storage_external_prepare_usb(eject);
   ESP_ERROR_CHECK(al_storage_usb_install_phy());
-  al_storage_usb_task = naos_run("al-sto", 4096, 0, al_storage_usb_task_main);
+  al_storage_usb_running = true;
+  naos_run("al-sto", 4096, 0, al_storage_usb_task_main);
 }
 
 void al_storage_external_disable_usb(void) {
@@ -128,11 +141,9 @@ void al_storage_external_disable_usb(void) {
     return;
   }
 
-  // stop TinyUSB task
-  if (al_storage_usb_task != NULL) {
-    naos_kill(al_storage_usb_task);
-    al_storage_usb_task = NULL;
-  }
+  // stop TinyUSB task and await its exit
+  al_storage_usb_running = false;
+  naos_await(al_storage_usb_signal, 1, true, -1);
 
   // tear down TinyUSB stack
   if (tusb_inited() && !tusb_teardown(AL_STORAGE_USB_RHPORT)) {
