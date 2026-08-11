@@ -73,28 +73,45 @@ void al_sensor_set_gas_grace(int32_t seconds);
 bool al_sensor_pm_present();
 
 /**
- * Set the PM measurement rate on battery. While USB powered, the PM sensor
- * follows the sensor interval (continuously below the duty cycling minimum,
- * duty cycled otherwise). On battery, the sensor stays off and its cache is
- * refreshed with burst measurements at the given rate, either while awake or
- * by extending a wake before deep sleep. When zero (the default), no PM
- * measurements are taken on battery.
+ * Set the PM measurement rate. The PM sensor is measured at the given rate,
+ * independent of the sensor interval, as it has its own power and wear
+ * characteristics: while the sensor is running it is duty cycled at the rate,
+ * otherwise it stays off and its cache is refreshed with burst measurements.
+ * When zero, no PM measurements are taken at all. Values are clamped to 30-600
+ * seconds, as duty cycling requires the period to exceed the sensors
+ * integration time and readings are cached for twice the rate.
  *
- * @param seconds The battery measurement rate in seconds (0 = off).
+ * In manual mode the sensor is never measured on its own and the rate only
+ * determines when a measurement is due: the caller takes them at will with
+ * al_sensor_pm_measure(), using al_sensor_pm_due() to tell when one is
+ * warranted. This trades an unattended cadence for full control over when the
+ * sensor runs, which is useful while dozing.
+ *
+ * @param seconds The measurement rate in seconds (0 = off).
+ * @param manual  Whether measurements are taken by the caller.
  */
-void al_sensor_set_pm_rate(int32_t seconds);
+void al_sensor_set_pm_rate(int32_t seconds, bool manual);
 
 /**
- * Prepares the PM sensor for deep sleep: performs a final burst measurement
- * if one is due (extending the wake by its duration) and idles the sensor.
+ * Performs a burst measurement and awaits its completion, blocking the caller
+ * for the burst duration. The measurement is taken whether one is due or not,
+ * so callers that want to follow the configured rate should check
+ * al_sensor_pm_due() first. Requires manual mode and a non-zero rate, as
+ * bursts are discarded while the sensor measures on its own.
  */
-void al_sensor_pm_prepare();
+void al_sensor_pm_measure();
 
 /**
  * Returns the seconds until the next PM burst measurement is due, or
  * INT32_MAX if none are scheduled.
  */
 int32_t al_sensor_pm_due();
+
+/**
+ * Returns the seconds since the last cached PM reading, or INT32_MAX if there
+ * is none.
+ */
+int32_t al_sensor_pm_age();
 
 /**
  * Prepares the sensor for deep sleep. When duty cycling in manual mode the

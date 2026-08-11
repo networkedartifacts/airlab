@@ -32,6 +32,7 @@ AL_KEEP static int32_t al_sensor_gas_grace = 0;
 AL_KEEP static int64_t al_sensor_unpowered_since = 0;
 AL_KEEP static int32_t al_sensor_seconds = 0;
 AL_KEEP static int32_t al_sensor_pm_rate = 0;
+AL_KEEP static bool al_sensor_pm_manual = false;
 static float al_sensor_last_raw_temp = NAN;
 static uint16_t al_sensor_last_raw_voc = 0;
 static uint16_t al_sensor_last_raw_nox = 0;
@@ -270,6 +271,28 @@ static void al_sensor_check() {
   }
 }
 
+static void al_sensor_pm_apply() {
+  // skip if no chip was detected
+  if (!al_sensor_pm_present()) {
+    return;
+  }
+
+  // measure at the PM rate, independent of the sensor interval: duty cycle the
+  // sensor while it is running, otherwise idle it and refresh its cache with
+  // burst measurements (the rate is clamped to the duty cycling bounds). in
+  // manual mode the sensor is never measured on its own, the rate then only
+  // determines when al_sensor_pm_measure() takes one
+  bool automatic = al_sensor_pm_rate > 0 && !al_sensor_pm_manual;
+  if (automatic && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
+    al_sensor_pm_run(al_sensor_pm_rate, 2 * al_sensor_pm_rate);
+  } else {
+    al_sensor_pm_run(0, 0);
+    if (automatic && al_sensor_pm_age() >= al_sensor_pm_rate) {
+      al_sensor_pm_burst(2 * al_sensor_pm_rate);
+    }
+  }
+}
+
 static void al_sensor_monitor() {
   // get time
   int64_t now = al_clock_get_epoch();
@@ -293,20 +316,9 @@ static void al_sensor_monitor() {
 
   /* apply the PM measurement policy */
 
-  // follow the sensor interval while awake (floored at the duty cycling
-  // minimum to bound sensor runtime and wear), otherwise idle the sensor and
-  // refresh its cache at the PM rate with burst measurements
-  if (al_sensor_pm_present()) {
-    if (al_sensor_seconds > 0 && al_sensor_state.mode != AL_SENSOR_HAL_SLEEP) {
-      int32_t period = al_sensor_seconds < AL_SENSOR_PM_CYCLE_MIN ? AL_SENSOR_PM_CYCLE_MIN : al_sensor_seconds;
-      al_sensor_pm_run(period, 2 * period);
-    } else {
-      al_sensor_pm_run(0, 0);
-      if (al_sensor_pm_rate > 0 && al_sensor_pm_age() >= al_sensor_pm_rate) {
-        al_sensor_pm_burst(2 * al_sensor_pm_rate);
-      }
-    }
-  }
+  // re-apply the PM policy, which applies pending sensor mode changes and
+  // requests due burst measurements
+  al_sensor_pm_apply();
 
   /* check if clock has been changed */
 
@@ -573,16 +585,31 @@ void al_sensor_set_gas_grace(int32_t seconds) {
   naos_unlock(al_sensor_mutex);
 }
 
-void al_sensor_set_pm_rate(int32_t seconds) {
-  // store rate, applied by the sensor monitor
+void al_sensor_set_pm_rate(int32_t seconds, bool manual) {
+  // clamp rate to the duty cycling bounds, zero disables PM measurements
+  // entirely
+  if (seconds <= 0) {
+    seconds = 0;
+  } else if (seconds < AL_SENSOR_PM_CYCLE_MIN) {
+    seconds = AL_SENSOR_PM_CYCLE_MIN;
+  } else if (seconds > AL_SENSOR_PM_CYCLE_MAX) {
+    seconds = AL_SENSOR_PM_CYCLE_MAX;
+  }
+
+  // store rate and mode
   al_sensor_pm_rate = seconds;
+  al_sensor_pm_manual = manual;
+
+  // apply the policy right away, so the sensor mode does not lag behind until
+  // the next sensor monitor run
+  al_sensor_pm_apply();
 }
 
-void al_sensor_pm_prepare() {
-  // idle the sensor, request a final burst measurement if one is due and
-  // await its completion, extending the wake by the burst duration
-  al_sensor_pm_run(0, 0);
-  if (al_sensor_pm_present() && al_sensor_pm_rate > 0 && al_sensor_pm_age() >= al_sensor_pm_rate) {
+void al_sensor_pm_measure() {
+  // request a burst measurement and await its completion, blocking the caller
+  // for the burst duration; whether a measurement is warranted is left to the
+  // caller (al_sensor_pm_due())
+  if (al_sensor_pm_present() && al_sensor_pm_rate > 0) {
     al_sensor_pm_burst(2 * al_sensor_pm_rate);
   }
   al_sensor_pm_flush();

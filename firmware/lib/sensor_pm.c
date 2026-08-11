@@ -13,7 +13,7 @@
 
 #define AL_SENSOR_PM_TIMEOUT 1000
 #define AL_SENSOR_PM_MAX_WORDS 512
-#define AL_SENSOR_PM_DEBUG false
+#define AL_SENSOR_PM_DEBUG true
 
 // duration of a burst measurement (ms), matching the sensors integration time
 #define AL_SENSOR_PM_BURST_TIME 10000
@@ -30,6 +30,18 @@ typedef enum {
   AL_SENSOR_PM_CONTINUOUS,
   AL_SENSOR_PM_CYCLED,
 } al_sensor_pm_mode_t;
+
+static const char* al_sensor_pm_mode_str(al_sensor_pm_mode_t mode) {
+  // return mode name
+  switch (mode) {
+    case AL_SENSOR_PM_CONTINUOUS:
+      return "continuous";
+    case AL_SENSOR_PM_CYCLED:
+      return "cycled";
+    default:
+      return "idle";
+  }
+}
 
 static naos_mutex_t al_sensor_pm_mutex;
 static naos_signal_t al_sensor_pm_signal;
@@ -164,12 +176,15 @@ static void al_sensor_pm_data_ready(bmv080_output_t output, void* param) {
   al_sensor_pm_established = true;
   al_sensor_pm_state_t state = al_sensor_pm_state;
   al_sensor_pm_hook_t hook = al_sensor_pm_hook;
+  int16_t cache_value = al_sensor_pm_cache_value;
+  int32_t cache_ttl = al_sensor_pm_cache_ttl;
   naos_unlock(al_sensor_pm_mutex);
 
-  // log data
+  // log data, an obstructed reading is not cached
   if (AL_SENSOR_PM_DEBUG) {
-    naos_log("al-pm: pm1=%.1f pm2.5=%.1f pm10=%.1f obstructed=%d range=%d", state.pm1, state.pm2_5, state.pm10,
-             state.obstructed, state.out_of_range);
+    naos_log("al-pm: pm1=%.1f pm2.5=%.1f pm10=%.1f obstructed=%d range=%d cache=%d ttl=%d", state.pm1, state.pm2_5,
+             state.pm10, state.obstructed, state.out_of_range, state.obstructed ? -1 : (int)cache_value,
+             (int)cache_ttl);
   }
 
   // dispatch state
@@ -212,7 +227,7 @@ static void al_sensor_pm_start(al_sensor_pm_mode_t mode, int32_t period, int32_t
     code = bmv080_start_continuous_measurement(al_sensor_pm_handle);
   }
   if (code != E_BMV080_OK) {
-    naos_log("al-pm: start failed: %d", code);
+    naos_log("al-pm: start failed: %d (retrying in %ds)", code, AL_SENSOR_PM_RETRY_DELAY / 1000);
     al_sensor_pm_retry_after = naos_millis() + AL_SENSOR_PM_RETRY_DELAY;
     return;
   }
@@ -224,6 +239,11 @@ static void al_sensor_pm_start(al_sensor_pm_mode_t mode, int32_t period, int32_t
   al_sensor_pm_clean = false;
   al_sensor_pm_established = false;
   naos_unlock(al_sensor_pm_mutex);
+
+  // log start
+  if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: started mode=%s period=%d ttl=%d", al_sensor_pm_mode_str(mode), (int)period, (int)ttl);
+  }
 }
 
 static void al_sensor_pm_stop() {
@@ -241,6 +261,12 @@ static void al_sensor_pm_stop() {
     naos_unlock(al_sensor_pm_mutex);
   }
 
+  // warn if the measurement never established, as the sensor is then left in
+  // its active state instead of entering the low-power sleep mode
+  if (!established) {
+    naos_log("al-pm: stopping an unestablished measurement");
+  }
+
   // stop measurement
   bmv080_status_code_t code = bmv080_stop_measurement(al_sensor_pm_handle);
   if (code != E_BMV080_OK) {
@@ -251,7 +277,13 @@ static void al_sensor_pm_stop() {
   naos_lock(al_sensor_pm_mutex);
   al_sensor_pm_mode = AL_SENSOR_PM_IDLE;
   al_sensor_pm_clean = code == E_BMV080_OK && established;
+  bool clean = al_sensor_pm_clean;
   naos_unlock(al_sensor_pm_mutex);
+
+  // log stop
+  if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: stopped clean=%d", clean);
+  }
 }
 
 static void al_sensor_pm_task() {
@@ -259,6 +291,10 @@ static void al_sensor_pm_task() {
   // its active boot state, and only stopping an established measurement
   // enters the low-power sleep mode
   if (al_sensor_pm_settle) {
+    if (AL_SENSOR_PM_DEBUG) {
+      naos_log("al-pm: settling");
+    }
+    bool valid = false;
     bmv080_status_code_t code = bmv080_reset(al_sensor_pm_handle);
     if (code != E_BMV080_OK) {
       naos_log("al-pm: reset failed: %d", code);
@@ -270,15 +306,24 @@ static void al_sensor_pm_task() {
         bmv080_serve_interrupt(al_sensor_pm_handle, al_sensor_pm_data_ready, NULL);
         naos_delay(100);
       }
+      valid = al_sensor_pm_get().valid;
       code = bmv080_stop_measurement(al_sensor_pm_handle);
     }
     if (code != E_BMV080_OK) {
       naos_log("al-pm: settle failed: %d", code);
     }
+    // a settle without a reading leaves the sensor active, as only stopping an
+    // established measurement enters the low-power sleep mode
+    if (!valid) {
+      naos_log("al-pm: settled without a reading");
+    }
     naos_lock(al_sensor_pm_mutex);
     al_sensor_pm_clean = true;
     al_sensor_pm_settle = false;
     naos_unlock(al_sensor_pm_mutex);
+    if (AL_SENSOR_PM_DEBUG) {
+      naos_log("al-pm: settled valid=%d", valid);
+    }
   }
 
   // select balanced measurement algorithm (trades steady-state precision for
@@ -288,6 +333,8 @@ static void al_sensor_pm_task() {
   bmv080_status_code_t code = bmv080_set_parameter(al_sensor_pm_handle, "measurement_algorithm", &algo);
   if (code != E_BMV080_OK) {
     naos_log("al-pm: set algorithm failed: %d", code);
+  } else if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: algorithm=balanced");
   }
 
   for (;;) {
@@ -300,15 +347,25 @@ static void al_sensor_pm_task() {
     // discard a requested burst while suspended or if a measurement mode is
     // wanted, as a running measurement refreshes the cache by itself
     bool blocked = suspended || want != AL_SENSOR_PM_IDLE;
+    bool discarded = blocked && al_sensor_pm_burst_ttl > 0;
     int32_t burst_ttl = blocked ? 0 : al_sensor_pm_burst_ttl;
     if (blocked) {
       al_sensor_pm_burst_ttl = 0;
     }
     naos_unlock(al_sensor_pm_mutex);
 
+    // log a discarded burst
+    if (discarded && AL_SENSOR_PM_DEBUG) {
+      naos_log("al-pm: burst discarded suspended=%d want=%s", suspended, al_sensor_pm_mode_str(want));
+    }
+
     // reconcile measurement mode
     if ((want != al_sensor_pm_mode || (want == AL_SENSOR_PM_CYCLED && period != al_sensor_pm_period)) &&
         naos_millis() >= al_sensor_pm_retry_after) {
+      if (AL_SENSOR_PM_DEBUG) {
+        naos_log("al-pm: reconcile mode=%s want=%s period=%d", al_sensor_pm_mode_str(al_sensor_pm_mode),
+                 al_sensor_pm_mode_str(want), (int)period);
+      }
       if (al_sensor_pm_mode != AL_SENSOR_PM_IDLE) {
         al_sensor_pm_stop();
       }
@@ -322,9 +379,13 @@ static void al_sensor_pm_task() {
     if (al_sensor_pm_mode != AL_SENSOR_PM_IDLE) {
       al_sensor_pm_serve();
     } else if (burst_ttl > 0) {
+      if (AL_SENSOR_PM_DEBUG) {
+        naos_log("al-pm: burst executing ttl=%d", (int)burst_ttl);
+      }
       al_sensor_pm_start(AL_SENSOR_PM_CONTINUOUS, 0, burst_ttl);
       if (al_sensor_pm_mode != AL_SENSOR_PM_IDLE) {
         int64_t deadline = naos_millis() + AL_SENSOR_PM_BURST_TIME;
+        bool aborted = false;
         while (naos_millis() < deadline) {
           al_sensor_pm_serve();
           naos_delay(250);
@@ -332,10 +393,14 @@ static void al_sensor_pm_task() {
           bool abort = al_sensor_pm_suspended;
           naos_unlock(al_sensor_pm_mutex);
           if (abort) {
+            aborted = true;
             break;
           }
         }
         al_sensor_pm_stop();
+        if (AL_SENSOR_PM_DEBUG) {
+          naos_log("al-pm: burst finished aborted=%d", aborted);
+        }
       }
       naos_lock(al_sensor_pm_mutex);
       al_sensor_pm_burst_ttl = 0;
@@ -391,12 +456,15 @@ void al_sensor_pm_init(bool reset) {
   bmv080_get_driver_version(&major, &minor, &patch, git_hash, &commits);
   char id[13] = {0};
   bmv080_get_sensor_id(al_sensor_pm_handle, id);
-  naos_log("al-pm: chip=BMV080 driver=v%u.%u.%u id=%s", major, minor, patch, id);
+  naos_log("al-pm: chip=BMV080 addr=0x%02x driver=v%u.%u.%u id=%s", addr, major, minor, patch, id);
 
   // require a reset and settle if requested, or if a measurement may still
   // be running from before a reboot: the SDK tracks the measurement state per
   // handle and cannot stop measurements started by a previous boot
   al_sensor_pm_settle = reset || !al_sensor_pm_clean;
+  if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: init reset=%d clean=%d settle=%d", reset, al_sensor_pm_clean, al_sensor_pm_settle);
+  }
   if (!reset && !al_sensor_pm_clean) {
     naos_log("al-pm: forcing reset");
   }
@@ -420,10 +488,16 @@ void al_sensor_pm_run(int32_t period, int32_t ttl) {
 
   // request period
   naos_lock(al_sensor_pm_mutex);
+  bool changed = al_sensor_pm_want_period != period || al_sensor_pm_want_ttl != ttl;
   al_sensor_pm_want_period = period;
   al_sensor_pm_want_ttl = ttl;
   naos_unlock(al_sensor_pm_mutex);
   naos_trigger(al_sensor_pm_signal, 1, false);
+
+  // log request, the monitor re-applies the policy frequently
+  if (changed && AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: run period=%d ttl=%d", (int)period, (int)ttl);
+  }
 }
 
 void al_sensor_pm_burst(int32_t ttl) {
@@ -437,6 +511,11 @@ void al_sensor_pm_burst(int32_t ttl) {
   al_sensor_pm_burst_ttl = ttl;
   naos_unlock(al_sensor_pm_mutex);
   naos_trigger(al_sensor_pm_signal, 1, false);
+
+  // log request
+  if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: burst requested ttl=%d", (int)ttl);
+  }
 }
 
 void al_sensor_pm_flush() {
@@ -459,6 +538,7 @@ void al_sensor_pm_flush() {
     }
     naos_delay(100);
   }
+  naos_log("al-pm: flush timeout");
 }
 
 int32_t al_sensor_pm_age() {
@@ -508,6 +588,9 @@ void al_sensor_pm_sleep() {
   al_sensor_pm_suspended = true;
   naos_unlock(al_sensor_pm_mutex);
   naos_trigger(al_sensor_pm_signal, 1, false);
+  if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: suspending");
+  }
 
   // await an idle sensor, bounded in case the sensor persistently fails
   int64_t deadline = naos_millis() + 10000;
@@ -534,6 +617,9 @@ void al_sensor_pm_wake() {
   al_sensor_pm_suspended = false;
   naos_unlock(al_sensor_pm_mutex);
   naos_trigger(al_sensor_pm_signal, 1, false);
+  if (AL_SENSOR_PM_DEBUG) {
+    naos_log("al-pm: resuming");
+  }
 }
 
 void al_sensor_pm_config(al_sensor_pm_hook_t hook) {

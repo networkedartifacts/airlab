@@ -81,6 +81,9 @@ static void scr_wake_up(const char* reason) {
   // apply the main interval, which is the active interval while awake
   al_sensor_set_interval(naos_get_l("main-rate"));
 
+  // measure PM at the main rate while awake
+  al_sensor_set_pm_rate(naos_get_l("main-rate"), false);
+
   // start the radios
   com_start();
 }
@@ -220,8 +223,9 @@ static sig_event_t scr_idle_sleep() {
   al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_gas_grace(naos_get_l("gas-grace"));
 
-  // set PM rate, applied to cache refreshes while asleep
-  al_sensor_set_pm_rate(naos_get_l("pm-rate"));
+  // set PM rate in manual mode while dozing, so the sensor never runs on its
+  // own and measurements are taken below before sleeping
+  al_sensor_set_pm_rate(naos_get_l("pm-rate"), true);
 
   // check BLE and MQTT
   bool has_ble = naos_get_b("ble-prev-sleep") && naos_ble_connections() > 0;
@@ -250,8 +254,11 @@ static sig_event_t scr_idle_sleep() {
   // set sensor interval
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
 
-  // finish a due PM measurement and idle the sensor before sleeping
-  al_sensor_pm_prepare();
+  // finish a PM measurement before sleeping if one is due, the sensor itself
+  // is idled by the sleep
+  if (al_sensor_pm_due() == 0) {
+    al_sensor_pm_measure();
+  }
 
   // check for a key press that arrived while preparing, as a PM measurement
   // may have extended the wake by several seconds, and wake up instead of
@@ -271,7 +278,9 @@ static sig_event_t scr_idle_sleep() {
     display_interval = 300;
   }
 
-  // wake earlier if a PM measurement becomes due
+  // wake earlier if a PM measurement becomes due, as readings are only cached
+  // for twice the rate and would otherwise not cover the whole sleep, bounded
+  // to not wake up too often
   int32_t pm_due = al_sensor_pm_due();
   if (pm_due < display_interval) {
     display_interval = pm_due < 60 ? 60 : pm_due;
@@ -2874,7 +2883,7 @@ static void* scr_develop() {
   // prepare labels
   const char* labels[] = {
       "System Info",   "Self Check",   "Shipping Mode", "Sensor Data",  "Sleep Mode", "CPU Reset", "Power Off",
-      "Clear Display", "Test Bubbles", "Touch Info",    "Compensation", "Buzzer",     NULL,
+      "Clear Display", "Test Bubbles", "Touch Info",    "Compensation", "Buzzer",     "PM Sensor", NULL,
   };
 
   for (;;) {
@@ -3124,6 +3133,122 @@ static void* scr_develop() {
 
         break;
       }
+    }
+
+    // handle PM sensor
+    if (selected == 12) {
+      // skip if no chip was detected
+      if (!al_sensor_pm_present()) {
+        gui_message("No PM sensor detected!", SCR_MSG_TIMEOUT);
+        continue;
+      }
+
+      // prepare rates and mode, starting in manual mode so measurements are
+      // taken on request instead of by the sensor monitor
+      static const int32_t rates[] = {0, 30, 60};
+      size_t rate = 0;
+      bool manual = true;
+
+      // apply the rate and mode
+      al_sensor_set_pm_rate(rates[rate], manual);
+
+      // begin draw
+      gfx_begin(false, false);
+
+      // add label
+      lv_obj_t* label = lv_label_create(lv_scr_act());
+      lv_obj_align(label, LV_ALIGN_CENTER, 0, -20);
+      lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+      lv_obj_set_style_text_line_space(label, 6, LV_PART_MAIN);
+
+      // add signs
+      lvx_sign_t exit = {
+          .title = "B",
+          .text = "Exit",
+          .align = LV_ALIGN_BOTTOM_LEFT,
+      };
+      lvx_sign_t cycle = {
+          .title = "↓",
+          .text = "Rate",
+          .align = LV_ALIGN_BOTTOM_LEFT,
+          .offset = -25,
+      };
+      lvx_sign_t measure = {
+          .title = "A",
+          .text = "Measure",
+          .align = LV_ALIGN_BOTTOM_RIGHT,
+      };
+      lvx_sign_t mode = {
+          .title = ">",
+          .text = "Mode",
+          .align = LV_ALIGN_BOTTOM_RIGHT,
+          .offset = -25,
+      };
+      lvx_sign_create(&exit, lv_scr_act());
+      lvx_sign_create(&cycle, lv_scr_act());
+      lvx_sign_create(&measure, lv_scr_act());
+      lvx_sign_create(&mode, lv_scr_act());
+
+      // end draw
+      gfx_end(true, false);
+
+      for (;;) {
+        // read PM value of the last sample
+        float pm = al_sample_read(al_store_last(), AL_SAMPLE_PM);
+
+        // prepare texts
+        int32_t due = al_sensor_pm_due();
+        int32_t age = al_sensor_pm_age();
+        const char* pm_str = isnan(pm) ? "n/a" : lvx_fmt("%.1f µg/m3", pm);
+        const char* due_str = due == INT32_MAX ? "n/a" : lvx_fmt("%lds", due);
+        const char* age_str = age == INT32_MAX ? "n/a" : lvx_fmt("%lds", age);
+
+        // update label
+        gfx_begin(false, false);
+        lv_label_set_text(label, lvx_fmt("Rate: %lds (%s)\nDue: %s, Age: %s\nPM: %s", rates[rate],
+                                         manual ? "manual" : "auto", due_str, age_str, pm_str));
+        gfx_end(false, false);
+
+        // await event
+        sig_event_t event = sig_await(SIG_KEYS, 1000);
+
+        // handle events
+        if (event.type & SIG_ESCAPE) {
+          break;
+        } else if (event.type & SIG_ENTER) {
+          // reject in automatic mode, as the sensor monitor re-applies the
+          // rate and the burst would be discarded
+          if (!manual) {
+            gfx_begin(false, false);
+            lv_label_set_text(label, "Manual mode only!");
+            gfx_end(false, false);
+            naos_delay(1000);
+            continue;
+          }
+
+          // take a measurement, as done before deep sleep, which blocks for
+          // the burst duration
+          gfx_begin(false, false);
+          lv_label_set_text(label, "Measuring...");
+          gfx_end(false, false);
+          al_sensor_pm_measure();
+        } else if (event.type & (SIG_UP | SIG_DOWN)) {
+          rate++;
+          if (rate >= sizeof(rates) / sizeof(rates[0])) {
+            rate = 0;
+          }
+          al_sensor_set_pm_rate(rates[rate], manual);
+        } else if (event.type & (SIG_LEFT | SIG_RIGHT)) {
+          manual = !manual;
+          al_sensor_set_pm_rate(rates[rate], manual);
+        }
+      }
+
+      // cleanup
+      gui_cleanup(false);
+
+      // restore the awake rate, the screen is only reachable while awake
+      al_sensor_set_pm_rate(naos_get_l("main-rate"), false);
     }
   }
 }

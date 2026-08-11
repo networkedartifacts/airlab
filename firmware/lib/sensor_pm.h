@@ -31,6 +31,10 @@ al_sensor_pm_state_t al_sensor_pm_get();
 // exceed the 10s integration time
 #define AL_SENSOR_PM_CYCLE_MIN 30
 
+// the maximum duty cycling period, as readings are cached for twice the period
+// and should not be represented for more than 20 minutes
+#define AL_SENSOR_PM_CYCLE_MAX 600
+
 // request a duty cycled measurement with the given period in seconds, or an
 // idle sensor if zero, applied asynchronously, with the cache lifetime of
 // readings in seconds
@@ -44,10 +48,6 @@ void al_sensor_pm_burst(int32_t ttl);
 // awaits the application of the requested mode and completion of requested
 // bursts, bounded in case the sensor persistently fails
 void al_sensor_pm_flush();
-
-// returns the seconds since the last cached reading, or INT32_MAX if there is
-// none
-int32_t al_sensor_pm_age();
 
 // returns the cached PM2.5 sample value (ug/m3 shifted by 10) if the given
 // epoch (in milliseconds) falls within the cache lifetime, or -1 if no reading

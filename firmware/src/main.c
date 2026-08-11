@@ -68,9 +68,6 @@ static void setup() {
   // apply charger hi-Z mode
   al_power_hiz(naos_get_l("power-test") >= 1);
 
-  // set PM rate, which applies in both wake states
-  al_sensor_set_pm_rate(naos_get_l("pm-rate"));
-
   // determine reset
   bool reset = trigger == AL_RESET;
 
@@ -97,7 +94,7 @@ static naos_param_t params[] = {
     {.name = "main-rate", .type = NAOS_LONG, .default_l = 5, .func_l = main_rate, .skip_func_init = true},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
-    {.name = "pm-rate", .type = NAOS_LONG, .default_l = 0},  // PM measure rate while asleep (s, 0 = off)
+    {.name = "pm-rate", .type = NAOS_LONG, .default_l = 0},  // PM measurement rate while dozing (s, 0 = off)
     {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},
     {.name = "gas-window", .type = NAOS_LONG, .default_l = 0},  // SGP41 active window (s, 0 = continuous, <0 = off)
     {.name = "gas-grace",
