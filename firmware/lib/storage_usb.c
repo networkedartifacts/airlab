@@ -13,6 +13,13 @@
 #define AL_STORAGE_USB_VBUS_MONITOR_IO GPIO_NUM_18
 #define AL_STORAGE_USB_POLL 100
 
+// the USB descriptor and the SCSI inquiry describe the same device to different
+// layers, so both are derived from these values; SCSI concatenates vendor and
+// product, therefore the product must not repeat the vendor
+#define AL_STORAGE_USB_VENDOR "AIRLAB"
+#define AL_STORAGE_USB_PRODUCT "Storage"
+#define AL_STORAGE_USB_REVISION "1.0"
+
 static bool al_storage_usb_enabled = false;
 static bool al_storage_usb_ejected = false;
 static bool al_storage_usb_running = false;
@@ -43,8 +50,11 @@ static uint8_t const al_storage_usb_cfg_desc[] = {
     TUD_MSC_DESCRIPTOR(0, 4, 0x01, 0x81, 64),
 };
 
+static char al_storage_usb_serial[13] = {0};
+
 static char const *al_storage_usb_str_desc[] = {
-    (const char[]){0x09, 0x04}, "AIRLAB", "AIRLAB Storage", "PSRAM", "External Disk",
+    (const char[]){0x09, 0x04}, AL_STORAGE_USB_VENDOR, AL_STORAGE_USB_VENDOR " " AL_STORAGE_USB_PRODUCT,
+    al_storage_usb_serial,      "External Disk",
 };
 
 static uint16_t al_storage_usb_str_buf[32];
@@ -129,8 +139,19 @@ void al_storage_external_enable_usb(al_storage_eject_t eject) {
     al_storage_usb_signal = naos_signal();
   }
 
+  // copy the device ID as serial, as hosts cache device state per vendor,
+  // product and serial and would otherwise not tell two devices apart; the
+  // value is copied because the parameter store owns the returned pointer
+  const char *id = naos_get_s("device-id");
+  size_t len = strlen(id);
+  if (len > sizeof(al_storage_usb_serial) - 1) {
+    len = sizeof(al_storage_usb_serial) - 1;
+  }
+  memcpy(al_storage_usb_serial, id, len);
+  al_storage_usb_serial[len] = 0;
+
   // log enable
-  naos_log("al-sto: USB enabled");
+  naos_log("al-sto: USB enabled, serial=%s", al_storage_usb_serial);
 
   // hand storage to USB and bring up TinyUSB
   al_storage_external_prepare_usb(eject);
@@ -219,11 +240,22 @@ void tud_resume_cb(void) {}
 
 uint8_t tud_msc_get_maxlun_cb(void) { return 0; }
 
+_Static_assert(sizeof(AL_STORAGE_USB_VENDOR) - 1 <= 8, "USB vendor too long");
+_Static_assert(sizeof(AL_STORAGE_USB_PRODUCT) - 1 <= 16, "USB product too long");
+_Static_assert(sizeof(AL_STORAGE_USB_REVISION) - 1 <= 4, "USB revision too long");
+
 void tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], uint8_t product_rev[4]) {
   (void)lun;
-  memcpy(vendor_id, "AIRLAB  ", 8);
-  memcpy(product_id, "PSRAM Storage   ", 16);
-  memcpy(product_rev, "1.0 ", 4);
+
+  // pad fields, as SCSI expects fixed width values that are not terminated
+  memset(vendor_id, ' ', 8);
+  memset(product_id, ' ', 16);
+  memset(product_rev, ' ', 4);
+
+  // copy values
+  memcpy(vendor_id, AL_STORAGE_USB_VENDOR, sizeof(AL_STORAGE_USB_VENDOR) - 1);
+  memcpy(product_id, AL_STORAGE_USB_PRODUCT, sizeof(AL_STORAGE_USB_PRODUCT) - 1);
+  memcpy(product_rev, AL_STORAGE_USB_REVISION, sizeof(AL_STORAGE_USB_REVISION) - 1);
 }
 
 bool tud_msc_test_unit_ready_cb(uint8_t lun) {
