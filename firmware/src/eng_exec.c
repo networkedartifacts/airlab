@@ -915,7 +915,7 @@ static int eng_exec_op_i2c(wasm_exec_env_t env, int addr, uint8_t *tx, int tx_le
   }
 
   // perform transfer
-  esp_err_t err = al_i2c_transfer(addr, tx, tx_len, rx, rx_len, timeout);
+  esp_err_t err = al_i2c_transfer(addr, tx, tx_len, rx, rx_len, timeout, false);
 
   return err == ESP_OK ? 0 : -1;
 }

@@ -88,14 +88,14 @@ static int8_t al_sensor_pm_read(bmv080_sercom_handle_t sercom, uint16_t header, 
   uint8_t hdr[2] = {(uint8_t)(reg >> 8), (uint8_t)(reg & 0xff)};
 
   // write register address (terminated with a stop)
-  esp_err_t err = al_i2c_transfer(addr, hdr, 2, NULL, 0, AL_SENSOR_PM_TIMEOUT);
+  esp_err_t err = al_i2c_transfer(addr, hdr, 2, NULL, 0, AL_SENSOR_PM_TIMEOUT, false);
   if (err != ESP_OK) {
     return -1;
   }
 
   // read payload bytes in a separate transaction
   static uint8_t buf[AL_SENSOR_PM_MAX_WORDS * 2];
-  err = al_i2c_transfer(addr, NULL, 0, buf, (size_t)length * 2, AL_SENSOR_PM_TIMEOUT);
+  err = al_i2c_transfer(addr, NULL, 0, buf, (size_t)length * 2, AL_SENSOR_PM_TIMEOUT, false);
   if (err != ESP_OK) {
     return -1;
   }
@@ -132,7 +132,7 @@ static int8_t al_sensor_pm_write(bmv080_sercom_handle_t sercom, uint16_t header,
   }
 
   // write header and payload in one transaction
-  esp_err_t err = al_i2c_transfer(addr, buf, (size_t)2 + (size_t)length * 2, NULL, 0, AL_SENSOR_PM_TIMEOUT);
+  esp_err_t err = al_i2c_transfer(addr, buf, (size_t)2 + (size_t)length * 2, NULL, 0, AL_SENSOR_PM_TIMEOUT, false);
   if (err != ESP_OK) {
     return -1;
   }
@@ -467,7 +467,7 @@ void al_sensor_pm_init(bool reset) {
   uint8_t addr = 0;
   for (size_t i = 0; i < sizeof(al_sensor_pm_addrs); i++) {
     uint8_t byte = 0;
-    if (al_i2c_transfer(al_sensor_pm_addrs[i], NULL, 0, &byte, 1, AL_SENSOR_PM_TIMEOUT) == ESP_OK) {
+    if (al_i2c_transfer(al_sensor_pm_addrs[i], NULL, 0, &byte, 1, AL_SENSOR_PM_TIMEOUT, false) == ESP_OK) {
       addr = al_sensor_pm_addrs[i];
       break;
     }

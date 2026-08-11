@@ -79,8 +79,10 @@ void* al_calloc(size_t count, size_t size);
  * @param rx Pointer to the buffer to receive data or NULL.
  * @param rx_len Number of bytes to receive.
  * @param timeout Timeout in milliseconds.
+ * @param retry Whether failed transfers are retried a few times.
  * @return ESP_OK on success or an error code on failure.
  */
-esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout);
+esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout,
+                          bool retry);
 
 #endif  // AL_CORE_H

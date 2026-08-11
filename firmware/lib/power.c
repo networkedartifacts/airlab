@@ -110,7 +110,7 @@ static struct {
 
 static bool al_power_read(uint8_t reg, uint8_t *buf, size_t len) {
   // read data
-  esp_err_t err = al_i2c_transfer(AL_POWER_ADDR, &reg, 1, buf, len, 1000);
+  esp_err_t err = al_i2c_transfer(AL_POWER_ADDR, &reg, 1, buf, len, 1000, false);
   ESP_ERROR_CHECK_WITHOUT_ABORT(err);
 
   return err == ESP_OK;
@@ -119,7 +119,7 @@ static bool al_power_read(uint8_t reg, uint8_t *buf, size_t len) {
 static void al_power_write(uint8_t reg, uint8_t val, bool may_fail) {
   // write data
   uint8_t data[2] = {reg, val};
-  esp_err_t err = al_i2c_transfer(AL_POWER_ADDR, data, 2, NULL, 0, 1000);
+  esp_err_t err = al_i2c_transfer(AL_POWER_ADDR, data, 2, NULL, 0, 1000, !may_fail);
   if (may_fail) {
     ESP_ERROR_CHECK_WITHOUT_ABORT(err);
   } else {

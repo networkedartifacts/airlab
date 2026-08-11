@@ -18,12 +18,12 @@ static uint16_t al_accel_fxl_rot_map[] = {180, 0, 90, 270};
 static void al_accel_fxl_write(uint8_t reg, uint8_t val) {
   // write data
   uint8_t data[2] = {reg, val};
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_ACCEL_FXL_ADDR, data, 2, NULL, 0, 1000));
+  ESP_ERROR_CHECK(al_i2c_transfer(AL_ACCEL_FXL_ADDR, data, 2, NULL, 0, 1000, true));
 }
 
 static bool al_accel_fxl_read(uint8_t reg, uint8_t *val) {
   // read data
-  esp_err_t err = al_i2c_transfer(AL_ACCEL_FXL_ADDR, &reg, 1, val, 1, 1000);
+  esp_err_t err = al_i2c_transfer(AL_ACCEL_FXL_ADDR, &reg, 1, val, 1, 1000, true);
   ESP_ERROR_CHECK_WITHOUT_ABORT(err);
 
   return err == ESP_OK;
@@ -31,7 +31,7 @@ static bool al_accel_fxl_read(uint8_t reg, uint8_t *val) {
 
 static bool al_accel_fxl_probe(uint8_t reg, uint8_t *val) {
   // read data without logging errors
-  return al_i2c_transfer(AL_ACCEL_FXL_ADDR, &reg, 1, val, 1, 1000) == ESP_OK;
+  return al_i2c_transfer(AL_ACCEL_FXL_ADDR, &reg, 1, val, 1, 1000, false) == ESP_OK;
 }
 
 bool al_accel_fxl_detect() {

@@ -20,6 +20,10 @@
 
 #define AL_REBOOT_MAGIC 0x52454254  // "REBT"
 
+// total attempts and delay between them for retried I2C transfers
+#define AL_I2C_ATTEMPTS 4
+#define AL_I2C_RETRY_DELAY 10
+
 static naos_mutex_t al_i2c_mutex;
 static naos_auth_data_t al_auth_data = {0};
 static esp_sleep_wakeup_cause_t al_wakeup_cause_val;
@@ -214,18 +218,29 @@ al_trigger_t al_init() {
   return trigger;
 }
 
-esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout) {
+esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx, size_t rx_len, int timeout,
+                          bool retry) {
   // acquire mutex
   naos_lock(al_i2c_mutex);
 
-  // perform appropriate I2C transfer
+  // perform appropriate I2C transfer, retrying transient failures if requested:
+  // devices sometimes do not acknowledge a transfer at all, and the driver only
+  // resets its state machine after a few consecutive acknowledgement errors; the
+  // mutex is held across the attempts to not interleave a retried operation
   esp_err_t err;
-  if (tx_len > 0 && rx_len > 0) {
-    err = i2c_master_write_read_device(I2C_NUM_0, addr, tx, tx_len, rx, rx_len, pdMS_TO_TICKS(timeout));
-  } else if (tx_len > 0) {
-    err = i2c_master_write_to_device(I2C_NUM_0, addr, tx, tx_len, pdMS_TO_TICKS(timeout));
-  } else {
-    err = i2c_master_read_from_device(I2C_NUM_0, addr, rx, rx_len, pdMS_TO_TICKS(timeout));
+  for (int attempt = 0;; attempt++) {
+    if (tx_len > 0 && rx_len > 0) {
+      err = i2c_master_write_read_device(I2C_NUM_0, addr, tx, tx_len, rx, rx_len, pdMS_TO_TICKS(timeout));
+    } else if (tx_len > 0) {
+      err = i2c_master_write_to_device(I2C_NUM_0, addr, tx, tx_len, pdMS_TO_TICKS(timeout));
+    } else {
+      err = i2c_master_read_from_device(I2C_NUM_0, addr, rx, rx_len, pdMS_TO_TICKS(timeout));
+    }
+    if (err == ESP_OK || !retry || attempt >= AL_I2C_ATTEMPTS - 1) {
+      break;
+    }
+    naos_log("al-i2c: retry addr=0x%02X err=%d", addr, err);
+    naos_delay(AL_I2C_RETRY_DELAY);
   }
 
   // unlock mutex

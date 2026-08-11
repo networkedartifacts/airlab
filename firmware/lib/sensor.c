@@ -80,7 +80,7 @@ static float al_sensor_ramp(float curr, float target, float rate, float dt) {
 
 static al_sensor_hal_err_t al_sensor_transfer(uint8_t target, uint8_t *wd, size_t wl, uint8_t *rd, size_t rl) {
   // perform transfer
-  esp_err_t err = al_i2c_transfer(target, wd, wl, rd, rl, 1000);
+  esp_err_t err = al_i2c_transfer(target, wd, wl, rd, rl, 1000, false);
   if (err == ESP_ERR_TIMEOUT) {
     return AL_SENSOR_HAL_ERR_TIMEOUT;
   } else if (err != ESP_OK) {

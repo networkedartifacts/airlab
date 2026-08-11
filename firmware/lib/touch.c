@@ -21,7 +21,7 @@ static al_touch_hook_t al_touch_hook = NULL;
 static void al_touch_read(uint8_t reg, uint8_t *buf, size_t len) {
   // read data
   for (size_t i = 0; i < 15; i++) {
-    esp_err_t err = al_i2c_transfer(AL_TOUCH_ADDR, &reg, 1, buf, len, 1000);
+    esp_err_t err = al_i2c_transfer(AL_TOUCH_ADDR, &reg, 1, buf, len, 1000, false);
     if (err != ESP_FAIL) {
       ESP_ERROR_CHECK(err);
       return;
@@ -60,7 +60,7 @@ static void al_touch_write(uint8_t reg, const uint8_t *buf, size_t len) {
   }
 
   // read data
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_TOUCH_ADDR, data, 1 + len, NULL, 0, 1000));
+  ESP_ERROR_CHECK(al_i2c_transfer(AL_TOUCH_ADDR, data, 1 + len, NULL, 0, 1000, true));
 }
 
 static void al_touch_write8(uint8_t reg, uint8_t value) {

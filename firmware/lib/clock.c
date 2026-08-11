@@ -81,13 +81,13 @@ static struct {
 
 static void al_clock_read(uint8_t reg, uint8_t *buf, size_t read) {
   // write and read device
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, &reg, 1, buf, read, 1000));
+  ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, &reg, 1, buf, read, 1000, true));
 }
 
 static void al_clock_write(uint8_t reg, uint8_t val) {
   // write device
   uint8_t data[2] = {reg, val};
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, data, 2, NULL, 0, 1000));
+  ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, data, 2, NULL, 0, 1000, true));
 }
 
 static al_clock_state_t al_clock_get() {
