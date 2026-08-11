@@ -172,7 +172,6 @@ al_trigger_t al_init() {
   al_touch_init(reset);
   al_store_init();
   al_ulp_init(reset);
-  al_pm_init(reset);
   al_sensor_init(reset);
   al_storage_init();
 
@@ -255,7 +254,7 @@ al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
 
   // stop PM measurements before deep sleep
   if (deep) {
-    al_pm_sleep();
+    al_sensor_pm_sleep();
   }
 
   // sleep peripherals after all other I2C traffic
@@ -302,7 +301,7 @@ al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
 
   // wake peripherals
   al_touch_wake();
-  al_pm_wake();
+  al_sensor_pm_wake();
 
   return al_trigger();
 }
