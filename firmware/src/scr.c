@@ -293,7 +293,7 @@ static sig_event_t scr_idle_sleep() {
   }
 
   // sleep until next display refresh (no return)
-  al_sleep(true, true, display_interval * 1000);
+  al_sleep(true, display_interval * 1000);
 
   return (sig_event_t){
       .type = SIG_TIMEOUT,
@@ -2552,16 +2552,6 @@ static void* scr_check() {
     return scr_develop;
   }
 
-  // interrupt
-  int64_t start = naos_millis();
-  gui_write("Checking interrupts...", true);
-  al_sleep(false, false, 5 * 1000);
-  gui_cleanup(false);
-  if (naos_millis() - start < 4 * 1000) {
-    gui_message("Interrupt check failed!", SCR_MSG_TIMEOUT);
-    return scr_develop;
-  }
-
   // buttons
   gui_write("Press all buttons once...", false);
   sig_type_t pressed = 0;
@@ -2949,35 +2939,14 @@ static void* scr_develop() {
 
     // handle sleep
     if (selected == 4) {
-      // determine deep
-      bool deep = gui_confirm("Which sleep mode?", "Deep", "Light", false, 0);
-
       // log sleep
-      naos_log("sleeping... (deep=%d)", deep);
-
-      // set return
-      scr_return_unlock = scr_develop;
+      naos_log("sleeping...");
 
       // write message
-      if (deep) {
-        gui_write("Deep Sleeping...\nPress <A> to wake up.", true);
-      } else {
-        gui_write("Light Sleeping...\nPress <A> to wake up.", true);
-      }
+      gui_write("Deep Sleeping...\nPress <A> to wake up.", true);
 
-      // perform sleep, without the ULP to reach the static floor
-      al_trigger_t trigger = al_sleep(deep, false, 0);
-
-      // capture enter when unlocked
-      if (trigger == AL_BUTTON) {
-        sig_await(SIG_ENTER, 1000);
-      }
-
-      // clean up
-      gui_cleanup(false);
-
-      // log wakeup
-      naos_log("woke up!");
+      // perform sleep, without the ULP to reach the static floor (no return)
+      al_sleep(false, 0);
     }
 
     // handle power reset

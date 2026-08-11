@@ -646,22 +646,6 @@ void al_sensor_pm_sleep() {
   naos_log("al-pm: sleep timeout");
 }
 
-void al_sensor_pm_wake() {
-  // skip if no chip was detected
-  if (al_sensor_pm_handle == NULL) {
-    return;
-  }
-
-  // resume operation
-  naos_lock(al_sensor_pm_mutex);
-  al_sensor_pm_suspended = false;
-  naos_unlock(al_sensor_pm_mutex);
-  naos_trigger(al_sensor_pm_signal, 1, false);
-  if (AL_SENSOR_PM_DEBUG) {
-    naos_log("al-pm: resuming");
-  }
-}
-
 al_sensor_pm_state_t al_sensor_pm_get() {
   // capture state
   naos_lock(al_sensor_pm_mutex);

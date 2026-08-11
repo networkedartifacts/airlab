@@ -30,17 +30,15 @@ typedef enum {
 al_trigger_t al_init();
 
 /**
- * Puts the device into light/deep sleep for the specified timeout or indefinitely.
+ * Puts the device into deep sleep for the specified timeout or indefinitely.
+ * The function does not return.
  *
- * @note: Even if deep sleep is requested the device might choose to enter another
- * mode of sleep and just return from this function.
+ * @note: Shallow sleeping is handled transparently by automatic light sleep.
  *
- * @param deep Whether to enter deep sleep.
  * @param ulp Whether to start the ULP sensor program during deep sleep.
  * @param timeout The timeout in milliseconds or 0 for indefinite sleep.
- * @return The trigger that woke the device.
  */
-al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout);
+void al_sleep(bool ulp, uint64_t timeout);
 
 /**
  * Restarts the device via a minimal deep sleep. To be used as the naos reboot

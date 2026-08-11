@@ -376,14 +376,3 @@ void al_touch_sleep() {
   // unlock mutex
   naos_unlock(al_touch_mutex);
 }
-
-void al_touch_wake() {
-  // lock mutex
-  naos_lock(al_touch_mutex);
-
-  // exit low power mode
-  al_touch_read8(0x86);
-
-  // unlock mutex
-  naos_unlock(al_touch_mutex);
-}

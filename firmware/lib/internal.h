@@ -23,8 +23,8 @@
 #define AL_BUTTONS_E GPIO_NUM_9
 #define AL_BUTTONS_F GPIO_NUM_13
 
-// the sleep wakeup cause and EXT1 status latched at boot and after manual
-// light sleeps, as automatic light sleeps overwrite the live values
+// the sleep wakeup cause and EXT1 status latched at boot, as automatic light
+// sleeps overwrite the live values
 esp_sleep_wakeup_cause_t al_wakeup_cause();
 uint64_t al_wakeup_status();
 bool al_wakeup_reboot();
@@ -48,10 +48,8 @@ void al_power_check();
 float al_sensor_raw_temp();
 
 void al_sensor_pm_sleep();
-void al_sensor_pm_wake();
 
 void al_touch_sleep();
-void al_touch_wake();
 
 void al_ulp_stop();
 void al_ulp_start();

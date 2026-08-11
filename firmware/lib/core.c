@@ -32,8 +32,7 @@ static void al_wakeup_capture() {
   al_wakeup_cause_val = esp_sleep_get_wakeup_cause();
   al_wakeup_status_val = esp_sleep_get_ext1_wakeup_status();
 
-  // latch and clear a deep-sleep based reboot (see al_reboot); re-captures
-  // after manual light sleeps will find a cleared marker and reset the flag
+  // latch and clear a deep-sleep based reboot (see al_reboot)
   al_reboot_flag = al_reboot_marker == AL_REBOOT_MAGIC;
   al_reboot_marker = 0;
 }
@@ -78,11 +77,6 @@ static al_trigger_t al_trigger() {
     } else if ((status & BIT64(AL_INT_IN)) != 0) {
       return AL_INTERRUPT;
     }
-  }
-
-  // handle digital GPIO (light sleep interrupt line wakeup)
-  if (cause == ESP_SLEEP_WAKEUP_GPIO) {
-    return AL_INTERRUPT;
   }
 
   return AL_RESET;
@@ -240,21 +234,19 @@ esp_err_t al_i2c_transfer(uint8_t addr, uint8_t* tx, size_t tx_len, uint8_t* rx,
   return err;
 }
 
-al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
-  if (deep) {
-    // stop PM measurements first, as suspending the PM sensor also prevents
-    // the sensor monitor from starting a new measurement while we prepare to
-    // sleep, which would then have to be stopped again below
-    al_sensor_pm_sleep();
+void al_sleep(bool ulp, uint64_t timeout) {
+  // stop PM measurements first, as suspending the PM sensor also prevents the
+  // sensor monitor from starting a new measurement while we prepare to sleep,
+  // which would then have to be stopped again below
+  al_sensor_pm_sleep();
 
-    // prepare the sensor for the ULP handover, or turn it off entirely and
-    // sync the ULP memory if the ULP stays disabled
-    if (ulp) {
-      al_sensor_sleep();
-    } else {
-      al_sensor_off();
-      al_ulp_sync();
-    }
+  // prepare the sensor for the ULP handover, or turn it off entirely and sync
+  // the ULP memory if the ULP stays disabled
+  if (ulp) {
+    al_sensor_sleep();
+  } else {
+    al_sensor_off();
+    al_ulp_sync();
   }
 
   // sleep peripherals after all other I2C traffic
@@ -270,40 +262,21 @@ al_trigger_t al_sleep(bool deep, bool ulp, uint64_t timeout) {
     ESP_ERROR_CHECK(esp_sleep_enable_timer_wakeup(10 * 60 * 1000 * 1000));
   }
 
-  // prepare deep sleep
-  if (deep) {
-    // disable I2C access
-    naos_lock(al_i2c_mutex);
-    ESP_ERROR_CHECK(i2c_driver_delete(I2C_NUM_0));
-    ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
-    ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
+  // disable I2C access
+  naos_lock(al_i2c_mutex);
+  ESP_ERROR_CHECK(i2c_driver_delete(I2C_NUM_0));
+  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
+  ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
 
-    // start ULP program and enable its wake up, unless a floor sleep is
-    // requested that leaves the RTC domain unpowered
-    if (ulp) {
-      al_ulp_start();
-      ESP_ERROR_CHECK(esp_sleep_enable_ulp_wakeup());
-    }
+  // start ULP program and enable its wake up, unless a floor sleep is
+  // requested that leaves the RTC domain unpowered
+  if (ulp) {
+    al_ulp_start();
+    ESP_ERROR_CHECK(esp_sleep_enable_ulp_wakeup());
   }
 
-  // perform sleep
-  if (deep) {
-    esp_deep_sleep_start();
-  } else {
-    ESP_ERROR_CHECK(esp_light_sleep_start());
-  }
-
-  // re-latch the wakeup cause and status right away
-  al_wakeup_capture();
-
-  // disable deep sleep hold
-  gpio_deep_sleep_hold_dis();
-
-  // wake peripherals
-  al_touch_wake();
-  al_sensor_pm_wake();
-
-  return al_trigger();
+  // perform sleep (no return)
+  esp_deep_sleep_start();
 }
 
 void* al_alloc(size_t size) {
