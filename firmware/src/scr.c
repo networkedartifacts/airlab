@@ -54,6 +54,10 @@ DEV_KEEP static int32_t scr_screen_index = 0;
 static int64_t scr_screen_start = 0;
 static bool scr_auto_cycle = true;
 
+// The sample field selected by the user. It is shared by the menu and the view
+// screen, so that switching between them keeps the same field.
+static int8_t scr_field = 0;  // co2, tmp, hum, voc, nox, prs, pm
+
 // The device distinguishes two wake states. It dozes when it woke up on its
 // own to perform background work (refresh the display, take a measurement)
 // and returns to sleep right after, and it is awake when a user is present or
@@ -108,6 +112,31 @@ static const char* scr_field_str(al_sample_field_t field, float value) {
   }
 
   return lvx_fmt(scr_field_fmt[field], value);
+}
+
+static void scr_field_cycle(bool forward, bool has_pm) {
+  // determine last field (PM is only offered if available)
+  int8_t last = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
+
+  // cycle field
+  if (forward) {
+    scr_field++;
+    if (scr_field > last) {
+      scr_field = 0;
+    }
+  } else {
+    scr_field--;
+    if (scr_field < 0) {
+      scr_field = last;
+    }
+  }
+}
+
+static void scr_field_check(bool has_pm) {
+  // leave the PM field if it became unavailable
+  if (scr_field == AL_SAMPLE_PM && !has_pm) {
+    scr_field = 0;
+  }
 }
 
 static const char* scr_ms2str(int32_t ms) {
@@ -1393,7 +1422,6 @@ static void* scr_idle() {
 
 static void* scr_view() {
   // prepare variables
-  static int8_t field = 0;
   static bool precision = false;
 
   // allocate sample buffer
@@ -1557,18 +1585,15 @@ static void* scr_view() {
       }
     }
 
-    // determine PM availability and leave the PM field if it became
-    // unavailable; the live view offers the field already with a present chip
-    // before data has arrived, matching the menu
+    // determine PM availability; the live view offers the field already with a
+    // present chip before data has arrived, matching the menu
     bool has_pm = file == NULL && al_sensor_pm_present();
     for (size_t i = 0; i < num && !has_pm; i++) {
       if (samples[i].pm >= 0) {
         has_pm = true;
       }
     }
-    if (field == AL_SAMPLE_PM && !has_pm) {
-      field = 0;
-    }
+    scr_field_check(has_pm);
 
     // select current sample
     al_sample_t current = samples[index];
@@ -1590,10 +1615,10 @@ static void* scr_view() {
         bar.mark = marks[index] > 0 ? lvx_fmt("M%d", marks[index]) : "";
       }
     }
-    if (field == AL_SAMPLE_TMP) {
-      bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(current, field)));
+    if (scr_field == AL_SAMPLE_TMP) {
+      bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(current, scr_field)));
     } else {
-      bar.value = scr_field_str(field, al_sample_read(current, field));
+      bar.value = scr_field_str(scr_field, al_sample_read(current, scr_field));
     }
     lvx_bar_update(&bar);
 
@@ -1602,17 +1627,17 @@ static void* scr_view() {
 
     // prepare range
     float range = 100;  // hum
-    if (field == AL_SAMPLE_CO2) {
+    if (scr_field == AL_SAMPLE_CO2) {
       range = 3000;
-    } else if (field == AL_SAMPLE_TMP) {
+    } else if (scr_field == AL_SAMPLE_TMP) {
       range = fahrenheit ? 120 : 50;
-    } else if (field == AL_SAMPLE_VOC) {
+    } else if (scr_field == AL_SAMPLE_VOC) {
       range = 500;
-    } else if (field == AL_SAMPLE_NOX) {
+    } else if (scr_field == AL_SAMPLE_NOX) {
       range = 50;
-    } else if (field == AL_SAMPLE_PRS) {
+    } else if (scr_field == AL_SAMPLE_PRS) {
       range = 1500;
-    } else if (field == AL_SAMPLE_PM) {
+    } else if (scr_field == AL_SAMPLE_PM) {
       range = 50;
     }
 
@@ -1621,9 +1646,9 @@ static void* scr_view() {
     uint8_t flags[LVX_CHART_SIZE] = {0};
     for (size_t i = 0; i < num; i++) {
       al_sample_t sample = samples[i];
-      values[i] = al_sample_read(sample, field);
-      flags[i] = al_sample_flags(sample, field) != 0;
-      if (field == AL_SAMPLE_TMP && fahrenheit) {
+      values[i] = al_sample_read(sample, scr_field);
+      flags[i] = al_sample_flags(sample, scr_field) != 0;
+      if (scr_field == AL_SAMPLE_TMP && fahrenheit) {
         values[i] = scr_temp_convert(values[i]);
       }
       if (values[i] > range) {
@@ -1765,19 +1790,12 @@ static void* scr_view() {
       continue;
     }
 
-    // change mode on up/down, down advances like in lists (PM is only offered
-    // if available)
+    // change field on up/down, down advances like in lists
     if (event.type == SIG_DOWN) {
-      field++;
-      if (field > (has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS)) {
-        field = 0;
-      }
+      scr_field_cycle(true, has_pm);
       continue;
     } else if (event.type == SIG_UP) {
-      field--;
-      if (field < 0) {
-        field = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
-      }
+      scr_field_cycle(false, has_pm);
       continue;
     }
 
@@ -3232,8 +3250,7 @@ static void* scr_develop() {
 
 static void* scr_menu() {
   // prepare variables
-  static int8_t mode = 0;  // co2, tmp, hum, voc, nox, prs, pm
-  static int8_t opt = 0;   // create, explore, settings, usb, ble, plugins, develop
+  static int8_t opt = 0;  // create, explore, settings, usb, ble, plugins, develop
   static bool fan_alt = false;
 
   // get settings
@@ -3315,16 +3332,14 @@ static void* scr_menu() {
     // get last sample
     al_sample_t sample = al_store_last();
 
-    // determine PM availability and leave the PM mode if it became unavailable
+    // determine PM availability
     bool has_pm = al_sensor_pm_present() || sample.pm >= 0;
-    if (mode == AL_SAMPLE_PM && !has_pm) {
-      mode = 0;
-    }
+    scr_field_check(has_pm);
 
     // query sensor
     float values[SCR_HIST_POINTS] = {0};
     float min = 0, max = 0;
-    al_sample_pick(&source, (al_sample_field_t)mode, SCR_HIST_POINTS, values, &min, &max);
+    al_sample_pick(&source, (al_sample_field_t)scr_field, SCR_HIST_POINTS, values, &min, &max);
 
     // query statement
     if (statement == NULL && (urgent || fun)) {
@@ -3347,10 +3362,10 @@ static void* scr_menu() {
     if (!al_sample_valid(sample)) {
       bar.value = scr_trans()->menu__no_data;
     } else {
-      if (mode == AL_SAMPLE_TMP) {
-        bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(sample, mode)));
+      if (scr_field == AL_SAMPLE_TMP) {
+        bar.value = lvx_fmt(scr_temp_format(), scr_temp_convert(al_sample_read(sample, scr_field)));
       } else {
-        bar.value = scr_field_str(mode, al_sample_read(sample, mode));
+        bar.value = scr_field_str(scr_field, al_sample_read(sample, scr_field));
       }
     }
     lvx_bar_update(&bar);
@@ -3534,19 +3549,12 @@ static void* scr_menu() {
       return scr_menu;
     }
 
-    // change mode on up/down, down advances like in lists (PM is only offered
-    // if available)
+    // change field on up/down, down advances like in lists
     if (event.type == SIG_DOWN) {
-      mode++;
-      if (mode > (has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS)) {
-        mode = 0;
-      }
+      scr_field_cycle(true, has_pm);
       continue;
     } else if (event.type == SIG_UP) {
-      mode--;
-      if (mode < 0) {
-        mode = has_pm ? AL_SAMPLE_PM : AL_SAMPLE_PRS;
-      }
+      scr_field_cycle(false, has_pm);
       continue;
     }
 
