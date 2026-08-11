@@ -129,6 +129,9 @@ void al_storage_external_enable_usb(al_storage_eject_t eject) {
     al_storage_usb_signal = naos_signal();
   }
 
+  // log enable
+  naos_log("al-sto: USB enabled");
+
   // hand storage to USB and bring up TinyUSB
   al_storage_external_prepare_usb(eject);
   ESP_ERROR_CHECK(al_storage_usb_install_phy());
@@ -141,6 +144,10 @@ void al_storage_external_disable_usb(void) {
   if (!al_storage_usb_enabled) {
     return;
   }
+
+  // log disable, as the ejected flag tells a host eject apart from a user
+  // initiated exit
+  naos_log("al-sto: USB disabled, ejected=%d", al_storage_usb_ejected);
 
   // stop TinyUSB task and await its exit
   al_storage_usb_running = false;
@@ -199,9 +206,12 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
   return al_storage_usb_str_buf;
 }
 
-void tud_mount_cb(void) { naos_log("al-sto: USB mounted"); }
+// note that these report the bus level configuration state, not whether the
+// host has mounted the file system
 
-void tud_umount_cb(void) { naos_log("al-sto: USB unmounted"); }
+void tud_mount_cb(void) { naos_log("al-sto: USB configured"); }
+
+void tud_umount_cb(void) { naos_log("al-sto: USB deconfigured"); }
 
 void tud_suspend_cb(bool remote_wakeup_en) { (void)remote_wakeup_en; }
 
@@ -237,6 +247,9 @@ void tud_msc_capacity_cb(uint8_t lun, uint32_t *block_count, uint16_t *block_siz
 bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start, bool load_eject) {
   (void)lun;
   (void)power_condition;
+
+  // log request, as this is the primary eject signal on most hosts
+  naos_log("al-sto: USB start_stop start=%d eject=%d", start, load_eject);
 
   // propagate host eject requests to the application
   if (load_eject) {
