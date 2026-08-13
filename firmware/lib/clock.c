@@ -1,5 +1,7 @@
 #include <naos.h>
 #include <naos/sys.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/time.h>
 #include <time.h>
 #include <esp_err.h>
@@ -90,10 +92,7 @@ static void al_clock_write(uint8_t reg, uint8_t val) {
   ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, data, 2, NULL, 0, 1000, true));
 }
 
-static al_clock_state_t al_clock_get() {
-  // read RTC fully
-  al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
-
+static bool al_clock_decode(al_clock_state_t *state) {
   // convert BCD to DEC
   uint8_t seconds = al_clock_memory.seconds + (al_clock_memory.ten_seconds * 10);
   uint8_t minutes = al_clock_memory.minutes + (al_clock_memory.ten_minutes * 10);
@@ -103,33 +102,15 @@ static al_clock_state_t al_clock_get() {
   uint8_t month = al_clock_memory.months + (al_clock_memory.ten_months * 10);
   uint8_t year = al_clock_memory.years + (al_clock_memory.ten_years * 10);
 
-  // handle overflow
-  if (seconds >= 60) {
-    seconds = 30;
-  }
-  if (minutes >= 60) {
-    minutes = 30;
-  }
-  if (hours >= 24) {
-    hours = 12;
-  }
-  if (weekday >= 7) {
-    weekday = 3;
-  }
-  if (date >= 32) {
-    date = 15;
-  }
-  if (month >= 13) {
-    month = 6;
-  }
-  if (year >= 100) {
-    year = 24;
+  // reject out-of-range fields, so a corrupted read fails and gets re-read
+  // instead of fabricating a plausible time
+  if (seconds >= 60 || minutes >= 60 || hours >= 24 || weekday < 1 || weekday > 7 || date < 1 || date > 31 ||
+      month < 1 || month > 12 || year >= 100) {
+    return false;
   }
 
-  // log
-  naos_log("al-clk: get %02d:%02d:%02d %02d/%02d/%02d", hours, minutes, seconds, date, month, year);
-
-  return (al_clock_state_t){
+  // set state
+  *state = (al_clock_state_t){
       .hours = hours,
       .minutes = minutes,
       .seconds = seconds,
@@ -138,6 +119,50 @@ static al_clock_state_t al_clock_get() {
       .month = month,
       .year = 2000 + year,
   };
+
+  return true;
+}
+
+static al_clock_state_t al_clock_get() {
+  // read the RTC until two consecutive transfers agree and decode to a valid
+  // time: a transfer may straddle a second rollover, and a corrupted transfer
+  // has been seen to deliver an off-by-one hour
+  al_clock_state_t state;
+  bool valid = false;
+  al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
+  for (int i = 0; i < 5; i++) {
+    uint8_t last[sizeof(al_clock_memory)];
+    memcpy(last, &al_clock_memory, sizeof(last));
+    al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
+    if (memcmp(last, &al_clock_memory, sizeof(last)) == 0 && al_clock_decode(&state)) {
+      valid = true;
+      break;
+    }
+  }
+
+  // fall back to the system time if no valid time could be read, so a
+  // defective RTC degrades to free-running time instead of poisoning it
+  if (!valid) {
+    naos_log("al-clk: warning: no valid RTC time, using system time");
+    time_t t = time(NULL);
+    struct tm cal;
+    gmtime_r(&t, &cal);
+    state = (al_clock_state_t){
+        .hours = cal.tm_hour,
+        .minutes = cal.tm_min,
+        .seconds = cal.tm_sec,
+        .weekday = (uint8_t)(cal.tm_wday + 1),
+        .day = cal.tm_mday,
+        .month = cal.tm_mon + 1,
+        .year = cal.tm_year + 1900,
+    };
+  }
+
+  // log
+  naos_log("al-clk: get %02d:%02d:%02d %02d/%02d/%02d", state.hours, state.minutes, state.seconds, state.day,
+           state.month, state.year % 100);
+
+  return state;
 }
 
 static void al_clock_set(al_clock_state_t state) {
@@ -201,6 +226,21 @@ static time_t al_clock_timegm(int year, int mon, int day, int hour, int min, int
   return (time_t)seconds;
 }
 
+static time_t al_clock_build_time() {
+  // parse the compiler-provided __DATE__ ("Aug 13 2026") and __TIME__
+  // ("12:34:56") into an epoch, cached after the first call
+  static time_t cached = 0;
+  if (cached == 0) {
+    static const char months[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    const char mon[4] = {__DATE__[0], __DATE__[1], __DATE__[2], 0};
+    int month = (int)((strstr(months, mon) - months) / 3) + 1;
+    cached = al_clock_timegm(atoi(__DATE__ + 7), month, atoi(__DATE__ + 4), atoi(__TIME__), atoi(__TIME__ + 3),
+                             atoi(__TIME__ + 6));
+  }
+
+  return cached;
+}
+
 static int64_t al_clock_sync_wall_ms = 0;
 static int64_t al_clock_sync_mono_ms = 0;
 
@@ -246,10 +286,31 @@ void al_clock_init(bool reset) {
     al_clock_write(0x01, al_clock_memory.r1);
   }
 
-  // seed system time from RTC (stored as UTC)
+  // seed system time from RTC (stored as UTC), unless the RTC fell behind
+  // the system time, which survives deep sleep on the internal RTC counter
+  // and resets on power loss: a backwards step means the RTC misread or
+  // corrupted (an off-by-one hour has been seen), so keep the system time
+  // and mirror it back to heal the RTC. the tolerance covers the internal
+  // counter's RC-oscillator drift over the longest 600 s sleep
   time_t t = al_clock_timegm(state.year, state.month, state.day, state.hours, state.minutes, state.seconds);
-  struct timeval tv = {.tv_sec = t};
-  settimeofday(&tv, NULL);
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  if (t < al_clock_build_time()) {
+    // a time before the firmware build is impossible by construction: raise
+    // the system time to at least the build time and mirror it back
+    naos_log("al-clk: warning: RTC before build time, healing");
+    if (now.tv_sec < al_clock_build_time()) {
+      struct timeval tv = {.tv_sec = al_clock_build_time()};
+      settimeofday(&tv, NULL);
+    }
+    al_clock_update();
+  } else if (now.tv_sec - t > 120) {
+    naos_log("al-clk: warning: RTC fell %llds behind system time, healing", (int64_t)(now.tv_sec - t));
+    al_clock_update();
+  } else {
+    struct timeval tv = {.tv_sec = t};
+    settimeofday(&tv, NULL);
+  }
 
   // start background sync
   al_clock_sync_mark();
