@@ -589,6 +589,12 @@ int32_t al_sensor_pm_age() {
     return INT32_MAX;
   }
   int64_t age = (al_clock_get_epoch() - time) / 1000;
+  if (age < -5) {
+    // a cache stamp in the future means the clock stepped backwards; treat
+    // the cache as stale so the next due measurement restamps it, instead of
+    // stalling measurements until the clock catches back up to the stamp
+    return INT32_MAX;
+  }
   if (age < 0) {
     age = 0;
   } else if (age > INT32_MAX) {
