@@ -1372,24 +1372,14 @@ static void* scr_idle() {
     float nox_val = al_sample_read(sample, AL_SAMPLE_NOX);
     float pm_val = al_sample_read(sample, AL_SAMPLE_PM);
     bool has_pm = al_sensor_pm_present() || !isnan(pm_val);
+    lv_label_set_text(gas, isnan(voc_val) ? "n/a VOC" : lvx_fmt("%.0f VOC", voc_val));
+    lv_label_set_text(pm, isnan(nox_val) ? "n/a NOX" : lvx_fmt("%.0f NOX", nox_val));
     if (has_pm) {
-      // combine VOC and NOx into one line to make room for PM
-      char voc_str[8] = "n/a";
-      char nox_str[8] = "n/a";
-      if (!isnan(voc_val)) {
-        snprintf(voc_str, sizeof(voc_str), "%.0f", voc_val);
-      }
-      if (!isnan(nox_val)) {
-        snprintf(nox_str, sizeof(nox_str), "%.0f", nox_val);
-      }
-      lv_label_set_text(gas, lvx_fmt("%s/%s VOC/NOX", voc_str, nox_str));
-      lv_label_set_text(pm, isnan(pm_val) ? "n/a PM" : lvx_fmt("%.1f µg/m3 PM", pm_val));
+      // with PM, show it in place of the pressure
+      lv_label_set_text(prs, isnan(pm_val) ? "n/a PM" : lvx_fmt("%.1f µg/m3 PM", pm_val));
     } else {
-      // without PM, keep VOC and NOx on separate lines
-      lv_label_set_text(gas, isnan(voc_val) ? "n/a VOC" : lvx_fmt("%.0f VOC", voc_val));
-      lv_label_set_text(pm, isnan(nox_val) ? "n/a NOX" : lvx_fmt("%.0f NOX", nox_val));
+      lv_label_set_text(prs, lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SAMPLE_PRS)));
     }
-    lv_label_set_text(prs, lvx_fmt("%.0f hPa", al_sample_read(sample, AL_SAMPLE_PRS)));
 
     // align objects
     if (vertical) {
