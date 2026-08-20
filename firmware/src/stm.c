@@ -1,6 +1,7 @@
 #include <esp_random.h>
 #include <math.h>
 
+#include <al/sensor.h>
 #include <al/store.h>
 
 #include "stm.h"
@@ -257,6 +258,34 @@ stm_entry_t stm_entries[] = {
         .text_es = "Atención, demasiado NOx! Te recomiendo ventilar!",
         .mood = STM_ANGRY1,
     },
+    {
+        .urgent = true,
+        .pm_min = 25,
+        .pm_max = 55,
+        .needs_pm = true,
+        .text_de = "Hier ist es ganz schön staubig!",
+        .text_en = "It's quite dusty in here!",
+        .text_es = "Está bastante polvoriento aquí!",
+        .mood = STM_STANDING,
+    },
+    {
+        .urgent = true,
+        .pm_min = 55,
+        .needs_pm = true,
+        .text_de = "Achtung, sehr viel Feinstaub in der Luft!",
+        .text_en = "Warning, a lot of fine dust in the air!",
+        .text_es = "Atención, mucho polvo fino en el aire!",
+        .mood = STM_ANGRY1,
+    },
+    {
+        .urgent = true,
+        .pm_min = 150,
+        .needs_pm = true,
+        .text_de = "Hust, hust... hier ist es ja richtig rauchig!",
+        .text_en = "Cough, cough... it's really smoky in here!",
+        .text_es = "Cof, cof... hay mucho humo aquí!",
+        .mood = STM_COLD,
+    },
     /* Good Conditions */
     {
         .urgent = true,
@@ -299,6 +328,14 @@ stm_entry_t stm_entries[] = {
         .text_de = "Kaum Stickoxide, die Luft ist sauber!",
         .text_en = "Hardly any NOx, the air is clean!",
         .text_es = "Casi no hay NOx, el aire está limpio!",
+        .mood = STM_HAPPY,
+    },
+    {
+        .pm_max = 10,
+        .needs_pm = true,
+        .text_de = "Kaum Feinstaub, die Luft ist klar!",
+        .text_en = "Hardly any fine dust, the air is clear!",
+        .text_es = "Casi no hay polvo fino, el aire está limpio!",
         .mood = STM_HAPPY,
     },
     /* Air Facts */
@@ -422,11 +459,74 @@ stm_entry_t stm_entries[] = {
         .text_es = "Nuevos muebles pueden emitir VOCs, mejor ventilar bien!",
         .mood = STM_POINTING,
     },
+    {
+        .needs_pm = true,
+        .text_de = "PM2.5-Partikel sind 30-mal dünner als ein menschliches Haar!",
+        .text_en = "PM2.5 particles are 30 times thinner than a human hair!",
+        .text_es = "Las partículas PM2.5 son 30 veces más finas que un cabello!",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Feinstaub entsteht beim Kochen, durch Kerzen und im Verkehr.",
+        .text_en = "Fine dust comes from cooking, candles and traffic.",
+        .text_es = "El polvo fino viene de cocinar, velas y el tráfico.",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Feinstaub kann tief in die Lunge eindringen.",
+        .text_en = "Fine dust can penetrate deep into the lungs.",
+        .text_es = "El polvo fino puede entrar profundo en los pulmones.",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Feinstaub wird mit gestreutem Laserlicht gemessen.",
+        .text_en = "Fine dust is measured with scattered laser light.",
+        .text_es = "El polvo fino se mide con luz láser dispersada.",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "PM2.5 sind Teilchen kleiner als 2.5 Mikrometer.",
+        .text_en = "PM2.5 means particles smaller than 2.5 micrometers.",
+        .text_es = "PM2.5 son partículas más pequeñas que 2.5 micrómetros.",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Regen wäscht den Feinstaub aus der Luft!",
+        .text_en = "Rain washes fine dust out of the air!",
+        .text_es = "La lluvia lava el polvo fino del aire!",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Saharastaub fliegt manchmal tausende Kilometer weit!",
+        .text_en = "Sahara dust sometimes travels thousands of kilometers!",
+        .text_es = "El polvo del Sahara a veces viaja miles de kilómetros!",
+        .mood = STM_POINTING,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Auch Pollen und Meersalz schweben als Partikel in der Luft.",
+        .text_en = "Pollen and sea salt also float in the air as particles.",
+        .text_es = "Polen y sal marina también flotan en el aire como partículas.",
+        .mood = STM_POINTING,
+    },
     /* Exercise Prompts */
     {
         .text_de = "Öffne das Fenster und schau, wie sich die Luft verändert!",
         .text_en = "Try opening the window and see how the air changes!",
         .text_es = "Intenta abriendo la ventana y observa los cambios el aire!",
+        .mood = STM_HAPPY,
+    },
+    {
+        .needs_pm = true,
+        .text_de = "Beobachte den Feinstaub-Wert beim Kochen!",
+        .text_en = "Watch the fine dust value while cooking!",
+        .text_es = "Observa el valor del polvo fino mientras cocinas!",
         .mood = STM_HAPPY,
     },
 };
@@ -454,6 +554,11 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
   float hum = al_sample_read(sample, AL_SAMPLE_HUM);
   float voc = al_sample_read(sample, AL_SAMPLE_VOC);
   float nox = al_sample_read(sample, AL_SAMPLE_NOX);
+  float pm = al_sample_read(sample, AL_SAMPLE_PM);
+
+  // treat PM readings without an installed sensor or with an obstruction as unavailable
+  bool has_pm = al_sensor_pm_present();
+  bool pm_ok = has_pm && !isnan(pm) && (al_sample_flags(sample, AL_SAMPLE_PM) & AL_SAMPLE_PM_OBSTRUCTED) == 0;
 
   // de/select and count entries
   int selected = 0;
@@ -522,6 +627,22 @@ stm_entry_t* stm_query(bool urgent, stm_action_t action) {
       continue;
     }
     if (entry->nox_max != 0 && (!ok || isnan(nox) || nox > entry->nox_max)) {
+      entry->selected = false;
+      continue;
+    }
+
+    // check PM sensor requirement
+    if (entry->needs_pm && !has_pm) {
+      entry->selected = false;
+      continue;
+    }
+
+    // check PM (no sensor, no reading or obstruction means unavailable)
+    if (entry->pm_min != 0 && (!ok || !pm_ok || pm < entry->pm_min)) {
+      entry->selected = false;
+      continue;
+    }
+    if (entry->pm_max != 0 && (!ok || !pm_ok || pm > entry->pm_max)) {
       entry->selected = false;
       continue;
     }

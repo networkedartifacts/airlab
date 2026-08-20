@@ -39,6 +39,9 @@ typedef struct {
   float voc_max;
   float nox_min;
   float nox_max;
+  float pm_min;
+  float pm_max;
+  bool needs_pm;
   const char *text_de;
   const char *text_en;
   const char *text_es;
