@@ -45,6 +45,7 @@ typedef struct {
   const char *text_de;
   const char *text_en;
   const char *text_es;
+  const char *text_fr;
   stm_mood_t mood;
   // ---
   bool selected;

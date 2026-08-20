@@ -360,12 +360,14 @@ typedef enum {
   SCR_DE,
   SCR_EN,
   SCR_ES,
+  SCR_FR,
 } scr_lang_t;
 
 static const char* scr_lang_str[] = {
     [SCR_DE] = "Deutsch",
     [SCR_EN] = "English",
     [SCR_ES] = "Español",
+    [SCR_FR] = "Français",
 };
 
 scr_lang_t scr_lang() {
@@ -377,6 +379,8 @@ scr_lang_t scr_lang() {
     return SCR_DE;
   } else if (strcmp(lang, "es") == 0) {
     return SCR_ES;
+  } else if (strcmp(lang, "fr") == 0) {
+    return SCR_FR;
   }
   return SCR_EN;
 }
@@ -764,6 +768,103 @@ static const scr_trans_t scr_trans_map[] = {
             .engine__empty = "No plugins installed.",
             .engine__run = "Run",
         },
+    [SCR_FR] =
+        {
+            .yes = "Oui",
+            .no = "Non",
+            .on = "Activé",
+            .off = "Désactivé",
+            .back = "Retour",
+            .next = "Suivant",
+            .change = "Modifier",
+            .save = "Enregistrer",
+            .cancel = "Annuler",
+            .execute = "Exécuter",
+            .measurement = "Mesure %u",
+            .recording = "Mesure en cours!",
+            .exit__stop = "Arrêter la mesure",
+            .exit__back = "Retour au labo",
+            .exit__stopped = "%s\n arrêtée!",
+            .view__not_enough = "Pas assez de données\npour le mode précision.",
+            .create__full = "Mémoire pleine!",
+            .create__info = "Mesure %u\n%d heures disponibles",
+            .create__start = "Démarrer",
+            .create__import = "Veux-tu importer les données\ndu suivi en direct?",
+            .create__importing = "Importation des données...",
+            .create__imported = "Importation réussie!",
+            .delete__confirm = "Vraiment supprimer %s?",
+            .delete__delete = "Supprimer",
+            .delete__deleted = "Mesure %d supprimée!",
+            .edit__analyse = "Analyser",
+            .edit__delete = "Supprimer",
+            .edit__export = "Exporter CSV",
+            .edit__exporting = "Exportation des données...",
+            .edit__export_fail = "Échec de l'exportation!",
+            .edit__export_done = "Exportation terminée!",
+            .explore__empty = "Aucune mesure enregistrée.",
+            .explore__create = "Créer une nouvelle mesure",
+            .explore__select = "Sélectionner",
+            .usb__disconnected = "USB non connecté!",
+            .usb__active = "Volume USB actif",
+            .usb__eject = "Volume USB éjecté",
+            .ble__active = "Appairage Bluetooth actif\n\nNom: %.16s",
+            .reset__confirm = "Réinitialiser l'Air Lab?",
+            .reset__reset = "Air Lab\nréinitialisé avec succès!",
+            .settings__title = "Réglages",
+            .settings__about = "À propos",
+            .settings__config = "Configuration",
+            .settings__off = "Éteindre",
+            .settings__regulatory = "Réglementation",
+            .settings__introduction = "Introduction",
+            .about__device_name = "Nom de l'appareil",
+            .about__serial_number = "Numéro de série",
+            .about__firmware_version = "Version FW",
+            .about__internal_storage = "Stockage int.",
+            .about__external_storage = "Stockage ext.",
+            .config__language = "Langue",
+            .config__date = "Date",
+            .config__time = "Heure",
+            .config__timezone = "Fuseau horaire",
+            .config__sleep_rate = "Échant. en veille",
+            .config__record_rate = "Échant. en mesure",
+            .config__long_interval = "Intervalle long terme",
+            .config__temp_unit = "Unité de température",
+            .config__developer = "Mode développeur",
+            .config__power_light = "Voyant d'alimentation",
+            .config__co2_light = "Voyant CO2",
+            .config__wifi_network = "Réseau WiFi",
+            .config__studio = "Utilise Air Lab Console\npour changer cette valeur.",
+            .config__ble_prev_sleep = "BLE Prevent Sleep",
+            .config__mqtt_prev_sleep = "MQTT Prevent Sleep",
+            .config__ble_pairing = "Appairage Bluetooth",
+            .config__ble_bonding = "Liaison Bluetooth",
+            .config__ble_clear = "Effacer appareils BT",
+            .config__ble_cleared = "Appareils effacés!",
+            .config__altitude = "Altitude s/mer",
+            .config__clock_cal = "Étalonnage horloge",
+            .config__reset = "Réinit. complète",
+            .menu__no_data = "Aucune donnée",
+            .intro__hello1 = "Salut! Je suis Professeur Robin,\nchef scientifique de l'Air Lab.",
+            .intro__hello2 = "Je me suis assoupi un moment...\nPeux-tu me donner l'heure?",
+            .intro__watch = "Ma montre indique %d:%02d\nle %d-%02d-%02d, c'est juste?",
+            .intro__correct = "Exact!",
+            .intro__adjust = "<Ajuster>",
+            .intro__test = "Merci! As-tu besoin d'un\npetit rappel sur les paramètres\nde qualité de l'air?",
+            .intro__infos =
+                {
+                    "- CO2 -\nLe dioxyde de carbone se mesure\nen parties par million (PPM).",
+                    "- CO2 -\nEn intérieur, essaie de rester\nsous 1500 ppm en aérant\nrégulièrement.",
+                    "- VOC -\nLes composés organiques\nvolatils sont émis par des\nproduits comme les peintures.",
+                    "- VOC -\n100 est la moyenne des\ndernières 24h. Des écarts\nindiquent des changements.",
+                    "- NOx -\nLes oxydes d'azote sont des\ngaz issus de la combustion\n(p. ex. les voitures).",
+                    "- NOx -\n1 est la moyenne des dernières\n24h. Des valeurs plus hautes\nindiquent des changements.",
+                    "C'est tout pour le moment!\nPour en savoir plus:"
+                    "\nnetworkedartifacts.com\n/manuals/airlab/air-parameters",
+                },
+            .intro__end = "Allez, direction le labo!",
+            .engine__empty = "Aucun plugin installé.",
+            .engine__run = "Lancer",
+        },
 };
 
 static const scr_trans_t* scr_trans() {
@@ -998,6 +1099,9 @@ static void* scr_bubbles() {
         break;
       case SCR_ES:
         bubble.text = stm_get(index)->text_es;
+        break;
+      case SCR_FR:
+        bubble.text = stm_get(index)->text_fr;
     }
 
     // update bubble
@@ -2358,12 +2462,14 @@ static void* scr_config() {
     // handle choice
     switch (choice) {
       case 0: {
-        // toggle language between en and de
+        // cycle through the available languages
         scr_lang_t lang = scr_lang();
         if (lang == SCR_DE) {
           naos_set_s("language", "en");
         } else if (lang == SCR_EN) {
           naos_set_s("language", "es");
+        } else if (lang == SCR_ES) {
+          naos_set_s("language", "fr");
         } else {
           naos_set_s("language", "de");
         }
@@ -3459,6 +3565,9 @@ static void* scr_menu() {
       case SCR_ES:
         bubble.text = statement ? statement->text_es : NULL;
         break;
+      case SCR_FR:
+        bubble.text = statement ? statement->text_fr : NULL;
+        break;
     }
 
     // update bubble
@@ -3533,7 +3642,7 @@ static void* scr_menu() {
     }
 
     // enter idle screen on escape
-    if (event.type & (SIG_ESCAPE|SIG_IDLE)) {
+    if (event.type & (SIG_ESCAPE | SIG_IDLE)) {
       // cleanup
       gui_cleanup(false);
 
