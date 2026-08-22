@@ -5,6 +5,9 @@ on:
     branches: ["**"]
     tags: ["firmware/v*"]
 
+env:
+  NAOS_VERSION: v0.16.0
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,13 +24,13 @@ jobs:
           path: firmware/sdk/bmv080
       - name: Install naos
         run: |
-          curl -L -o /usr/local/bin/naos https://github.com/256dpi/naos/releases/download/v0.15.0/naos-linux-amd64
+          curl -L -o /usr/local/bin/naos https://github.com/256dpi/naos/releases/download/${{ env.NAOS_VERSION }}/naos-linux-amd64
           chmod +x /usr/local/bin/naos
       - name: Cache SDK
         uses: actions/cache@v4
         with:
           path: ~/.naos
-          key: naos-${{ hashFiles('firmware/naos.json') }}
+          key: naos-${{ env.NAOS_VERSION }}-${{ hashFiles('firmware/naos.json') }}
       - name: Install SDK
         run: naos install
       - name: Verify BMV080 SDK
