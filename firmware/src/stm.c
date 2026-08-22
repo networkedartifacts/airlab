@@ -417,7 +417,7 @@ stm_entry_t stm_entries[] = {
         .text_de = "Achtung! Luftschad- stoffe können dich krank machen!",
         .text_en = "Attention! Air pollutants can make you sick!",
         .text_es = "Atención! Los contaminantes del aire pueden enfermarte!",
-        .text_fr = "Attention! Les polluants de l'air peuvent te rendre malade!",
+        .text_fr = "Attention! L'air pollué peut te rendre malade!",
         .mood = STM_POINTING,
     },
     {
@@ -486,15 +486,15 @@ stm_entry_t stm_entries[] = {
     {
         .text_de = "VOC sind flüchtige organische Verbind- ungen, oft von Farben.",
         .text_en = "VOCs are volatile organic compounds, often from paints.",
-        .text_es = "VOCs son compuestos orgánicos volátiles, a menudo de pinturas.",
-        .text_fr = "Les VOC sont des composés volatils, issus p.ex. des peintures.",
+        .text_es = "VOCs son compuestos volátiles, a menudo de pinturas.",
+        .text_fr = "Les VOC sont des composés volatils, p.ex. des peintures.",
         .mood = STM_POINTING,
     },
     {
         .text_de = "Stickoxide (NOx) stammen oft aus Verbrennung.",
         .text_en = "Nitrogen oxides (NOx) often come from combustion.",
         .text_es = "Los óxidos de nitrógeno (NOx) vienen de la combustión.",
-        .text_fr = "Les oxydes d'azote (NOx) proviennent souvent de la combustion.",
+        .text_fr = "Les oxydes d'azote (NOx) viennent de la combustion.",
         .mood = STM_POINTING,
     },
     {
@@ -538,7 +538,7 @@ stm_entry_t stm_entries[] = {
         .needs_pm = true,
         .text_de = "Feinstaub kann tief in die Lunge eindringen.",
         .text_en = "Fine dust can penetrate deep into the lungs.",
-        .text_es = "Las partículas finas pueden entrar profundo en los pulmones.",
+        .text_es = "El polvo fino puede entrar profundo en los pulmones.",
         .text_fr = "Les particules fines peuvent pénétrer au fond des poumons.",
         .mood = STM_POINTING,
     },
@@ -569,9 +569,9 @@ stm_entry_t stm_entries[] = {
     {
         .needs_pm = true,
         .text_de = "Saharastaub fliegt manchmal tausende Kilometer weit!",
-        .text_en = "Sahara dust sometimes travels thousands of kilometers!",
+        .text_en = "Sahara dust sometimes travels thousands of km!",
         .text_es = "El polvo del Sahara a veces viaja miles de kilómetros!",
-        .text_fr = "La poussière du Sahara parcourt parfois des milliers de km!",
+        .text_fr = "La poussière du Sahara parcourt des milliers de km!",
         .mood = STM_POINTING,
     },
     {

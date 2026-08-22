@@ -475,7 +475,7 @@ typedef struct {
 static const scr_trans_t scr_trans_map[] = {
     [SCR_ES] =
         {
-            .yes = "Si",
+            .yes = "Sí",
             .no = "No",
             .on = "Encendido",
             .off = "Apagado",
