@@ -1,5 +1,6 @@
 #include <naos.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <math.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -150,7 +151,7 @@ void dat_init() {
 
     // log file
     if (DAT_DEBUG) {
-      naos_log("dat: add num=%u start=%lld size=%zu stop=%d marks=%d ", file.head.num, file.head.start, file.size,
+      naos_log("dat: add num=%u start=%" PRId64 " size=%zu stop=%d marks=%d ", file.head.num, file.head.start, file.size,
                file.stop, file.marks);
     }
 
@@ -215,7 +216,7 @@ uint16_t dat_create(int64_t start) {
 
   // log
   if (DAT_DEBUG) {
-    naos_log("dat: create num=%u start=%lld", head.num, head.start);
+    naos_log("dat: create num=%u start=%" PRId64, head.num, head.start);
   }
 
   // encode name
@@ -510,7 +511,7 @@ bool dat_export(uint16_t num, dat_progress_t progress) {
       }
 
       // append line to buffer
-      buf_pos += snprintf(buffer + buf_pos, DAT_EXPORT_BUF - buf_pos, "%lld,%.0f,%.2f,%.2f,%s,%s,%.0f,%s\n",
+      buf_pos += snprintf(buffer + buf_pos, DAT_EXPORT_BUF - buf_pos, "%" PRId64 ",%.0f,%.2f,%.2f,%s,%s,%.0f,%s\n",
                           file->head.start + (int64_t)samples[j].off, al_sample_read(samples[j], AL_SAMPLE_CO2),
                           al_sample_read(samples[j], AL_SAMPLE_TMP), al_sample_read(samples[j], AL_SAMPLE_HUM), voc_str,
                           nox_str, al_sample_read(samples[j], AL_SAMPLE_PRS), pm_str);
