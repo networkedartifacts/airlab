@@ -13,13 +13,12 @@ jobs:
         working-directory: firmware
     steps:
       - uses: actions/checkout@v4
-      # TODO: enable once the airlab-bmv080 repository and deploy key exist
-      # - name: Install BMV080 SDK
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: networkedartifacts/airlab-bmv080
-      #     ssh-key: ${{ secrets.BMV080_DEPLOY_KEY }}
-      #     path: firmware/sdk/bmv080
+      - name: Install BMV080 SDK
+        uses: actions/checkout@v4
+        with:
+          repository: networkedartifacts/airlab-bmv080
+          ssh-key: ${{ secrets.BMV080_DEPLOY_KEY }}
+          path: firmware/sdk/bmv080
       - name: Install naos
         run: |
           curl -L -o /usr/local/bin/naos https://github.com/256dpi/naos/releases/download/v0.15.0/naos-linux-amd64
