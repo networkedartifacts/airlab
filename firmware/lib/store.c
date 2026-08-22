@@ -38,6 +38,9 @@ static size_t al_store_index(al_store_t store, int num) {
   if (num < 0) {
     num = count + num;
   }
+  if (num < 0) {
+    num = 0;
+  }
   if (num >= count) {
     num = count - 1;
   }
@@ -256,12 +259,17 @@ static void al_store_source_read(void *ctx, al_sample_t *samples, size_t num, si
   // get first sample
   al_sample_t first = al_store_first();
 
-  // get long count
+  // get counts
   int count_long = (int)al_store_count(AL_STORE_LONG);
+  int count_short = (int)al_store_count(AL_STORE_SHORT);
 
   // read samples
   for (size_t i = 0; i < num; i++) {
+    // negative offsets address samples from the end
     int index = (int)(offset + i);
+    if (index < 0) {
+      index += count_long + count_short;
+    }
     if (index < count_long) {
       samples[i] = al_store_get(AL_STORE_LONG, index);
     } else {
