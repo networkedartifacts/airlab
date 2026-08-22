@@ -4,6 +4,7 @@
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <driver/i2c.h>
+#include <esp_rom_sys.h>
 #include <esp_sleep.h>
 #include <esp_pm.h>
 
@@ -87,6 +88,48 @@ static void al_int_signal() {
   naos_defer_isr("al-int", al_int_task);
 }
 
+static void al_i2c_clear_bus() {
+  // NOTE: once migrated to the new I2C driver (driver/i2c_master.h), this
+  // routine can be replaced by the public i2c_master_bus_reset(); the legacy
+  // driver only clears the bus internally after failed transfers
+
+  // drive SCL open-drain high and sample SDA through the external pull-ups
+  gpio_config_t scl = {
+      .pin_bit_mask = BIT64(GPIO_NUM_2),
+      .mode = GPIO_MODE_OUTPUT_OD,
+  };
+  ESP_ERROR_CHECK(gpio_config(&scl));
+  ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 1));
+  gpio_config_t sda = {
+      .pin_bit_mask = BIT64(GPIO_NUM_1),
+      .mode = GPIO_MODE_INPUT_OUTPUT_OD,
+  };
+  ESP_ERROR_CHECK(gpio_config(&sda));
+  ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_1, 1));
+
+  // skip if the bus is idle
+  if (gpio_get_level(GPIO_NUM_1)) {
+    return;
+  }
+
+  // a slave halted mid-transaction holds SDA low until it is clocked through
+  // its remaining bits and sees a STOP: clock out up to nine pending bits
+  // (I2C-bus specification 3.1.16) at the 100 kHz bus speed
+  naos_log("al-i2c: SDA held low, clearing bus");
+  for (int i = 0; i < 9 && !gpio_get_level(GPIO_NUM_1); i++) {
+    gpio_set_level(GPIO_NUM_2, 0);
+    esp_rom_delay_us(5);
+    gpio_set_level(GPIO_NUM_2, 1);
+    esp_rom_delay_us(5);
+  }
+
+  // generate a STOP condition (SDA low to high while SCL is high)
+  gpio_set_level(GPIO_NUM_1, 0);
+  esp_rom_delay_us(5);
+  gpio_set_level(GPIO_NUM_1, 1);
+  esp_rom_delay_us(5);
+}
+
 al_trigger_t al_init() {
   // latch the wakeup cause and status before automatic light sleeps can
   // overwrite them with their own timer wakeups
@@ -120,6 +163,9 @@ al_trigger_t al_init() {
   // reset I2C pins after ULP usage
   ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_1));
   ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_2));
+
+  // clear a stuck bus before the driver takes over the pins
+  al_i2c_clear_bus();
 
   // configure I2C driver
   i2c_config_t i2c = {
