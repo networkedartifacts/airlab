@@ -192,13 +192,20 @@ static void test_hal_config_normal() {
   TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_OK, al_sensor_hal_config(AL_SENSOR_HAL_NORMAL, 0, 0));
   assert_config_preamble();
   assert_tx(3, AL_SENSOR_HAL_SCD41, 0x21b1);  // start periodic
-  assert_tx(4, AL_SENSOR_HAL_LPS22, 0x10);
-  TEST_ASSERT_EQUAL_INT(5, fake_txs_len);
+  assert_tx(4, AL_SENSOR_HAL_LPS22, 0x10);    // read back
+  assert_tx(5, AL_SENSOR_HAL_LPS22, 0x10);    // write
+  TEST_ASSERT_EQUAL_INT(6, fake_txs_len);
   TEST_ASSERT_EQUAL_HEX8(0x1A, lps_regs[0x10]);  // 1Hz, LPF+BDU on
   TEST_ASSERT_EQUAL_UINT32(530, fake_delayed);   // wake and stop delays
   TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_NORMAL, hal_state.mode);
   TEST_ASSERT_EQUAL_INT(0, hal_state.interval);
   TEST_ASSERT_EQUAL_INT(0, hal_state.duty);
+
+  // verify a matching CTRL_REG1 skips the write
+  fake_txs_len = 0;
+  TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_OK, al_sensor_hal_config(AL_SENSOR_HAL_NORMAL, 0, 0));
+  assert_tx(4, AL_SENSOR_HAL_LPS22, 0x10);  // read back only
+  TEST_ASSERT_EQUAL_INT(5, fake_txs_len);
 }
 
 static void test_hal_config_low_power() {
@@ -207,7 +214,7 @@ static void test_hal_config_low_power() {
   // verify low power periodic measurement is started
   TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_OK, al_sensor_hal_config(AL_SENSOR_HAL_LOW_POWER, 0, 0));
   assert_tx(3, AL_SENSOR_HAL_SCD41, 0x21ac);
-  TEST_ASSERT_EQUAL_INT(5, fake_txs_len);
+  TEST_ASSERT_EQUAL_INT(6, fake_txs_len);
 }
 
 static void test_hal_config_manual_continuous() {
@@ -219,7 +226,7 @@ static void test_hal_config_manual_continuous() {
   assert_config_preamble();
   assert_tx(3, AL_SENSOR_HAL_SGP41, 0x2619);
   assert_tx(4, AL_SENSOR_HAL_LPS22, 0x10);
-  TEST_ASSERT_EQUAL_INT(5, fake_txs_len);
+  TEST_ASSERT_EQUAL_INT(6, fake_txs_len);
   TEST_ASSERT_EQUAL_HEX16(0x8000, sgp_comp[0]);
   TEST_ASSERT_EQUAL_HEX16(0x6666, sgp_comp[1]);
 }
@@ -230,7 +237,7 @@ static void test_hal_config_manual_duty() {
   // verify the SGP heater is turned off when entering duty-cycled manual mode
   TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_OK, al_sensor_hal_config(AL_SENSOR_HAL_MANUAL, 55000, 20000));
   assert_tx(3, AL_SENSOR_HAL_SGP41, 0x3615);
-  TEST_ASSERT_EQUAL_INT(5, fake_txs_len);
+  TEST_ASSERT_EQUAL_INT(6, fake_txs_len);
   TEST_ASSERT_EQUAL_INT(20000, hal_state.duty);
 }
 
@@ -241,18 +248,20 @@ static void test_hal_config_manual_cycled() {
   TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_OK, al_sensor_hal_config(AL_SENSOR_HAL_MANUAL, AL_SENSOR_CYCLE_TIME, 0));
   assert_tx(3, AL_SENSOR_HAL_SCD41, 0x36e0);
   assert_tx(4, AL_SENSOR_HAL_SGP41, 0x2619);
-  TEST_ASSERT_EQUAL_INT(6, fake_txs_len);
+  TEST_ASSERT_EQUAL_INT(7, fake_txs_len);
 }
 
 static void test_hal_config_sleep() {
   hal_reset(false);
 
   // verify the SCD is powered down, the heater turned off and the LPS stopped
+  lps_regs[0x10] = 0x1A;  // running at 1Hz
   TEST_ASSERT_EQUAL_INT(AL_SENSOR_HAL_OK, al_sensor_hal_config(AL_SENSOR_HAL_SLEEP, 0, 0));
   assert_tx(3, AL_SENSOR_HAL_SCD41, 0x36e0);
   assert_tx(4, AL_SENSOR_HAL_SGP41, 0x3615);
-  assert_tx(5, AL_SENSOR_HAL_LPS22, 0x10);
-  TEST_ASSERT_EQUAL_INT(6, fake_txs_len);
+  assert_tx(5, AL_SENSOR_HAL_LPS22, 0x10);  // read back
+  assert_tx(6, AL_SENSOR_HAL_LPS22, 0x10);  // write
+  TEST_ASSERT_EQUAL_INT(7, fake_txs_len);
   TEST_ASSERT_EQUAL_HEX8(0x00, lps_regs[0x10]);
 }
 

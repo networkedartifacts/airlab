@@ -190,11 +190,15 @@ al_sensor_hal_err_t al_sensor_hal_config(al_sensor_hal_mode_t mode, int interval
     AL_CHECK(al_sensor_hal_measure_raw());
   }
 
-  // configure LPS sensor
-  if (mode == AL_SENSOR_HAL_SLEEP) {
-    AL_CHECK(al_sensor_hal_write_lps(0x10, 0x0));  // power down
-  } else {
-    AL_CHECK(al_sensor_hal_write_lps(0x10, 0x1A));  // 1Hz, LPF+BDU on
+  // configure LPS sensor, writing CTRL_REG1 only when it differs: reads are
+  // harmless, while ST register writes carry no CRC and a corrupted one can
+  // land in the wrong register (e.g. set I2C_DIS in CTRL_REG2 and wedge the
+  // chip until a true power-on reset)
+  uint8_t lps_ctrl1 = mode == AL_SENSOR_HAL_SLEEP ? 0x0 : 0x1A;  // power down / 1Hz, LPF+BDU on
+  uint8_t lps_current;
+  AL_CHECK(al_sensor_hal_read_lps(0x10, &lps_current, 1));
+  if (lps_current != lps_ctrl1) {
+    AL_CHECK(al_sensor_hal_write_lps(0x10, lps_ctrl1));
   }
 
   // store mode
