@@ -3,8 +3,6 @@
 
 #include <al/clock.h>
 
-#include "internal.h"
-
 void al_clock_get_date(uint16_t *year, uint16_t *month, uint16_t *day) {
   // get time as calendar
   time_t t = time(NULL);

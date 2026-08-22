@@ -271,8 +271,8 @@ static time_t al_clock_build_time() {
     static const char months[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
     const char mon[4] = {__DATE__[0], __DATE__[1], __DATE__[2], 0};
     int month = (int)((strstr(months, mon) - months) / 3) + 1;
-    cached = al_clock_timegm(atoi(__DATE__ + 7), month, atoi(__DATE__ + 4), atoi(__TIME__), atoi(__TIME__ + 3),
-                             atoi(__TIME__ + 6));
+    cached = al_clock_timegm(atoi(&__DATE__[7]), month, atoi(&__DATE__[4]), atoi(__TIME__), atoi(&__TIME__[3]),
+                             atoi(&__TIME__[6]));
   }
 
   return cached;

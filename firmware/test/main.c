@@ -6,6 +6,7 @@ void suite_scr();
 void suite_bubbles();
 void suite_sample();
 void suite_store();
+void suite_clock();
 void suite_dat();
 
 void setUp() {}
@@ -19,6 +20,7 @@ int main() {
   suite_bubbles();
   suite_sample();
   suite_store();
+  suite_clock();
   suite_dat();
   return UNITY_END();
 }
