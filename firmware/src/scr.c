@@ -1724,12 +1724,166 @@ static void* scr_ble() {
   return scr_menu;
 }
 
+// The battery-life ladder shared with AL Studio and the app: tuples of
+// sleep-rate, display-rate and gas-window, ordered from responsive to long
+// lasting, with the runtime in days precomputed from the Studio battery model
+// (see the cross-surface decision register). There is deliberately no
+// aggregate profile parameter: applying a rung writes the individual
+// parameters, so any client stays compatible.
+typedef struct {
+  int16_t sleep;
+  int16_t display;
+  int16_t gas;
+  uint8_t days;
+} scr_rung_t;
+
+static const scr_rung_t scr_ladder[] = {
+    {5, 60, 0, 3},       {30, 60, 0, 9},      {60, 60, 0, 10},     {180, 180, 0, 14},
+    {600, 300, 0, 17},   {600, 300, 300, 26}, {600, 300, 180, 34}, {600, 300, 120, 40},
+    {600, 300, 70, 48},  {600, 300, 25, 57},  {600, 300, -1, 71},
+};
+
+#define SCR_LADDER_NUM ((int)(sizeof(scr_ladder) / sizeof(scr_rung_t)))
+
+// the rung matching the written configuration exactly, or -1 for a custom
+// configuration (a non-default pm-rate also counts as custom)
+static int scr_power_rung() {
+  if (naos_get_l("pm-rate") != 0) {
+    return -1;
+  }
+  int32_t sleep = naos_get_l("sleep-rate");
+  int32_t display = naos_get_l("display-rate");
+  int32_t gas = naos_get_l("gas-window");
+  for (int i = 0; i < SCR_LADDER_NUM; i++) {
+    if (scr_ladder[i].sleep == sleep && scr_ladder[i].display == display && scr_ladder[i].gas == gas) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// Interactive profile picker: left/right steps through the ladder while
+// previewing the runtime and the parameters it would set; nothing is written
+// until the selection is confirmed. A custom configuration is shown first and
+// enters the ladder at the defaults rung on the first step.
+static void scr_power_profile() {
+  // get translation
+  const scr_trans_t* t = scr_trans();
+
+  // start from the matched rung, or the defaults rung for a custom
+  // configuration
+  int rung = scr_power_rung();
+  bool moved = false;
+  int sel = rung < 0 ? 1 : rung;
+
+  // begin draw
+  gfx_begin(false, false);
+
+  // add value with step arrows
+  lv_obj_t* value = lv_label_create(lv_scr_act());
+  lv_obj_align(value, LV_ALIGN_TOP_MID, 0, 25);
+
+  // add parameter preview
+  lv_obj_t* info = lv_label_create(lv_scr_act());
+  lv_obj_align(info, LV_ALIGN_TOP_MID, 0, 58);
+  lv_obj_set_style_text_align(info, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+  lv_obj_set_style_text_font(info, &fnt_8, LV_PART_MAIN);
+  lv_obj_set_style_text_line_space(info, 5, LV_PART_MAIN);
+
+  // add signs
+  lvx_sign_t save = {
+      .title = "A",
+      .text = t->save,
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
+  lvx_sign_t cancel = {
+      .title = "B",
+      .text = t->cancel,
+      .align = LV_ALIGN_BOTTOM_LEFT,
+  };
+  lvx_sign_create(&save, lv_scr_act());
+  lvx_sign_create(&cancel, lv_scr_act());
+
+  // end draw
+  gfx_end(true, false);
+
+  for (;;) {
+    // determine previewed configuration
+    int32_t sleep, display, window;
+    if (rung < 0 && !moved) {
+      sleep = naos_get_l("sleep-rate");
+      display = naos_get_l("display-rate");
+      window = naos_get_l("gas-window");
+    } else {
+      sleep = scr_ladder[sel].sleep;
+      display = scr_ladder[sel].display;
+      window = scr_ladder[sel].gas;
+    }
+
+    // begin draw
+    gfx_begin(false, false);
+
+    // update value
+    if (rung < 0 && !moved) {
+      lv_label_set_text(value, lvx_fmt("< %s >", t->config__custom));
+    } else {
+      lv_label_set_text(value, lvx_fmt("< %s >", lvx_fmt(t->config__profile_days, scr_ladder[sel].days)));
+    }
+
+    // update parameter preview
+    const char* gas = window > 0 ? lvx_fmt("%s %lds", t->config__gas_mode_duty, window)
+                                 : (window == 0 ? t->config__gas_mode_cont : t->off);
+    lv_label_set_text(info, lvx_fmt("%s: %lds\n%s: %lds\n%s: %s", t->config__sleep_rate, sleep,
+                                    t->config__display_rate, display, t->config__gas_mode, gas));
+
+    // end draw
+    gfx_end(false, false);
+
+    // await event
+    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, SCR_ACTION_TIMEOUT);
+
+    // handle steps
+    if ((event.type & (SIG_ARROWS | SIG_SCROLL)) != 0) {
+      int step;
+      if (event.type == SIG_SCROLL) {
+        step = (int)event.scroll.std;
+      } else {
+        step = (event.type == SIG_RIGHT || event.type == SIG_DOWN) ? 1 : -1;
+      }
+      sel += step;
+      if (sel < 0) {
+        sel = 0;
+      } else if (sel > SCR_LADDER_NUM - 1) {
+        sel = SCR_LADDER_NUM - 1;
+      }
+      if (step != 0) {
+        moved = true;
+      }
+      continue;
+    }
+
+    // cleanup
+    gui_cleanup(false);
+
+    // apply the selection on confirmation, also resetting the PM rate so the
+    // configuration matches the rung afterwards
+    if (event.type == SIG_ENTER && moved) {
+      naos_set_l("sleep-rate", scr_ladder[sel].sleep);
+      naos_set_l("display-rate", scr_ladder[sel].display);
+      naos_set_l("gas-window", scr_ladder[sel].gas);
+      naos_set_l("pm-rate", 0);
+    }
+
+    return;
+  }
+}
+
 // The config categories, mirroring the shared settings taxonomy (General,
 // Measurement, Power, Connectivity, Advanced). Items reference the ids
 // dispatched in scr_config_cb() and scr_config_items().
 static const uint8_t scr_cat_general[] = {0, 1, 2, 3, 12};
 static const uint8_t scr_cat_measure[] = {4, 11};
-static const uint8_t scr_cat_power[] = {5, 8, 6, 28, 9, 10, 7};
+static const uint8_t scr_cat_power[] = {27, 5, 8, 6, 28, 9, 10, 7};
 static const uint8_t scr_cat_connect[] = {16, 17, 18, 19, 20, 21, 22, 23};
 static const uint8_t scr_cat_advanced[] = {14, 15, 13, 24, 25, 26};
 
@@ -1931,6 +2085,15 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
       return (gui_list_item_t){
           .title = t->config__reset,
           .info = t->execute,
+      };
+    }
+    case 27: {
+      // show the matched ladder rung as its runtime, or mark it custom
+      int rung = scr_power_rung();
+
+      return (gui_list_item_t){
+          .title = t->config__profile,
+          .info = rung < 0 ? t->config__custom : lvx_fmt(t->config__profile_days, scr_ladder[rung].days),
       };
     }
     case 28: {
@@ -2291,6 +2454,13 @@ static void* scr_config_items() {
 
         // restart device
         naos_reboot();
+
+        break;
+      }
+
+      case 27: {
+        // pick a rung on the profile screen
+        scr_power_profile();
 
         break;
       }

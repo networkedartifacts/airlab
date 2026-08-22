@@ -71,6 +71,9 @@ typedef struct {
   const char* config__power;
   const char* config__connectivity;
   const char* config__advanced;
+  const char* config__profile;
+  const char* config__profile_days;
+  const char* config__custom;
   const char* config__gas_mode;
   const char* config__gas_mode_cont;
   const char* config__gas_mode_duty;
@@ -174,6 +177,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power = "Energía",
             .config__connectivity = "Conectividad",
             .config__advanced = "Avanzado",
+            .config__profile = "Perfil",
+            .config__profile_days = "%d días",
+            .config__custom = "Personalizado",
             .config__gas_mode = "Modo sensor de gas",
             .config__gas_mode_cont = "Continuo",
             .config__gas_mode_duty = "Intermitente",
@@ -287,6 +293,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power = "Energie",
             .config__connectivity = "Konnektivität",
             .config__advanced = "Erweitert",
+            .config__profile = "Profil",
+            .config__profile_days = "%d Tage",
+            .config__custom = "Angepasst",
             .config__gas_mode = "Gas Sensormodus",
             .config__gas_mode_cont = "Kontinuierlich",
             .config__gas_mode_duty = "Getaktet",
@@ -399,6 +408,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power = "Power",
             .config__connectivity = "Connectivity",
             .config__advanced = "Advanced",
+            .config__profile = "Profile",
+            .config__profile_days = "%d days",
+            .config__custom = "Custom",
             .config__gas_mode = "Gas Sensor Mode",
             .config__gas_mode_cont = "Continuous",
             .config__gas_mode_duty = "Duty Cycled",
@@ -511,6 +523,9 @@ static const scr_trans_t scr_trans_map[] = {
             .config__power = "Énergie",
             .config__connectivity = "Connectivité",
             .config__advanced = "Avancé",
+            .config__profile = "Profil",
+            .config__profile_days = "%d jours",
+            .config__custom = "Personnalisé",
             .config__gas_mode = "Mode capteur gaz",
             .config__gas_mode_cont = "Continu",
             .config__gas_mode_duty = "Intermittent",
