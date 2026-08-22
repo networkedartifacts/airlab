@@ -7,7 +7,8 @@
 
 /* Helpers */
 
-static void store_reset() {
+// non-static, as other suites use it to prepare the global store
+void test_store_reset() {
   al_store_interval = 60;
   al_store_pos_short = 0;
   al_store_pos_long = 0;
@@ -28,7 +29,7 @@ static void store_fill(int num, int32_t start) {
 /* Tests */
 
 static void test_store_interval() {
-  store_reset();
+  test_store_reset();
 
   // verify default and clamping to 30s-15min
   TEST_ASSERT_EQUAL_INT(60, al_store_get_interval());
@@ -41,7 +42,7 @@ static void test_store_interval() {
 }
 
 static void test_store_empty() {
-  store_reset();
+  test_store_reset();
 
   // verify counts and zero samples
   TEST_ASSERT_EQUAL_size_t(0, al_store_count(AL_STORE_SHORT));
@@ -57,7 +58,7 @@ static void test_store_empty() {
 }
 
 static void test_store_ingest() {
-  store_reset();
+  test_store_reset();
 
   // ingest three samples
   store_fill(3, 10000);
@@ -81,7 +82,7 @@ static void test_store_ingest() {
 }
 
 static void test_store_base() {
-  store_reset();
+  test_store_reset();
 
   // fill both stores (181st ingest moves the first sample to the long store)
   store_fill(181, 0);
@@ -103,7 +104,7 @@ static void test_store_base() {
 }
 
 static void test_store_move() {
-  store_reset();
+  test_store_reset();
 
   // fill until the second move: the 181st ingest moves the first sample as the
   // long store is empty, then samples are dropped until one is a full interval
@@ -127,7 +128,7 @@ static void test_store_move() {
   TEST_ASSERT_EQUAL_INT32(965000, al_store_last().off);
 
   // verify a shorter interval moves samples earlier (sample 7 at 35s)
-  store_reset();
+  test_store_reset();
   al_store_set_interval(30);
   store_fill(188, 0);
   TEST_ASSERT_EQUAL_size_t(2, al_store_count(AL_STORE_LONG));
@@ -136,7 +137,7 @@ static void test_store_move() {
 }
 
 static void test_store_source() {
-  store_reset();
+  test_store_reset();
 
   // fill both stores with a non-zero first offset and base
   store_fill(181, 10000);
@@ -179,7 +180,7 @@ static void test_store_source() {
   TEST_ASSERT_EQUAL_FLOAT(580.f, max);
 
   // verify negative offsets with an empty long store
-  store_reset();
+  test_store_reset();
   store_fill(3, 0);
   src.read(src.ctx, samples, 1, (size_t)-1);
   TEST_ASSERT_EQUAL_INT32(10000, samples[0].off);
