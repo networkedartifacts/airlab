@@ -2136,12 +2136,24 @@ static void* scr_config_items() {
 
   // get translation and category
   const scr_trans_t* t = scr_trans();
-  const scr_cat_t* cat = &scr_cats[scr_config_cat];
+  scr_cat_t cat = scr_cats[scr_config_cat];
+
+  // hide the PM rate (7) on devices without a PM sensor
+  uint8_t items[sizeof(scr_cat_power)];
+  if (cat.items == scr_cat_power && !al_sensor_pm_present()) {
+    cat.num = 0;
+    for (int i = 0; i < (int)sizeof(scr_cat_power); i++) {
+      if (scr_cat_power[i] != 7) {
+        items[cat.num++] = scr_cat_power[i];
+      }
+    }
+    cat.items = items;
+  }
 
   for (;;) {
     // select parameter
-    int choice = gui_list(cat->num, selection[scr_config_cat], &offsets[scr_config_cat], t->change, t->back,
-                          scr_config_item_cb, (void*)cat, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(cat.num, selection[scr_config_cat], &offsets[scr_config_cat], t->change, t->back,
+                          scr_config_item_cb, (void*)&cat, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_config;
     }
@@ -2150,7 +2162,7 @@ static void* scr_config_items() {
     selection[scr_config_cat] = choice;
 
     // handle choice
-    switch (cat->items[choice]) {
+    switch (cat.items[choice]) {
       case 0: {
         // cycle through the available languages
         scr_lang_t lang = scr_lang();
