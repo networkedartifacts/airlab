@@ -14,8 +14,6 @@ naos_task_t naos_run(const char *name, uint16_t stack, int core, naos_func_t fun
   return NULL;
 }
 
-al_sample_t al_sensor_next() { return (al_sample_t){0}; }
-
 /* Helpers */
 
 void test_store_reset();

@@ -10,6 +10,7 @@ typedef int esp_err_t;
 
 #define ESP_OK 0
 #define ESP_FAIL (-1)
+#define ESP_ERR_TIMEOUT 0x107
 
 // tests may arm a number of expected errors to exercise error paths that
 // would otherwise abort, and assert the counter returned to zero afterwards

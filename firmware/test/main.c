@@ -9,6 +9,8 @@ void suite_store();
 void suite_clock();
 void suite_dat();
 void suite_rec();
+void suite_sensor_hal();
+void suite_sensor();
 
 void setUp() {}
 void tearDown() {}
@@ -24,5 +26,7 @@ int main() {
   suite_clock();
   suite_dat();
   suite_rec();
+  suite_sensor_hal();
+  suite_sensor();
   return UNITY_END();
 }
