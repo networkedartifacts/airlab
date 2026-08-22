@@ -155,6 +155,9 @@ static int64_t rtc_epoch() {
 
 static void set_wall(time_t sec, int64_t usec) { fake_wall_us = (int64_t)sec * 1000000 + usec; }
 
+// non-static, as other suites use it to steer the wall clock
+void test_clock_set_epoch(int64_t epoch) { fake_wall_us = epoch * 1000; }
+
 static int64_t wall_sec() { return fake_wall_us / 1000000; }
 
 static void advance(int64_t ms) {

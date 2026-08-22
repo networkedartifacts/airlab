@@ -8,6 +8,7 @@ void suite_sample();
 void suite_store();
 void suite_clock();
 void suite_dat();
+void suite_rec();
 
 void setUp() {}
 void tearDown() {}
@@ -22,5 +23,6 @@ int main() {
   suite_store();
   suite_clock();
   suite_dat();
+  suite_rec();
   return UNITY_END();
 }

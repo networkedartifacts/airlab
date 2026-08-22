@@ -14,9 +14,13 @@ static inline void naos_unlock(naos_mutex_t mutex) { (void)mutex; }
 
 typedef void (*naos_func_t)(void);
 typedef void *naos_timer_t;
+typedef void *naos_task_t;
 
 // defined by suites that exercise time-based code
 int64_t naos_millis();
 naos_timer_t naos_repeat_defer(const char *name, uint32_t period_ms, naos_func_t func);
+
+// defined by suites that exercise task-starting code
+naos_task_t naos_run(const char *name, uint16_t stack, int core, naos_func_t func);
 
 #endif  // NAOS_SYS_H

@@ -7,7 +7,8 @@
 
 void test_store_reset();
 
-static void dat_test_reset() {
+// non-static, as other suites use it to prepare the file store
+void test_dat_reset() {
   // wipe scratch filesystem and reset unit state
   al_storage_reset();
   dat_files_length = 0;
@@ -29,7 +30,7 @@ static void prog_record(size_t current, size_t total) {
 /* Tests */
 
 static void test_dat_create() {
-  dat_test_reset();
+  test_dat_reset();
 
   // verify creation advances the counter and writes the head
   TEST_ASSERT_EQUAL_UINT16(1, dat_next());
@@ -56,7 +57,7 @@ static void test_dat_create() {
 }
 
 static void test_dat_append_load() {
-  dat_test_reset();
+  test_dat_reset();
 
   // append samples
   uint16_t num = dat_create(1700000000000LL);
@@ -95,7 +96,7 @@ static void test_dat_append_load() {
 }
 
 static void test_dat_mark() {
-  dat_test_reset();
+  test_dat_reset();
 
   // add a mark
   uint16_t num = dat_create(1700000000000LL);
@@ -113,7 +114,7 @@ static void test_dat_mark() {
 }
 
 static void test_dat_scan() {
-  dat_test_reset();
+  test_dat_reset();
 
   // create a file with samples, a mark and a partial trailing sample
   uint16_t num1 = dat_create(1700000000000LL);
@@ -160,7 +161,7 @@ static void test_dat_scan() {
 }
 
 static void test_dat_delete() {
-  dat_test_reset();
+  test_dat_reset();
 
   // create three files and delete the middle one
   dat_create(1000);
@@ -178,7 +179,7 @@ static void test_dat_delete() {
 }
 
 static void test_dat_source() {
-  dat_test_reset();
+  test_dat_reset();
 
   // create a file with samples
   uint16_t num = dat_create(1700000000000LL);
@@ -202,7 +203,7 @@ static void test_dat_source() {
 }
 
 static void test_dat_import() {
-  dat_test_reset();
+  test_dat_reset();
 
   // populate the sample store
   test_store_reset();
@@ -252,7 +253,7 @@ static void test_dat_import() {
 }
 
 static void test_dat_export() {
-  dat_test_reset();
+  test_dat_reset();
   al_sample_set_altitude(0.f);
 
   // append enough samples to trigger buffer flushes, with gaps in the
@@ -299,7 +300,7 @@ static void test_dat_export() {
 }
 
 static void test_dat_capacity() {
-  dat_test_reset();
+  test_dat_reset();
 
   // fill the file list to capacity
   for (int i = 0; i < DAT_FILES; i++) {

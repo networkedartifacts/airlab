@@ -4,5 +4,6 @@
 // host shim for lib code under test
 
 #define RTC_FAST_ATTR
+#define RTC_DATA_ATTR
 
 #endif  // ESP_ATTR_H
