@@ -15,7 +15,8 @@ internal refactoring and development tooling are omitted.
 
 - Support BMV080 particulate matter (PM2.5) sensor with configurable rate
 - Show PM2.5 on the idle, history, lab and live view screens
-- Announce PM sensor to Home Assistant
+- Announce PM sensor to Home Assistant and publish its presence as a parameter
+- Added battery life estimation based on the configured rates
 - Support LIS2DH12 accelerometer via runtime chip detection
 - Run SGP41 continuously by default, duty cycling opt-in via gas-window
 - Support disabling the SGP41 via a negative gas-window
@@ -33,10 +34,12 @@ internal refactoring and development tooling are omitted.
 - Replay sparse samples to stabilize gas indices after wake
 - Draw degraded gas values as dotted bars and unavailable values as "n/a"
 - Start radios only when fully awake and use slower, adaptive BLE advertising
-- Retry failed I2C transfers
-- More robust USB mass storage (PSRAM-backed disk, on-demand allocation, cooperative shutdown)
+- Retry failed I2C transfers and clear a stuck I2C bus at boot
+- More robust USB mass storage (PSRAM-backed disk)
 - Safer RTC handling and RTC verification during self check
 - Improved Spanish translations and shortened others
+- Split config menu into sub-sections
+- Changed default sleep rate to 60s
 
 **Bug Fixes**
 
