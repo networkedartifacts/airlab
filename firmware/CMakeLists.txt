@@ -76,6 +76,8 @@ set(SOURCE_FILES
         src/main.c
         src/com.c
         src/com.h
+        src/pwr.c
+        src/pwr.h
         src/rec.c
         src/rec.h
         src/scr.c

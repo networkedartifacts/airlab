@@ -104,9 +104,7 @@ void al_sensor_pm_burst(int32_t ttl) {
 
 void al_sensor_pm_flush() { fake_pm_flush_calls++; }
 
-int16_t al_sensor_pm_sample(int64_t epoch) {
-  return fake_pm_until != 0 && epoch <= fake_pm_until ? fake_pm_value : -1;
-}
+int16_t al_sensor_pm_sample(int64_t epoch) { return fake_pm_until != 0 && epoch <= fake_pm_until ? fake_pm_value : -1; }
 
 int32_t al_sensor_pm_age() { return fake_pm_age_value; }
 
@@ -695,6 +693,16 @@ static void test_sensor_init_wake() {
 }
 
 /* Suite */
+
+// Applies a sleep interval and gas window through the real policy layer and
+// reports the duty it configures, so the power model suite can check its
+// mirror of this unit against it.
+int32_t test_sensor_apply_gas(int32_t sleep, int32_t window) {
+  sensor_reset();
+  al_sensor_set_gas_window(window);
+  al_sensor_set_interval(sleep);
+  return fake_hal_duty;
+}
 
 void suite_sensor() {
   RUN_TEST(test_sensor_ingest_conversion);

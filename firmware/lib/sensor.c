@@ -490,10 +490,10 @@ void al_sensor_off() {
 
 void al_sensor_set_interval(int32_t seconds) {
   // clamp interval
-  if (seconds < 5) {
-    seconds = 5;
-  } else if (seconds > 600) {
-    seconds = 600;
+  if (seconds < AL_SENSOR_MIN_INTERVAL) {
+    seconds = AL_SENSOR_MIN_INTERVAL;
+  } else if (seconds > AL_SENSOR_MAX_INTERVAL) {
+    seconds = AL_SENSOR_MAX_INTERVAL;
   }
 
   // lock mutex
@@ -525,16 +525,17 @@ void al_sensor_set_interval(int32_t seconds) {
   al_sensor_hal_mode_t mode = AL_SENSOR_HAL_NORMAL;
   int interval = 0;
   int duty = window < 0 ? -1 : 0;
-  if (seconds >= 60) {
+  if (seconds >= AL_SENSOR_MANUAL_INTERVAL) {
     mode = AL_SENSOR_HAL_MANUAL;
     interval = seconds * 1000 - AL_SENSOR_MSR_TIME;
     if (window > 0) {
       // clamp the active window to the conditioning time at least and half
       // the interval at most, to keep a meaningful idle phase per cycle
-      window = window < 10 ? 10 : (window > seconds / 2 ? seconds / 2 : window);
+      window =
+          window < AL_SENSOR_GAS_MIN_WINDOW ? AL_SENSOR_GAS_MIN_WINDOW : (window > seconds / 2 ? seconds / 2 : window);
       duty = window * 1000;
     }
-  } else if (seconds >= 30) {
+  } else if (seconds >= AL_SENSOR_LOW_POWER_INTERVAL) {
     mode = AL_SENSOR_HAL_LOW_POWER;
   } else {
     mode = AL_SENSOR_HAL_NORMAL;

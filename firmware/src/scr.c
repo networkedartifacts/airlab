@@ -29,10 +29,12 @@
 #include "img.h"
 #include "lvx.h"
 #include "rec.h"
+#include "scr.h"
 #include "dev.h"
 #include "stm.h"
 #include "hmi.h"
 #include "dat.h"
+#include "pwr.h"
 #include "eng.h"
 #include "eng_bundle.h"
 
@@ -332,10 +334,10 @@ static sig_event_t scr_idle_sleep() {
 
   // determine display interval (a full ULP reading buffer may wake us earlier)
   int32_t display_interval = naos_get_l("display-rate");
-  if (display_interval < 60) {
-    display_interval = 60;
-  } else if (display_interval > 300) {
-    display_interval = 300;
+  if (display_interval < SCR_DISPLAY_MIN) {
+    display_interval = SCR_DISPLAY_MIN;
+  } else if (display_interval > SCR_DISPLAY_MAX) {
+    display_interval = SCR_DISPLAY_MAX;
   }
 
   // wake earlier if a PM measurement becomes due, as readings are only cached
@@ -1724,26 +1726,15 @@ static void* scr_ble() {
   return scr_menu;
 }
 
-// The battery-life ladder shared with AL Studio and the app: tuples of
-// sleep-rate, display-rate and gas-window, ordered from responsive to long
-// lasting, with the runtime in days precomputed from the Studio battery model
-// (see the cross-surface decision register). There is deliberately no
-// aggregate profile parameter: applying a rung writes the individual
-// parameters, so any client stays compatible.
-typedef struct {
-  int16_t sleep;
-  int16_t display;
-  int16_t gas;
-  uint8_t days;
-} scr_rung_t;
+// The battery-life ladder and model come from the pwr module and are shared
+// with AL Studio and the app (see the cross-surface decision register).
+// There is deliberately no aggregate profile parameter: applying a rung
+// writes the individual parameters, so any client stays compatible.
 
-static const scr_rung_t scr_ladder[] = {
-    {5, 60, 0, 3},       {30, 60, 0, 9},      {60, 60, 0, 10},     {180, 180, 0, 14},
-    {600, 300, 0, 17},   {600, 300, 300, 26}, {600, 300, 180, 34}, {600, 300, 120, 40},
-    {600, 300, 70, 48},  {600, 300, 25, 57},  {600, 300, -1, 71},
-};
-
-#define SCR_LADDER_NUM ((int)(sizeof(scr_ladder) / sizeof(scr_rung_t)))
+// the estimated runtime of the written configuration, in whole days
+static int scr_power_days() {
+  return (int)lround(pwr_days(naos_get_l("sleep-rate"), naos_get_l("display-rate"), naos_get_l("gas-window")));
+}
 
 // the rung matching the written configuration exactly, or -1 for a custom
 // configuration (a non-default pm-rate also counts as custom)
@@ -1754,8 +1745,9 @@ static int scr_power_rung() {
   int32_t sleep = naos_get_l("sleep-rate");
   int32_t display = naos_get_l("display-rate");
   int32_t gas = naos_get_l("gas-window");
-  for (int i = 0; i < SCR_LADDER_NUM; i++) {
-    if (scr_ladder[i].sleep == sleep && scr_ladder[i].display == display && scr_ladder[i].gas == gas) {
+  for (int i = 0; i < pwr_num_rungs(); i++) {
+    pwr_rung_t rung = pwr_rung(i);
+    if (rung.sleep == sleep && rung.display == display && rung.gas == gas) {
       return i;
     }
   }
@@ -1815,19 +1807,27 @@ static void scr_power_profile() {
       display = naos_get_l("display-rate");
       window = naos_get_l("gas-window");
     } else {
-      sleep = scr_ladder[sel].sleep;
-      display = scr_ladder[sel].display;
-      window = scr_ladder[sel].gas;
+      pwr_rung_t preview = pwr_rung(sel);
+      sleep = preview.sleep;
+      display = preview.display;
+      window = preview.gas;
     }
 
     // begin draw
     gfx_begin(false, false);
 
-    // update value
+    // update value with the estimated runtime, marking an off-ladder
+    // configuration as custom; the estimate is omitted while PM measurements
+    // are enabled, as the model does not cover their cost
+    const char* days = lvx_fmt(t->config__profile_days, (int)lround(pwr_days(sleep, display, window)));
     if (rung < 0 && !moved) {
-      lv_label_set_text(value, lvx_fmt("< %s >", t->config__custom));
+      if (naos_get_l("pm-rate") != 0) {
+        lv_label_set_text(value, lvx_fmt("< %s >", t->config__custom));
+      } else {
+        lv_label_set_text(value, lvx_fmt("< %s: %s >", t->config__custom, days));
+      }
     } else {
-      lv_label_set_text(value, lvx_fmt("< %s >", lvx_fmt(t->config__profile_days, scr_ladder[sel].days)));
+      lv_label_set_text(value, lvx_fmt("< %s >", days));
     }
 
     // update parameter preview
@@ -1853,8 +1853,8 @@ static void scr_power_profile() {
       sel += step;
       if (sel < 0) {
         sel = 0;
-      } else if (sel > SCR_LADDER_NUM - 1) {
-        sel = SCR_LADDER_NUM - 1;
+      } else if (sel > pwr_num_rungs() - 1) {
+        sel = pwr_num_rungs() - 1;
       }
       if (step != 0) {
         moved = true;
@@ -1868,9 +1868,10 @@ static void scr_power_profile() {
     // apply the selection on confirmation, also resetting the PM rate so the
     // configuration matches the rung afterwards
     if (event.type == SIG_ENTER && moved) {
-      naos_set_l("sleep-rate", scr_ladder[sel].sleep);
-      naos_set_l("display-rate", scr_ladder[sel].display);
-      naos_set_l("gas-window", scr_ladder[sel].gas);
+      pwr_rung_t chosen = pwr_rung(sel);
+      naos_set_l("sleep-rate", chosen.sleep);
+      naos_set_l("display-rate", chosen.display);
+      naos_set_l("gas-window", chosen.gas);
       naos_set_l("pm-rate", 0);
     }
 
@@ -2088,12 +2089,23 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
       };
     }
     case 27: {
-      // show the matched ladder rung as its runtime, or mark it custom
+      // show the estimated runtime of a matched rung or custom configuration;
+      // the estimate is omitted while PM measurements are enabled, as the
+      // model does not cover their cost
       int rung = scr_power_rung();
+      const char* days = lvx_fmt(t->config__profile_days, scr_power_days());
+      const char* info;
+      if (rung >= 0) {
+        info = days;
+      } else if (naos_get_l("pm-rate") != 0) {
+        info = t->config__custom;
+      } else {
+        info = lvx_fmt("%s: %s", t->config__custom, days);
+      }
 
       return (gui_list_item_t){
           .title = t->config__profile,
-          .info = rung < 0 ? t->config__custom : lvx_fmt(t->config__profile_days, scr_ladder[rung].days),
+          .info = info,
       };
     }
     case 28: {

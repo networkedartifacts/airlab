@@ -11,6 +11,14 @@
 #define AL_SENSOR_MAX_HEAT 10000  // ms (grace beyond the active window before the heater is forced off)
 #define AL_SENSOR_CYCLE_TIME (180 * 1000 - AL_SENSOR_MSR_TIME)  // manual interval from which the SCD is power-cycled
 
+// the sampling intervals the policy layer accepts and the regimes it selects
+// between (s), mirrored by the power model in src/pwr.c
+#define AL_SENSOR_MIN_INTERVAL 5
+#define AL_SENSOR_MAX_INTERVAL 600
+#define AL_SENSOR_LOW_POWER_INTERVAL 30
+#define AL_SENSOR_MANUAL_INTERVAL 60
+#define AL_SENSOR_GAS_MIN_WINDOW 10
+
 typedef enum {
   AL_SENSOR_HAL_NORMAL,     // 5s
   AL_SENSOR_HAL_LOW_POWER,  // 30s
