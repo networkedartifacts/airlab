@@ -103,10 +103,16 @@ static bool al_clock_decode(al_clock_state_t *state) {
   uint8_t year = al_clock_memory.years + (al_clock_memory.ten_years * 10);
 
   // reject out-of-range fields, so a corrupted read fails and gets re-read
-  // instead of fabricating a plausible time
-  if (seconds >= 60 || minutes >= 60 || hours >= 24 || weekday < 1 || weekday > 7 || date < 1 || date > 31 ||
-      month < 1 || month > 12 || year >= 100) {
+  // instead of fabricating a plausible time. the weekday is exempt: it carries
+  // no timekeeping information and fielded devices may store an invalid zero
+  if (seconds >= 60 || minutes >= 60 || hours >= 24 || date < 1 || date > 31 || month < 1 || month > 12 ||
+      year >= 100) {
     return false;
+  }
+
+  // clamp weekday, so a later write-back stores a valid value
+  if (weekday < 1 || weekday > 7) {
+    weekday = 1;
   }
 
   // set state
@@ -328,6 +334,7 @@ void al_clock_update() {
       .year = cal.tm_year + 1900,
       .month = cal.tm_mon + 1,
       .day = cal.tm_mday,
+      .weekday = (uint8_t)(cal.tm_wday + 1),
       .hours = cal.tm_hour,
       .minutes = cal.tm_min,
       .seconds = cal.tm_sec,
