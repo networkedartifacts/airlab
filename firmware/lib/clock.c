@@ -13,6 +13,10 @@
 
 #define AL_CLOCK_ADDR 0x68
 
+// serializes access to the shared register memory and keeps multi-transfer
+// read/write sequences atomic, as get/set are reachable from multiple tasks
+static naos_mutex_t al_clock_mutex;
+
 typedef struct {
   uint8_t hours;   /* 0-23 */
   uint8_t minutes; /* 0-59 */
@@ -129,26 +133,33 @@ static bool al_clock_decode(al_clock_state_t *state) {
   return true;
 }
 
-static al_clock_state_t al_clock_get() {
+static bool al_clock_read_state(al_clock_state_t *state) {
   // read the RTC until two consecutive transfers agree and decode to a valid
   // time: a transfer may straddle a second rollover, and a corrupted transfer
   // has been seen to deliver an off-by-one hour
-  al_clock_state_t state;
   bool valid = false;
+  naos_lock(al_clock_mutex);
   al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
   for (int i = 0; i < 5; i++) {
     uint8_t last[sizeof(al_clock_memory)];
     memcpy(last, &al_clock_memory, sizeof(last));
     al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
-    if (memcmp(last, &al_clock_memory, sizeof(last)) == 0 && al_clock_decode(&state)) {
+    if (memcmp(last, &al_clock_memory, sizeof(last)) == 0 && al_clock_decode(state)) {
       valid = true;
       break;
     }
   }
+  naos_unlock(al_clock_mutex);
 
-  // fall back to the system time if no valid time could be read, so a
-  // defective RTC degrades to free-running time instead of poisoning it
-  if (!valid) {
+  return valid;
+}
+
+static al_clock_state_t al_clock_get() {
+  // read state from the RTC and fall back to the system time if no valid time
+  // could be read, so a defective RTC degrades to free-running time instead of
+  // poisoning it
+  al_clock_state_t state;
+  if (!al_clock_read_state(&state)) {
     naos_log("al-clk: warning: no valid RTC time, using system time");
     time_t t = time(NULL);
     struct tm cal;
@@ -178,6 +189,9 @@ static void al_clock_set(al_clock_state_t state) {
   // log
   naos_log("al-clk: set %02d:%02d:%02d %02d/%02d/%02d", state.hours, state.minutes, state.seconds, state.day,
            state.month, state.year);
+
+  // lock mutex
+  naos_lock(al_clock_mutex);
 
   // convert DEC to BCD
   al_clock_memory.seconds = state.seconds % 10;
@@ -209,6 +223,9 @@ static void al_clock_set(al_clock_state_t state) {
   al_clock_write(0x02, al_clock_memory.r2);
   al_clock_write(0x01, al_clock_memory.r1);
   al_clock_write(0x00, al_clock_memory.r0);
+
+  // unlock mutex
+  naos_unlock(al_clock_mutex);
 }
 
 static time_t al_clock_timegm(int year, int mon, int day, int hour, int min, int sec) {
@@ -278,10 +295,14 @@ static void al_clock_sync_check(void) {
 }
 
 void al_clock_init(bool reset) {
+  // create mutex
+  al_clock_mutex = naos_mutex();
+
   // get clock
   al_clock_state_t state = al_clock_get();
 
   // check STOP and OF flags
+  naos_lock(al_clock_mutex);
   if (al_clock_memory._stop || al_clock_memory._osc_fail) {
     if (!reset) {
       naos_log("al-clk: warning: STOP=%d OF=%d, clearing flags", al_clock_memory._stop, al_clock_memory._osc_fail);
@@ -291,6 +312,7 @@ void al_clock_init(bool reset) {
     al_clock_write(0x00, al_clock_memory.r0);
     al_clock_write(0x01, al_clock_memory.r1);
   }
+  naos_unlock(al_clock_mutex);
 
   // seed system time from RTC (stored as UTC), unless the RTC fell behind
   // the system time, which survives deep sleep on the internal RTC counter
@@ -345,6 +367,22 @@ void al_clock_update() {
 
   // refresh sync cache
   al_clock_sync_mark();
+}
+
+bool al_clock_verify(uint16_t *year) {
+  // read state directly, so the RTC can be verified without re-initializing
+  // the clock system or touching the system time
+  al_clock_state_t state;
+  if (!al_clock_read_state(&state)) {
+    return false;
+  }
+
+  // set year
+  if (year != NULL) {
+    *year = state.year;
+  }
+
+  return true;
 }
 
 void al_clock_set_calibration(int8_t ppm) {

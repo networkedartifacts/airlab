@@ -67,6 +67,14 @@ void al_clock_init(bool reset);
 void al_clock_update();
 
 /**
+ * Verify that the RTC clock holds a valid time.
+ *
+ * @param year The read year, if valid.
+ * @return Whether a valid time was read.
+ */
+bool al_clock_verify(uint16_t *year);
+
+/**
  * Set the calibration register of the RTC clock.
  *
  * @param ppm The calibration value in ppm (-63 to +126).

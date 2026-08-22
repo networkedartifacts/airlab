@@ -2614,9 +2614,7 @@ static void* scr_config() {
 static void* scr_check() {
   // date
   uint16_t year;
-  al_clock_init(false);
-  al_clock_get_date(&year, NULL, NULL);
-  if (year < 2026) {
+  if (!al_clock_verify(&year) || year < 2026) {
     gui_message("Date check failed!", SCR_MSG_TIMEOUT);
     return scr_develop;
   }
