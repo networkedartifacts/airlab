@@ -113,7 +113,7 @@ static void fs_wipe(const char *path) {
     if (entry->d_type != DT_REG) {
       continue;
     }
-    char file[128];
+    char file[512];
     snprintf(file, sizeof(file), "%s/%s", path, entry->d_name);
     remove(file);
   }
@@ -136,7 +136,7 @@ void al_storage_reset() {
       if (entry->d_type != DT_DIR || strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
         continue;
       }
-      char sub[128];
+      char sub[512];
       snprintf(sub, sizeof(sub), "%s/%s", root, entry->d_name);
       fs_wipe(sub);
     }

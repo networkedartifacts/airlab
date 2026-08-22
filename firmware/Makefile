@@ -17,7 +17,8 @@ test: $(UNITY)/unity.c
 		test/*.c test/shims/*.c $(UNITY)/unity.c src/fnt.c lib/sample.c lib/sensor_gas.c \
 		$(LVGL)/src/misc/lv_txt.c $(LVGL)/src/misc/lv_mem.c $(LVGL)/src/misc/lv_log.c \
 		$(LVGL)/src/misc/lv_utils.c $(LVGL)/src/misc/lv_gc.c \
-		$(LVGL)/src/font/lv_font.c $(LVGL)/src/font/lv_font_fmt_txt.c
+		$(LVGL)/src/font/lv_font.c $(LVGL)/src/font/lv_font_fmt_txt.c \
+		-lm
 	test/build/tests
 
 $(UNITY)/unity.c:
