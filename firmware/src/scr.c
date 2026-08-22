@@ -1763,107 +1763,146 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
     }
     case 4: {
       return (gui_list_item_t){
+          .title = t->config__main_rate,
+          .info = lvx_fmt("%lds", naos_get_l("main-rate")),
+      };
+    }
+    case 5: {
+      return (gui_list_item_t){
           .title = t->config__sleep_rate,
           .info = lvx_fmt("%lds", naos_get_l("sleep-rate")),
       };
     }
-    case 5: {
+    case 6: {
       return (gui_list_item_t){
           .title = t->config__record_rate,
           .info = lvx_fmt("%lds", naos_get_l("record-rate")),
       };
     }
-    case 6: {
+    case 7: {
+      // treat zero as off
+      int32_t rate = naos_get_l("pm-rate");
+
+      return (gui_list_item_t){
+          .title = t->config__pm_rate,
+          .info = rate == 0 ? t->off : lvx_fmt("%lds", rate),
+      };
+    }
+    case 8: {
+      return (gui_list_item_t){
+          .title = t->config__display_rate,
+          .info = lvx_fmt("%lds", naos_get_l("display-rate")),
+      };
+    }
+    case 9: {
+      // treat negative as off and zero as continuous
+      int32_t window = naos_get_l("gas-window");
+
+      return (gui_list_item_t){
+          .title = t->config__gas_window,
+          .info = window < 0 ? t->off : (window == 0 ? t->on : lvx_fmt("%lds", window)),
+      };
+    }
+    case 10: {
+      // treat zero as no grace
+      int32_t grace = naos_get_l("gas-grace");
+
+      return (gui_list_item_t){
+          .title = t->config__gas_grace,
+          .info = grace == 0 ? t->off : lvx_fmt("%lds", grace),
+      };
+    }
+    case 11: {
       return (gui_list_item_t){
           .title = t->config__long_interval,
           .info = lvx_fmt("%lds", naos_get_l("long-interval")),
       };
     }
-    case 7: {
+    case 12: {
       return (gui_list_item_t){
           .title = t->config__temp_unit,
           .info = naos_get_b("fahrenheit") ? "°F" : "°C",
       };
     }
-    case 8: {
+    case 13: {
       return (gui_list_item_t){
           .title = t->config__developer,
           .info = naos_get_b("developer") ? t->on : t->off,
       };
     }
-    case 9: {
+    case 14: {
       return (gui_list_item_t){
           .title = t->config__power_light,
           .info = naos_get_b("power-light") ? t->on : t->off,
       };
     }
-    case 10: {
+    case 15: {
       return (gui_list_item_t){
           .title = t->config__co2_light,
           .info = naos_get_b("co2-light") ? t->on : t->off,
       };
     }
-    case 11: {
+    case 16: {
       return (gui_list_item_t){
           .title = t->config__wifi_network,
           .info = lvx_truncate(naos_get_s("wifi-ssid"), 20),
       };
     }
-    case 12: {
+    case 17: {
       return (gui_list_item_t){
           .title = "MQTT Broker",
           .info = lvx_truncate(naos_get_s("mqtt-host"), 20),
       };
     }
-    case 13: {
+    case 18: {
       return (gui_list_item_t){
           .title = "Home Assistant",
           .info = naos_get_b("mqtt-ha") ? t->on : t->off,
       };
     }
-    case 14: {
+    case 19: {
       return (gui_list_item_t){
           .title = t->config__ble_prev_sleep,
           .info = naos_get_b("ble-prev-sleep") ? t->on : t->off,
       };
     }
-    case 15: {
+    case 20: {
       return (gui_list_item_t){
           .title = t->config__mqtt_prev_sleep,
           .info = naos_get_b("mqtt-prev-sleep") ? t->on : t->off,
       };
     }
-    case 16: {
+    case 21: {
       return (gui_list_item_t){
           .title = t->config__ble_pairing,
           .info = naos_get_b("ble-pairing") ? t->on : t->off,
       };
     }
-    case 17: {
+    case 22: {
       return (gui_list_item_t){
           .title = t->config__ble_bonding,
           .info = naos_get_b("ble-bonding") ? t->on : t->off,
       };
     }
-    case 18: {
+    case 23: {
       return (gui_list_item_t){
           .title = t->config__ble_clear,
           .info = t->execute,
       };
     }
-    case 19: {
+    case 24: {
       return (gui_list_item_t){
           .title = t->config__altitude,
           .info = lvx_fmt("%ldm", naos_get_l("altitude")),
       };
     }
-    case 20: {
+    case 25: {
       return (gui_list_item_t){
           .title = t->config__clock_cal,
           .info = lvx_fmt("%dppm", naos_get_l("clock-cal")),
       };
     }
-    case 21: {
+    case 26: {
       return (gui_list_item_t){
           .title = t->config__reset,
           .info = t->execute,
@@ -1885,7 +1924,7 @@ static void* scr_config() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(22, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(27, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
       return scr_settings;
     }
@@ -1940,6 +1979,24 @@ static void* scr_config() {
 
       case 4: {
         // cycle through sensor rates
+        int32_t value = naos_get_l("main-rate");
+        if (value == 5) {
+          naos_set_l("main-rate", 30);
+        } else if (value == 30) {
+          naos_set_l("main-rate", 60);
+        } else if (value == 60) {
+          naos_set_l("main-rate", 120);
+        } else if (value == 120) {
+          naos_set_l("main-rate", 300);
+        } else {
+          naos_set_l("main-rate", 5);
+        }
+
+        break;
+      }
+
+      case 5: {
+        // cycle through sensor rates
         int32_t value = naos_get_l("sleep-rate");
         if (value == 5) {
           naos_set_l("sleep-rate", 30);
@@ -1956,7 +2013,7 @@ static void* scr_config() {
         break;
       }
 
-      case 5: {
+      case 6: {
         // cycle through sensor rates
         int32_t value = naos_get_l("record-rate");
         if (value == 5) {
@@ -1974,7 +2031,68 @@ static void* scr_config() {
         break;
       }
 
-      case 6: {
+      case 7: {
+        // cycle through PM rates, zero disables PM measurements while dozing
+        int32_t value = naos_get_l("pm-rate");
+        if (value == 0) {
+          naos_set_l("pm-rate", 30);
+        } else if (value == 30) {
+          naos_set_l("pm-rate", 60);
+        } else if (value == 60) {
+          naos_set_l("pm-rate", 120);
+        } else if (value == 120) {
+          naos_set_l("pm-rate", 300);
+        } else {
+          naos_set_l("pm-rate", 0);
+        }
+
+        break;
+      }
+
+      case 8: {
+        // cycle through display intervals within the clamped bounds
+        int32_t value = naos_get_l("display-rate");
+        if (value == 60) {
+          naos_set_l("display-rate", 120);
+        } else if (value == 120) {
+          naos_set_l("display-rate", 300);
+        } else {
+          naos_set_l("display-rate", 60);
+        }
+
+        break;
+      }
+
+      case 9: {
+        // cycle through gas windows, zero runs the SGP continuously while a
+        // negative value disables it entirely
+        int32_t value = naos_get_l("gas-window");
+        if (value == 0) {
+          naos_set_l("gas-window", 30);
+        } else if (value == 30) {
+          naos_set_l("gas-window", 60);
+        } else if (value == 60) {
+          naos_set_l("gas-window", 120);
+        } else if (value == 120) {
+          naos_set_l("gas-window", -1);
+        } else {
+          naos_set_l("gas-window", 0);
+        }
+
+        break;
+      }
+
+      case 10: {
+        // use wheel to change gas grace
+        int value = naos_get_l("gas-grace");
+        if (gui_wheel(t->config__gas_grace, &value, 0, 60, 3600, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
+          naos_set_l("gas-grace", value);
+        }
+
+        break;
+      }
+
+      case 11: {
         // use wheel to change long interval
         int value = naos_get_l("long-interval");
         if (gui_wheel(t->config__long_interval, &value, 30, 10, 900, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
@@ -1984,49 +2102,49 @@ static void* scr_config() {
         break;
       }
 
-      case 7: {
+      case 12: {
         // toggle fahrenheit temperature setting
         naos_set_b("fahrenheit", !naos_get_b("fahrenheit"));
 
         break;
       }
 
-      case 8: {
+      case 13: {
         // toggle developer mode
         naos_set_b("developer", !naos_get_b("developer"));
 
         break;
       }
 
-      case 9: {
+      case 14: {
         // toggle power light
         naos_set_b("power-light", !naos_get_b("power-light"));
 
         break;
       }
 
-      case 10: {
+      case 15: {
         // toggle CO2 light
         naos_set_b("co2-light", !naos_get_b("co2-light"));
 
         break;
       }
 
-      case 14: {
+      case 19: {
         // toggle BLE no sleep
         naos_set_b("ble-prev-sleep", !naos_get_b("ble-prev-sleep"));
 
         break;
       }
 
-      case 15: {
+      case 20: {
         // toggle MQTT no sleep
         naos_set_b("mqtt-prev-sleep", !naos_get_b("mqtt-prev-sleep"));
 
         break;
       }
 
-      case 16: {
+      case 21: {
         // toggle BLE pairing
         bool value = !naos_get_b("ble-pairing");
         naos_set_b("ble-pairing", value);
@@ -2038,7 +2156,7 @@ static void* scr_config() {
         break;
       }
 
-      case 17: {
+      case 22: {
         // toggle BLE bonding
         bool value = !naos_get_b("ble-bonding");
         naos_set_b("ble-bonding", value);
@@ -2050,7 +2168,7 @@ static void* scr_config() {
         break;
       }
 
-      case 18: {
+      case 23: {
         // clear BLE peers
         naos_ble_peerlist_clear();
         naos_ble_allowlist_clear();
@@ -2059,7 +2177,7 @@ static void* scr_config() {
         break;
       }
 
-      case 19: {
+      case 24: {
         // use wheel to change altitude
         int value = naos_get_l("altitude");
         if (gui_wheel(t->config__altitude, &value, -500, 10, 5000, t->save, t->cancel, "%dm", SCR_ACTION_TIMEOUT)) {
@@ -2069,7 +2187,7 @@ static void* scr_config() {
         break;
       }
 
-      case 20: {
+      case 25: {
         // use wheel to change clock calibration
         int value = naos_get_l("clock-cal");
         if (gui_wheel(t->config__clock_cal, &value, -63, 1, 126, t->save, t->cancel, "%dppm", SCR_ACTION_TIMEOUT)) {
@@ -2079,7 +2197,7 @@ static void* scr_config() {
         break;
       }
 
-      case 21: {
+      case 26: {
         // check recording
         if (rec_running()) {
           gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
@@ -2451,8 +2569,8 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info",   "Self Check", "Shipping Mode", "Sensor Data", "Sleep Mode", "CPU Reset", "Power Off",
-      "Clear Display", "Touch Info", "Compensation",  "Buzzer",      "PM Sensor",  NULL,
+      "System Info",   "Self Check", "Shipping Mode", "Sensor Data", "Sleep Mode", "CPU Reset",  "Power Off",
+      "Clear Display", "Touch Info", "Compensation",  "Buzzer",      "PM Sensor",  "Power Test", NULL,
   };
 
   for (;;) {
@@ -2794,6 +2912,16 @@ static void* scr_develop() {
 
       // restore the awake rate, the screen is only reachable while awake
       al_sensor_set_pm_rate(naos_get_l("main-rate"), false);
+    }
+
+    // handle power test
+    if (selected == 12) {
+      // use wheel to change power test level (0: off, 1: hi-Z, 2: + stay
+      // awake, 3: + keep screen)
+      int value = naos_get_l("power-test");
+      if (gui_wheel("Power Test", &value, 0, 1, 3, "Save", "Cancel", "%d", SCR_ACTION_TIMEOUT)) {
+        naos_set_l("power-test", value);
+      }
     }
   }
 }

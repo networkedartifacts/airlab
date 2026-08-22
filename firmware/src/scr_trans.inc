@@ -70,8 +70,13 @@ typedef struct {
   const char* config__date;
   const char* config__time;
   const char* config__timezone;
+  const char* config__main_rate;
   const char* config__sleep_rate;
   const char* config__record_rate;
+  const char* config__pm_rate;
+  const char* config__display_rate;
+  const char* config__gas_window;
+  const char* config__gas_grace;
   const char* config__long_interval;
   const char* config__temp_unit;
   const char* config__developer;
@@ -159,8 +164,13 @@ static const scr_trans_t scr_trans_map[] = {
             .config__date = "Fecha",
             .config__time = "Hora",
             .config__timezone = "Zona horaria",
+            .config__main_rate = "Muestreo activo",
             .config__sleep_rate = "Muestreo en reposo",
             .config__record_rate = "Muestreo en registro",
+            .config__pm_rate = "Muestreo de PM",
+            .config__display_rate = "Refresco de pantalla",
+            .config__gas_window = "Ventana activa de gas",
+            .config__gas_grace = "Periodo de gracia gas",
             .config__long_interval = "Intervalo largo plazo",
             .config__temp_unit = "Unidad de temperatura",
             .config__developer = "Modo desarrollador",
@@ -258,8 +268,13 @@ static const scr_trans_t scr_trans_map[] = {
             .config__date = "Datum",
             .config__time = "Uhrzeit",
             .config__timezone = "Zeitzone",
+            .config__main_rate = "Wach Messrate",
             .config__sleep_rate = "Schlaf Messrate",
             .config__record_rate = "Aufnahme Messrate",
+            .config__pm_rate = "PM Messrate",
+            .config__display_rate = "Anzeigeintervall",
+            .config__gas_window = "Gas Aktivfenster",
+            .config__gas_grace = "Gas Karenzzeit",
             .config__long_interval = "Langzeit Intervall",
             .config__temp_unit = "Temperatureinheit",
             .config__developer = "Entwicklermodus",
@@ -356,8 +371,13 @@ static const scr_trans_t scr_trans_map[] = {
             .config__date = "Date",
             .config__time = "Time",
             .config__timezone = "Timezone",
+            .config__main_rate = "Awake Sample Rate",
             .config__sleep_rate = "Sleep Sample Rate",
             .config__record_rate = "Record Sample Rate",
+            .config__pm_rate = "PM Sample Rate",
+            .config__display_rate = "Display Refresh",
+            .config__gas_window = "Gas Active Window",
+            .config__gas_grace = "Gas Power Grace",
             .config__long_interval = "Long-term Interval",
             .config__temp_unit = "Temperature Unit",
             .config__developer = "Developer Mode",
@@ -454,8 +474,13 @@ static const scr_trans_t scr_trans_map[] = {
             .config__date = "Date",
             .config__time = "Heure",
             .config__timezone = "Fuseau horaire",
+            .config__main_rate = "Échant. actif",
             .config__sleep_rate = "Échant. en veille",
             .config__record_rate = "Échant. en mesure",
+            .config__pm_rate = "Échant. PM",
+            .config__display_rate = "Actualisation écran",
+            .config__gas_window = "Fenêtre active gaz",
+            .config__gas_grace = "Délai de grâce gaz",
             .config__long_interval = "Intervalle long terme",
             .config__temp_unit = "Unité de température",
             .config__developer = "Mode développeur",
