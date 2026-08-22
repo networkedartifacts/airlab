@@ -12,8 +12,8 @@ test: $(UNITY)/unity.c
 	grep -E '^CONFIG_LV_(TXT|COLOR)' $(SDKCONFIG) | sed -e 's/^CONFIG_/#define DEVICE_/' -e 's/=y$$/ 1/' -e 's/=/ /' > test/build/device_conf.h
 	cc -std=c11 -Wall -o test/build/tests \
 		-DLV_CONF_INCLUDE_SIMPLE \
-		-I test -I test/build -I $(UNITY) -I src -I $(LVGL) \
-		test/*.c $(UNITY)/unity.c src/fnt.c \
+		-I test -I test/build -I $(UNITY) -I src -I lib -I $(LVGL) \
+		test/*.c $(UNITY)/unity.c src/fnt.c lib/sample.c \
 		$(LVGL)/src/misc/lv_txt.c $(LVGL)/src/misc/lv_mem.c $(LVGL)/src/misc/lv_log.c \
 		$(LVGL)/src/misc/lv_utils.c $(LVGL)/src/misc/lv_gc.c \
 		$(LVGL)/src/font/lv_font.c $(LVGL)/src/font/lv_font_fmt_txt.c
