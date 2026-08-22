@@ -1,6 +1,6 @@
 file(GLOB srcs ./*.c)
 list(APPEND srcs "ulp/transfer.c")
-idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES naos driver esp_adc ulp tinyusb usb littlefs fatfs bmv080)
+idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES naos driver esp_adc ulp tinyusb usb littlefs fatfs sdk)
 
 idf_component_get_property(tusb_lib espressif__tinyusb COMPONENT_LIB)
 target_include_directories(${tusb_lib} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

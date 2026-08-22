@@ -62,8 +62,8 @@
     "lib": {
       "path": "./lib"
     },
-    "bmv080": {
-      "path": "./bmv080"
+    "sdk": {
+      "path": "./sdk"
     },
     "lvgl": {
       "repository": "https://github.com/lvgl/lvgl.git",

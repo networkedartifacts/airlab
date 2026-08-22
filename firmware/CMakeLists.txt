@@ -9,8 +9,8 @@ set(CMAKE_C_STANDARD 17)
 
 # add your source files
 set(SOURCE_FILES
-        bmv080/bmv080.h
-        bmv080/bmv080_defs.h
+        sdk/bmv080/bmv080.h
+        sdk/bmv080/bmv080_defs.h
         lib/al/accel.h
         lib/al/buttons.h
         lib/al/buzzer.h
@@ -94,7 +94,7 @@ add_subdirectory(naos)
 
 # include ULP libraries
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
-        bmv080
+        sdk/bmv080
         naos/tree/esp-idf/components/ulp/ulp_riscv/ulp_core/include
         naos/tree/build/esp-idf/lib/ulp_al
 )
