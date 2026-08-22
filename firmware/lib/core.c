@@ -241,6 +241,10 @@ void al_sleep(bool ulp, uint64_t timeout) {
   // sleep peripherals after all other I2C traffic
   al_touch_sleep();
 
+  // mirror a pending clock step to the RTC, as the periodic sync may not have
+  // run since the step was applied and the boot seed would revert it
+  al_clock_flush();
+
   // enable deep sleep hold
   gpio_deep_sleep_hold_en();
 

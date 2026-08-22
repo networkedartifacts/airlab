@@ -28,7 +28,9 @@ void al_clock_set_date(uint16_t year, uint16_t month, uint16_t day) {
   cal.tm_mon = month - 1;
   cal.tm_mday = day;
 
-  // make time
+  // make time, letting mktime determine DST as the current flag may not apply
+  // to the new date
+  cal.tm_isdst = -1;
   t = mktime(&cal);
 
   // set time
@@ -62,7 +64,9 @@ void al_clock_set_time(uint16_t hour, uint16_t minute, uint16_t seconds) {
   cal.tm_min = minute;
   cal.tm_sec = seconds;
 
-  // make time
+  // make time, letting mktime determine DST as the current flag may not apply
+  // to the new time
+  cal.tm_isdst = -1;
   t = mktime(&cal);
 
   // set time

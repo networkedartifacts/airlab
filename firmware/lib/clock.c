@@ -85,15 +85,26 @@ static struct {
   };
 } al_clock_memory;
 
-static void al_clock_read(uint8_t reg, uint8_t *buf, size_t read) {
-  // write and read device
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, &reg, 1, buf, read, 1000, true));
+static bool al_clock_read(uint8_t reg, uint8_t *buf, size_t read) {
+  // write and read device, a failure is not fatal and degrades to the
+  // free-running system time fallback
+  esp_err_t err = al_i2c_transfer(AL_CLOCK_ADDR, &reg, 1, buf, read, 1000, true);
+  if (err != ESP_OK) {
+    naos_log("al-clk: warning: read failed (%d)", err);
+    return false;
+  }
+
+  return true;
 }
 
 static void al_clock_write(uint8_t reg, uint8_t val) {
-  // write device
+  // write device; a failure is logged and skipped, as all writes are heal or
+  // mirror operations that get retried on a later sync or boot
   uint8_t data[2] = {reg, val};
-  ESP_ERROR_CHECK(al_i2c_transfer(AL_CLOCK_ADDR, data, 2, NULL, 0, 1000, true));
+  esp_err_t err = al_i2c_transfer(AL_CLOCK_ADDR, data, 2, NULL, 0, 1000, true);
+  if (err != ESP_OK) {
+    naos_log("al-clk: warning: write failed (%d)", err);
+  }
 }
 
 static bool al_clock_decode(al_clock_state_t *state) {
@@ -137,34 +148,37 @@ static bool al_clock_read_state(al_clock_state_t *state) {
   // read the RTC until two consecutive transfers agree and decode to a valid
   // time: a transfer may straddle a second rollover, and a corrupted transfer
   // has been seen to deliver an off-by-one hour
+  // a failed transfer leaves the register memory unchanged and therefore must
+  // not count towards the agreement, as stale data would appear stable
   bool valid = false;
   naos_lock(al_clock_mutex);
-  al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
+  bool ok = al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
   for (int i = 0; i < 5; i++) {
     uint8_t last[sizeof(al_clock_memory)];
     memcpy(last, &al_clock_memory, sizeof(last));
-    al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
-    if (memcmp(last, &al_clock_memory, sizeof(last)) == 0 && al_clock_decode(state)) {
+    bool again = al_clock_read(0x00, (uint8_t *)&al_clock_memory, sizeof(al_clock_memory));
+    if (ok && again && memcmp(last, &al_clock_memory, sizeof(last)) == 0 && al_clock_decode(state)) {
       valid = true;
       break;
     }
+    ok = again;
   }
   naos_unlock(al_clock_mutex);
 
   return valid;
 }
 
-static al_clock_state_t al_clock_get() {
+static bool al_clock_get(al_clock_state_t *state) {
   // read state from the RTC and fall back to the system time if no valid time
   // could be read, so a defective RTC degrades to free-running time instead of
   // poisoning it
-  al_clock_state_t state;
-  if (!al_clock_read_state(&state)) {
+  bool valid = al_clock_read_state(state);
+  if (!valid) {
     naos_log("al-clk: warning: no valid RTC time, using system time");
     time_t t = time(NULL);
     struct tm cal;
     gmtime_r(&t, &cal);
-    state = (al_clock_state_t){
+    *state = (al_clock_state_t){
         .hours = cal.tm_hour,
         .minutes = cal.tm_min,
         .seconds = cal.tm_sec,
@@ -176,10 +190,10 @@ static al_clock_state_t al_clock_get() {
   }
 
   // log
-  naos_log("al-clk: get %02d:%02d:%02d %02d/%02d/%02d", state.hours, state.minutes, state.seconds, state.day,
-           state.month, state.year % 100);
+  naos_log("al-clk: get %02d:%02d:%02d %02d/%02d/%02d", state->hours, state->minutes, state->seconds, state->day,
+           state->month, state->year % 100);
 
-  return state;
+  return valid;
 }
 
 static void al_clock_set(al_clock_state_t state) {
@@ -299,11 +313,13 @@ void al_clock_init(bool reset) {
   al_clock_mutex = naos_mutex();
 
   // get clock
-  al_clock_state_t state = al_clock_get();
+  al_clock_state_t state;
+  bool valid = al_clock_get(&state);
 
-  // check STOP and OF flags
+  // check STOP and OF flags, but only after a valid read: after a failed read
+  // the register memory holds garbage that must not be written back
   naos_lock(al_clock_mutex);
-  if (al_clock_memory._stop || al_clock_memory._osc_fail) {
+  if (valid && (al_clock_memory._stop || al_clock_memory._osc_fail)) {
     if (!reset) {
       naos_log("al-clk: warning: STOP=%d OF=%d, clearing flags", al_clock_memory._stop, al_clock_memory._osc_fail);
     }
@@ -323,12 +339,16 @@ void al_clock_init(bool reset) {
   time_t t = al_clock_timegm(state.year, state.month, state.day, state.hours, state.minutes, state.seconds);
   struct timeval now;
   gettimeofday(&now, NULL);
-  if (t < al_clock_build_time()) {
+  time_t build = al_clock_build_time() - 24 * 60 * 60;
+  if (t < build) {
     // a time before the firmware build is impossible by construction: raise
-    // the system time to at least the build time and mirror it back
+    // the system time to at least the build time and mirror it back. the
+    // build time stems from the build machine's local time interpreted as
+    // UTC and may be up to a day ahead of the true build moment, so a day is
+    // subtracted to never step a correct clock forward right after a build
     naos_log("al-clk: warning: RTC before build time, healing");
-    if (now.tv_sec < al_clock_build_time()) {
-      struct timeval tv = {.tv_sec = al_clock_build_time()};
+    if (now.tv_sec < build) {
+      struct timeval tv = {.tv_sec = build};
       settimeofday(&tv, NULL);
     }
     al_clock_update();
@@ -367,6 +387,12 @@ void al_clock_update() {
 
   // refresh sync cache
   al_clock_sync_mark();
+}
+
+void al_clock_flush() {
+  // mirror a pending clock step to the RTC, so a step applied since the last
+  // periodic sync is not lost and reverted on the next boot
+  al_clock_sync_check();
 }
 
 bool al_clock_verify(uint16_t *year) {

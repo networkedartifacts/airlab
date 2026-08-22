@@ -67,6 +67,11 @@ void al_clock_init(bool reset);
 void al_clock_update();
 
 /**
+ * Update the RTC clock if the system time was stepped since the last sync.
+ */
+void al_clock_flush();
+
+/**
  * Verify that the RTC clock holds a valid time.
  *
  * @param year The read year, if valid.
