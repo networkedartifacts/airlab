@@ -219,6 +219,10 @@ static void sensor_reset() {
   al_sensor_long_comp_last = SNS_BASE;
   al_sensor_chg_comp_curr = 0;
   al_sensor_gas_last = 0;
+  al_sensor_voc_cache = 0;
+  al_sensor_voc_time = 0;
+  al_sensor_nox_cache = 0;
+  al_sensor_nox_time = 0;
   al_sensor_gas_window = 0;
   al_sensor_gas_grace = 0;
   al_sensor_unpowered_since = 0;
@@ -391,6 +395,31 @@ static void test_sensor_ingest_gas_replay() {
   TEST_ASSERT_EQUAL_INT64(gas_last, al_sensor_gas_last);
 }
 
+static void test_sensor_ingest_gas_carry() {
+  sensor_reset();
+  al_sensor_state.mode = AL_SENSOR_HAL_MANUAL;
+  al_sensor_seconds = 60;  // values valid for 75s
+
+  // produce established indices (past the initial blackout)
+  ingest(SNS_BASE + 60000, 900, 22.5f, 50.f, 27000, 15000, -1);
+  al_sample_t sample = ingest(SNS_BASE + 3660000, 900, 22.5f, 50.f, 27000, 15000, -1);
+  int16_t voc = sample.voc;
+  int16_t nox = sample.nox;
+  TEST_ASSERT_NOT_EQUAL_INT16(0, voc);
+  TEST_ASSERT_NOT_EQUAL_INT16(0, nox);
+
+  // a reading taken with a disabled SGP within the validity carries the
+  // last indices forward
+  sample = ingest(SNS_BASE + 3720000, 900, 22.5f, 50.f, 0, 0, -1);
+  TEST_ASSERT_EQUAL_INT16(voc, sample.voc);
+  TEST_ASSERT_EQUAL_INT16(nox, sample.nox);
+
+  // past the validity the gap is reported again
+  sample = ingest(SNS_BASE + 3736000, 900, 22.5f, 50.f, 0, 0, -1);
+  TEST_ASSERT_EQUAL_INT16(0, sample.voc);
+  TEST_ASSERT_EQUAL_INT16(0, sample.nox);
+}
+
 static void test_sensor_set_interval() {
   sensor_reset();
 
@@ -549,7 +578,7 @@ static void test_sensor_pm_policy() {
   fake_pm_present = true;
   al_sensor_set_pm_rate(60, false);
   TEST_ASSERT_EQUAL_INT32(60, fake_pm_run_period);
-  TEST_ASSERT_EQUAL_INT32(120, fake_pm_run_ttl);
+  TEST_ASSERT_EQUAL_INT32(75, fake_pm_run_ttl);
   al_sensor_set_pm_rate(10, false);
   TEST_ASSERT_EQUAL_INT32(30, fake_pm_run_period);
   al_sensor_set_pm_rate(700, false);
@@ -564,7 +593,7 @@ static void test_sensor_pm_policy() {
   // in manual mode measurements are taken by the caller
   al_sensor_pm_measure();
   TEST_ASSERT_EQUAL_INT(1, fake_pm_burst_calls);
-  TEST_ASSERT_EQUAL_INT32(120, fake_pm_burst_ttl);
+  TEST_ASSERT_EQUAL_INT32(75, fake_pm_burst_ttl);
   TEST_ASSERT_EQUAL_INT(1, fake_pm_flush_calls);
 
   // and are due once the cached reading is older than the rate
@@ -710,6 +739,7 @@ void suite_sensor() {
   RUN_TEST(test_sensor_ingest_long_comp);
   RUN_TEST(test_sensor_ingest_chg_comp);
   RUN_TEST(test_sensor_ingest_gas_replay);
+  RUN_TEST(test_sensor_ingest_gas_carry);
   RUN_TEST(test_sensor_set_interval);
   RUN_TEST(test_sensor_gas_window);
   RUN_TEST(test_sensor_gas_reenable);

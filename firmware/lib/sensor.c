@@ -27,6 +27,10 @@ AL_KEEP static float al_sensor_long_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_long_comp_last = 0;
 AL_KEEP static float al_sensor_chg_comp_curr = 0;
 AL_KEEP static int64_t al_sensor_gas_last = 0;
+AL_KEEP static int16_t al_sensor_voc_cache = 0;
+AL_KEEP static int64_t al_sensor_voc_time = 0;
+AL_KEEP static int16_t al_sensor_nox_cache = 0;
+AL_KEEP static int64_t al_sensor_nox_time = 0;
 AL_KEEP static int32_t al_sensor_gas_window = 0;
 AL_KEEP static int32_t al_sensor_gas_grace = 0;
 AL_KEEP static int64_t al_sensor_unpowered_since = 0;
@@ -205,6 +209,24 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data, int16_t pm) {
     }
   }
 
+  // carry the last gas indices forward over gaps, so samples are fully
+  // filled. a value is produced once per sampling interval and thus stays
+  // representative for that long plus 25% slack, after which the gap is
+  // reported again
+  int64_t gas_valid = (int64_t)al_sensor_seconds * 1250;
+  if (voc_index != 0) {
+    al_sensor_voc_cache = (int16_t)voc_index;
+    al_sensor_voc_time = data.epoch;
+  } else if (gas_valid > 0 && al_sensor_voc_time != 0 && data.epoch - al_sensor_voc_time <= gas_valid) {
+    voc_index = al_sensor_voc_cache;
+  }
+  if (nox_index != 0) {
+    al_sensor_nox_cache = (int16_t)nox_index;
+    al_sensor_nox_time = data.epoch;
+  } else if (gas_valid > 0 && al_sensor_nox_time != 0 && data.epoch - al_sensor_nox_time <= gas_valid) {
+    nox_index = al_sensor_nox_cache;
+  }
+
   // calculate pressure
   float prs = (float)data.prs / 4096.f;
 
@@ -283,9 +305,10 @@ static void al_sensor_pm_apply() {
   // duty cycle the sensor at the PM rate, fully independent of the main sensor
   // and its interval (the rate is clamped to the duty cycling bounds). in
   // manual mode the sensor is never measured on its own, the rate then only
-  // determines when al_sensor_pm_measure() takes one
+  // determines when al_sensor_pm_measure() takes one. readings stay valid for
+  // the rate plus 25% slack, so samples between measurements are fully filled
   if (al_sensor_pm_rate > 0 && !al_sensor_pm_manual) {
-    al_sensor_pm_run(al_sensor_pm_rate, 2 * al_sensor_pm_rate);
+    al_sensor_pm_run(al_sensor_pm_rate, al_sensor_pm_rate + al_sensor_pm_rate / 4);
   } else {
     al_sensor_pm_run(0, 0);
   }
@@ -358,6 +381,12 @@ static void al_sensor_monitor() {
   if (al_sensor_gas_last != 0) {
     al_sensor_gas_last += diff;
   }
+  if (al_sensor_voc_time != 0) {
+    al_sensor_voc_time += diff;
+  }
+  if (al_sensor_nox_time != 0) {
+    al_sensor_nox_time += diff;
+  }
   if (al_sensor_unpowered_since != 0) {
     al_sensor_unpowered_since += diff;
   }
@@ -407,6 +436,10 @@ void al_sensor_init(bool reset) {
     al_sensor_switch_comp = al_clock_get_epoch();
     al_sensor_long_comp_last = al_clock_get_epoch();
     al_sensor_gas_last = 0;
+    al_sensor_voc_cache = 0;
+    al_sensor_voc_time = 0;
+    al_sensor_nox_cache = 0;
+    al_sensor_nox_time = 0;
 
     // initialize gas index parameters
     GasIndexAlgorithm_init_with_sampling_interval(&al_sensor_voc_params, GasIndexAlgorithm_ALGORITHM_TYPE_VOC,
@@ -628,7 +661,7 @@ void al_sensor_pm_measure() {
   // request a burst measurement and await its completion, blocking the caller
   // for the burst duration; whether a measurement is warranted is left to the
   // caller (al_sensor_pm_due())
-  al_sensor_pm_burst(2 * rate);
+  al_sensor_pm_burst(rate + rate / 4);
   al_sensor_pm_flush();
 }
 
