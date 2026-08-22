@@ -1766,7 +1766,7 @@ static void scr_power_profile() {
   // configuration
   int rung = scr_power_rung();
   bool moved = false;
-  int sel = rung < 0 ? 1 : rung;
+  int sel = rung < 0 ? 2 : rung;
 
   // begin draw
   gfx_begin(false, false);

@@ -99,7 +99,7 @@ static naos_param_t params[] = {
     {.name = "power-state", .type = NAOS_STRING, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "pm-present", .type = NAOS_BOOL, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "main-rate", .type = NAOS_LONG, .default_l = 5, .func_l = main_rate, .skip_func_init = true},
-    {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
+    {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 60},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
     {.name = "pm-rate", .type = NAOS_LONG, .default_l = 0},  // PM measurement rate while dozing (s, 0 = off)
     {.name = "display-rate", .type = NAOS_LONG, .default_l = 60},
