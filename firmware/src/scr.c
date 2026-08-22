@@ -1065,78 +1065,6 @@ static bool scr_date() {
   }
 }
 
-static void* scr_bubbles() {
-  // begin draw
-  gfx_begin(false, false);
-
-  // add bubble
-  lvx_bubble_t bubble = {};
-  lvx_bubble_create(&bubble, lv_scr_act());
-
-  // add signs
-  lvx_sign_t back = {.title = "B", .text = scr_trans()->cancel, .align = LV_ALIGN_BOTTOM_LEFT};
-  lvx_sign_t next = {.title = ">", .text = scr_trans()->next, .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_create(&back, lv_scr_act());
-  lvx_sign_create(&next, lv_scr_act());
-
-  // end draw
-  gfx_end(true, false);
-
-  // prepare index
-  int index = 0;
-
-  for (;;) {
-    // begin draw
-    gfx_begin(false, false);
-
-    // set bubble text
-    switch (scr_lang()) {
-      case SCR_DE:
-        bubble.text = stm_get(index)->text_de;
-        break;
-      case SCR_EN:
-        bubble.text = stm_get(index)->text_en;
-        break;
-      case SCR_ES:
-        bubble.text = stm_get(index)->text_es;
-        break;
-      case SCR_FR:
-        bubble.text = stm_get(index)->text_fr;
-    }
-
-    // update bubble
-    lvx_bubble_update(&bubble);
-
-    // end draw
-    gfx_end(false, false);
-
-    // await event
-    sig_event_t event = sig_await(SIG_ESCAPE | SIG_RIGHT | SIG_LEFT, 0);
-
-    // handle right
-    if (event.type == SIG_RIGHT) {
-      index++;
-      if (index >= stm_num()) {
-        index = 0;
-      }
-      continue;
-    } else if (event.type == SIG_LEFT) {
-      index--;
-      if (index < 0) {
-        index = stm_num() - 1;
-      }
-      continue;
-    }
-
-    /* handle escape */
-
-    // cleanup screen
-    gui_cleanup(false);
-
-    return scr_develop;
-  }
-}
-
 static void* scr_info() {
   // begin draw
   gfx_begin(false, false);
@@ -3019,8 +2947,8 @@ static void* scr_develop() {
 
   // prepare labels
   const char* labels[] = {
-      "System Info",   "Self Check",   "Shipping Mode", "Sensor Data",  "Sleep Mode", "CPU Reset", "Power Off",
-      "Clear Display", "Test Bubbles", "Touch Info",    "Compensation", "Buzzer",     "PM Sensor", NULL,
+      "System Info",   "Self Check", "Shipping Mode", "Sensor Data", "Sleep Mode", "CPU Reset", "Power Off",
+      "Clear Display", "Touch Info", "Compensation",  "Buzzer",      "PM Sensor",  NULL,
   };
 
   for (;;) {
@@ -3105,13 +3033,8 @@ static void* scr_develop() {
       gui_cleanup(true);
     }
 
-    // handle bubbles test
-    if (selected == 8) {
-      return scr_bubbles;
-    }
-
     // handle touch info
-    if (selected == 9) {
+    if (selected == 8) {
       // prepare data
       float position = NAN;
       float scroll = 0;
@@ -3140,7 +3063,7 @@ static void* scr_develop() {
     }
 
     // handle compensation
-    if (selected == 10) {
+    if (selected == 9) {
       // prepare variables
       static const int32_t intervals[] = {5, 30, 60, 120, 300};
       size_t interval = 0;
@@ -3181,7 +3104,7 @@ static void* scr_develop() {
     }
 
     // handle buzzer
-    if (selected == 11) {
+    if (selected == 10) {
       // begin draw
       gfx_begin(false, false);
 
@@ -3252,7 +3175,7 @@ static void* scr_develop() {
     }
 
     // handle PM sensor
-    if (selected == 12) {
+    if (selected == 11) {
       // skip if no chip was detected
       if (!al_sensor_pm_present()) {
         gui_message("No PM sensor detected!", SCR_MSG_TIMEOUT);
