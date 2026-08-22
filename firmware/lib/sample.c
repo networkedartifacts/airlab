@@ -213,6 +213,11 @@ size_t al_sample_query(al_sample_source_t *source, al_sample_t *samples, size_t 
         break;
       }
 
+      // stop at the last sample, as there is no next sample to interpolate with
+      if (batch_pos + 1 >= batch_size) {
+        return i;
+      }
+
       // handle range match
       if (batch[batch_pos + 1].off > offset) {
         samples[i] = al_sample_lerp(batch[batch_pos], batch[batch_pos + 1], offset);
@@ -237,6 +242,8 @@ size_t al_sample_pick(al_sample_source_t *source, al_sample_field_t field, int n
   int count = (int)source->count(source->ctx);
   if (num > count) {
     num = count;
+  } else if (num < -count) {
+    num = -count;
   }
 
   // prepare from/to indexes
@@ -258,7 +265,10 @@ size_t al_sample_pick(al_sample_source_t *source, al_sample_field_t field, int n
   if (min != NULL) {
     *min = 9999.f;
   }
-  for (size_t i = 0; i < num; i++) {
+  if (max != NULL) {
+    *max = -9999.f;
+  }
+  for (int i = from; i < to; i++) {
     if (max != NULL && values[i] > *max) {
       *max = values[i];
     }
@@ -267,5 +277,5 @@ size_t al_sample_pick(al_sample_source_t *source, al_sample_field_t field, int n
     }
   }
 
-  return num;
+  return (size_t)(to - from);
 }

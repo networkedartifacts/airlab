@@ -14,8 +14,13 @@ static size_t src_num;
 static size_t src_count(void* ctx) { return src_num; }
 
 static void src_read(void* ctx, al_sample_t* samples, size_t num, size_t offset) {
+  // negative offsets read from the end, like the store
+  int index = (int)offset;
+  if (index < 0) {
+    index += (int)src_num;
+  }
   for (size_t i = 0; i < num; i++) {
-    samples[i] = src_data[offset + i];
+    samples[i] = src_data[index + i];
   }
 }
 
@@ -208,6 +213,16 @@ static void test_sample_query() {
   TEST_ASSERT_EQUAL_INT16(300, samples[0].co2);
   TEST_ASSERT_EQUAL_INT16(400, samples[1].co2);
   TEST_ASSERT_EQUAL_INT16(500, samples[2].co2);
+
+  // verify query stops at the last sample instead of interpolating past it
+  src_fill((int32_t[]){0, 1000}, (int16_t[]){400, 500}, 2);
+  TEST_ASSERT_EQUAL_size_t(1, al_sample_query(&src, samples, 2, 500, 1000));
+  TEST_ASSERT_EQUAL_INT16(450, samples[0].co2);
+
+  // verify query on a single sample
+  src_fill((int32_t[]){0}, (int16_t[]){400}, 1);
+  TEST_ASSERT_EQUAL_size_t(1, al_sample_query(&src, samples, 3, 0, 1000));
+  TEST_ASSERT_EQUAL_INT16(400, samples[0].co2);
 }
 
 static void test_sample_pick() {
@@ -226,6 +241,27 @@ static void test_sample_pick() {
 
   // verify clamping to the available count
   TEST_ASSERT_EQUAL_size_t(3, al_sample_pick(&src, AL_SAMPLE_CO2, 8, values, NULL, NULL));
+
+  // verify min/max are initialized for all-negative values
+  src_num = 2;
+  src_data[0] = (al_sample_t){.off = 0, .tmp = -500};
+  src_data[1] = (al_sample_t){.off = 1000, .tmp = -300};
+  min = -12345.f, max = 12345.f;
+  TEST_ASSERT_EQUAL_size_t(2, al_sample_pick(&src, AL_SAMPLE_TMP, 2, values, &min, &max));
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -5.f, min);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, -3.f, max);
+
+  // verify negative numbers pick from the end
+  src_fill((int32_t[]){0, 1000, 2000}, (int16_t[]){400, 600, 500}, 3);
+  min = 0.f, max = 0.f;
+  TEST_ASSERT_EQUAL_size_t(2, al_sample_pick(&src, AL_SAMPLE_CO2, -2, values + 4, &min, &max));
+  TEST_ASSERT_EQUAL_FLOAT(600.f, values[2]);
+  TEST_ASSERT_EQUAL_FLOAT(500.f, values[3]);
+  TEST_ASSERT_EQUAL_FLOAT(500.f, min);
+  TEST_ASSERT_EQUAL_FLOAT(600.f, max);
+
+  // verify negative numbers are clamped to the available count
+  TEST_ASSERT_EQUAL_size_t(3, al_sample_pick(&src, AL_SAMPLE_CO2, -8, values + 4, NULL, NULL));
 }
 
 void suite_sample() {
