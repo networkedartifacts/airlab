@@ -70,6 +70,10 @@ static void setup() {
   // apply charger hi-Z mode
   al_power_hiz(naos_get_l("power-test") >= 1);
 
+  // publish PM sensor presence, so clients can hide the PM rate setting on
+  // devices without a PM sensor like the on-device menu does
+  naos_set_b("pm-present", al_sensor_pm_present());
+
   // determine reset
   bool reset = trigger == AL_RESET;
 
@@ -93,6 +97,7 @@ static naos_param_t params[] = {
     {.name = "int-storage", .type = NAOS_DOUBLE, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "ext-storage", .type = NAOS_DOUBLE, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "power-state", .type = NAOS_STRING, .mode = NAOS_VOLATILE | NAOS_LOCKED},
+    {.name = "pm-present", .type = NAOS_BOOL, .mode = NAOS_VOLATILE | NAOS_LOCKED},
     {.name = "main-rate", .type = NAOS_LONG, .default_l = 5, .func_l = main_rate, .skip_func_init = true},
     {.name = "sleep-rate", .type = NAOS_LONG, .default_l = 30},
     {.name = "record-rate", .type = NAOS_LONG, .default_l = 5},
