@@ -66,6 +66,15 @@ typedef struct {
   const char* about__firmware_version;
   const char* about__internal_storage;
   const char* about__external_storage;
+  const char* config__general;
+  const char* config__measurement;
+  const char* config__power;
+  const char* config__connectivity;
+  const char* config__advanced;
+  const char* config__gas_mode;
+  const char* config__gas_mode_cont;
+  const char* config__gas_mode_duty;
+  const char* config__gas_window_hint;
   const char* config__language;
   const char* config__date;
   const char* config__time;
@@ -160,6 +169,15 @@ static const scr_trans_t scr_trans_map[] = {
             .about__firmware_version = "Versión de FW",
             .about__internal_storage = "Alm. Interno",
             .about__external_storage = "Alm. Externo",
+            .config__general = "General",
+            .config__measurement = "Medición",
+            .config__power = "Energía",
+            .config__connectivity = "Conectividad",
+            .config__advanced = "Avanzado",
+            .config__gas_mode = "Modo sensor de gas",
+            .config__gas_mode_cont = "Continuo",
+            .config__gas_mode_duty = "Intermitente",
+            .config__gas_window_hint = "Activa primero el\nmodo intermitente.",
             .config__language = "Idioma",
             .config__date = "Fecha",
             .config__time = "Hora",
@@ -264,6 +282,15 @@ static const scr_trans_t scr_trans_map[] = {
             .about__firmware_version = "FW Version",
             .about__internal_storage = "Int. Speicher",
             .about__external_storage = "Ext. Speicher",
+            .config__general = "Allgemein",
+            .config__measurement = "Messung",
+            .config__power = "Energie",
+            .config__connectivity = "Konnektivität",
+            .config__advanced = "Erweitert",
+            .config__gas_mode = "Gas Sensormodus",
+            .config__gas_mode_cont = "Kontinuierlich",
+            .config__gas_mode_duty = "Getaktet",
+            .config__gas_window_hint = "Zuerst getakteten\nModus aktivieren.",
             .config__language = "Sprache",
             .config__date = "Datum",
             .config__time = "Uhrzeit",
@@ -367,6 +394,15 @@ static const scr_trans_t scr_trans_map[] = {
             .about__firmware_version = "FW Version",
             .about__internal_storage = "Int. Storage",
             .about__external_storage = "Ext. Storage",
+            .config__general = "General",
+            .config__measurement = "Measurement",
+            .config__power = "Power",
+            .config__connectivity = "Connectivity",
+            .config__advanced = "Advanced",
+            .config__gas_mode = "Gas Sensor Mode",
+            .config__gas_mode_cont = "Continuous",
+            .config__gas_mode_duty = "Duty Cycled",
+            .config__gas_window_hint = "Enable duty cycling first.",
             .config__language = "Language",
             .config__date = "Date",
             .config__time = "Time",
@@ -470,6 +506,15 @@ static const scr_trans_t scr_trans_map[] = {
             .about__firmware_version = "Version FW",
             .about__internal_storage = "Stockage int.",
             .about__external_storage = "Stockage ext.",
+            .config__general = "Général",
+            .config__measurement = "Mesure",
+            .config__power = "Énergie",
+            .config__connectivity = "Connectivité",
+            .config__advanced = "Avancé",
+            .config__gas_mode = "Mode capteur gaz",
+            .config__gas_mode_cont = "Continu",
+            .config__gas_mode_duty = "Intermittent",
+            .config__gas_window_hint = "Active d'abord le\nmode intermittent.",
             .config__language = "Langue",
             .config__date = "Date",
             .config__time = "Heure",

@@ -406,6 +406,7 @@ static void* scr_edit();
 static void* scr_explore();
 static void* scr_menu();
 static void* scr_settings();
+static void* scr_config();
 static void* scr_develop();
 
 static bool scr_time() {
@@ -1723,6 +1724,30 @@ static void* scr_ble() {
   return scr_menu;
 }
 
+// The config categories, mirroring the shared settings taxonomy (General,
+// Measurement, Power, Connectivity, Advanced). Items reference the ids
+// dispatched in scr_config_cb() and scr_config_items().
+static const uint8_t scr_cat_general[] = {0, 1, 2, 3, 12};
+static const uint8_t scr_cat_measure[] = {4, 11};
+static const uint8_t scr_cat_power[] = {5, 8, 6, 28, 9, 10, 7};
+static const uint8_t scr_cat_connect[] = {16, 17, 18, 19, 20, 21, 22, 23};
+static const uint8_t scr_cat_advanced[] = {14, 15, 13, 24, 25, 26};
+
+typedef struct {
+  const uint8_t* items;
+  int num;
+} scr_cat_t;
+
+static const scr_cat_t scr_cats[] = {
+    {scr_cat_general, (int)sizeof(scr_cat_general)},   {scr_cat_measure, (int)sizeof(scr_cat_measure)},
+    {scr_cat_power, (int)sizeof(scr_cat_power)},       {scr_cat_connect, (int)sizeof(scr_cat_connect)},
+    {scr_cat_advanced, (int)sizeof(scr_cat_advanced)},
+};
+
+#define SCR_CAT_NUM ((int)(sizeof(scr_cats) / sizeof(scr_cat_t)))
+
+static int scr_config_cat = 0;
+
 static gui_list_item_t scr_config_cb(int num, void* ctx) {
   // get translation
   const scr_trans_t* t = scr_trans();
@@ -1795,12 +1820,12 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
       };
     }
     case 9: {
-      // treat negative as off and zero as continuous
+      // the window only applies while the gas sensor is duty cycled
       int32_t window = naos_get_l("gas-window");
 
       return (gui_list_item_t){
           .title = t->config__gas_window,
-          .info = window < 0 ? t->off : (window == 0 ? t->on : lvx_fmt("%lds", window)),
+          .info = window > 0 ? lvx_fmt("%lds", window) : "-",
       };
     }
     case 10: {
@@ -1908,32 +1933,49 @@ static gui_list_item_t scr_config_cb(int num, void* ctx) {
           .info = t->execute,
       };
     }
+    case 28: {
+      // derive the gas sensor mode from the window value
+      int32_t window = naos_get_l("gas-window");
+
+      return (gui_list_item_t){
+          .title = t->config__gas_mode,
+          .info = window < 0 ? t->off : (window == 0 ? t->config__gas_mode_cont : t->config__gas_mode_duty),
+      };
+    }
     default:
       ESP_ERROR_CHECK(ESP_FAIL);
       return (gui_list_item_t){0};
   }
 }
 
-static void* scr_config() {
-  // prepare state
-  static int offset = 0;
-  static int selected = 0;
+static gui_list_item_t scr_config_item_cb(int num, void* ctx) {
+  // delegate to the id-based renderer
+  const scr_cat_t* cat = ctx;
+  return scr_config_cb(cat->items[num], NULL);
+}
 
-  // get translation
+static void* scr_config_items() {
+  // prepare per-category state
+  static int offsets[SCR_CAT_NUM] = {0};
+  static int selection[SCR_CAT_NUM] = {0};
+
+  // get translation and category
   const scr_trans_t* t = scr_trans();
+  const scr_cat_t* cat = &scr_cats[scr_config_cat];
 
   for (;;) {
     // select parameter
-    int choice = gui_list(27, selected, &offset, t->change, t->back, scr_config_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(cat->num, selection[scr_config_cat], &offsets[scr_config_cat], t->change, t->back,
+                          scr_config_item_cb, (void*)cat, SCR_ACTION_TIMEOUT);
     if (choice < 0) {
-      return scr_settings;
+      return scr_config;
     }
 
     // store choice
-    selected = choice;
+    selection[scr_config_cat] = choice;
 
     // handle choice
-    switch (choice) {
+    switch (cat->items[choice]) {
       case 0: {
         // cycle through the available languages
         scr_lang_t lang = scr_lang();
@@ -1948,14 +1990,14 @@ static void* scr_config() {
         }
 
         // reload screen
-        return scr_config;
+        return scr_config_items;
       }
 
       case 1: {
         // check recording
         if (rec_running()) {
           gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
-          return scr_config;
+          return scr_config_items;
         }
 
         // change date
@@ -1968,7 +2010,7 @@ static void* scr_config() {
         // check recording
         if (rec_running()) {
           gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
-          return scr_config;
+          return scr_config_items;
         }
 
         // change time
@@ -1996,16 +2038,22 @@ static void* scr_config() {
       }
 
       case 5: {
-        // cycle through sensor rates
+        // cycle through the canonical sleep rates
         int32_t value = naos_get_l("sleep-rate");
         if (value == 5) {
+          naos_set_l("sleep-rate", 15);
+        } else if (value == 15) {
           naos_set_l("sleep-rate", 30);
         } else if (value == 30) {
           naos_set_l("sleep-rate", 60);
         } else if (value == 60) {
           naos_set_l("sleep-rate", 120);
         } else if (value == 120) {
+          naos_set_l("sleep-rate", 180);
+        } else if (value == 180) {
           naos_set_l("sleep-rate", 300);
+        } else if (value == 300) {
+          naos_set_l("sleep-rate", 600);
         } else {
           naos_set_l("sleep-rate", 5);
         }
@@ -2055,6 +2103,8 @@ static void* scr_config() {
         if (value == 60) {
           naos_set_l("display-rate", 120);
         } else if (value == 120) {
+          naos_set_l("display-rate", 180);
+        } else if (value == 180) {
           naos_set_l("display-rate", 300);
         } else {
           naos_set_l("display-rate", 60);
@@ -2064,29 +2114,46 @@ static void* scr_config() {
       }
 
       case 9: {
-        // cycle through gas windows, zero runs the SGP continuously while a
-        // negative value disables it entirely
-        int32_t value = naos_get_l("gas-window");
-        if (value == 0) {
-          naos_set_l("gas-window", 30);
-        } else if (value == 30) {
-          naos_set_l("gas-window", 60);
-        } else if (value == 60) {
-          naos_set_l("gas-window", 120);
-        } else if (value == 120) {
-          naos_set_l("gas-window", -1);
-        } else {
-          naos_set_l("gas-window", 0);
+        // adjust the duty-cycle window within the firmware's clamp of at
+        // least 10s and at most half the sleep interval
+        int32_t window = naos_get_l("gas-window");
+        if (window <= 0) {
+          gui_message(t->config__gas_window_hint, SCR_MSG_TIMEOUT);
+          break;
+        }
+        int max = (int)(naos_get_l("sleep-rate") / 2);
+        if (max < 10) {
+          max = 10;
+        }
+        int value = (int)window;
+        if (value < 10) {
+          value = 10;
+        } else if (value > max) {
+          value = max;
+        }
+        if (gui_wheel(t->config__gas_window, &value, 10, 5, max, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
+          naos_set_l("gas-window", value);
         }
 
         break;
       }
 
       case 10: {
-        // use wheel to change gas grace
-        int value = naos_get_l("gas-grace");
-        if (gui_wheel(t->config__gas_grace, &value, 0, 60, 3600, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
-          naos_set_l("gas-grace", value);
+        // cycle through the canonical grace periods, zero applies the gas
+        // window immediately
+        int32_t value = naos_get_l("gas-grace");
+        if (value == 0) {
+          naos_set_l("gas-grace", 300);
+        } else if (value == 300) {
+          naos_set_l("gas-grace", 900);
+        } else if (value == 900) {
+          naos_set_l("gas-grace", 1800);
+        } else if (value == 1800) {
+          naos_set_l("gas-grace", 3600);
+        } else if (value == 3600) {
+          naos_set_l("gas-grace", 7200);
+        } else {
+          naos_set_l("gas-grace", 0);
         }
 
         break;
@@ -2201,12 +2268,12 @@ static void* scr_config() {
         // check recording
         if (rec_running()) {
           gui_message(scr_trans()->recording, SCR_MSG_TIMEOUT);
-          return scr_config;
+          return scr_config_items;
         }
 
         // confirm reset
         if (!gui_confirm(scr_trans()->reset__confirm, scr_trans()->yes, scr_trans()->no, true, SCR_ACTION_TIMEOUT)) {
-          return scr_config;
+          return scr_config_items;
         }
 
         // reset data
@@ -2228,11 +2295,71 @@ static void* scr_config() {
         break;
       }
 
+      case 28: {
+        // cycle the gas sensor mode; duty cycling starts at half the sleep
+        // interval, the mildest window the firmware accepts
+        int32_t window = naos_get_l("gas-window");
+        if (window == 0) {
+          int32_t start = naos_get_l("sleep-rate") / 2;
+          naos_set_l("gas-window", start < 10 ? 10 : start);
+        } else if (window > 0) {
+          naos_set_l("gas-window", -1);
+        } else {
+          naos_set_l("gas-window", 0);
+        }
+
+        break;
+      }
+
       default:
         // show read-only message for AL Studio managed settings
         gui_message(t->config__studio, SCR_ACTION_TIMEOUT);
     }
   }
+}
+
+static gui_list_item_t scr_config_cat_cb(int num, void* ctx) {
+  // get translation
+  const scr_trans_t* t = scr_trans();
+
+  // handle categories
+  switch (num) {
+    case 0:
+      return (gui_list_item_t){.title = t->config__general, .info = ""};
+    case 1:
+      return (gui_list_item_t){.title = t->config__measurement, .info = ""};
+    case 2:
+      return (gui_list_item_t){.title = t->config__power, .info = ""};
+    case 3:
+      return (gui_list_item_t){.title = t->config__connectivity, .info = ""};
+    case 4:
+      return (gui_list_item_t){.title = t->config__advanced, .info = ""};
+    default:
+      ESP_ERROR_CHECK(ESP_FAIL);
+      return (gui_list_item_t){0};
+  }
+}
+
+static void* scr_config() {
+  // prepare state
+  static int offset = 0;
+  static int selected = 0;
+
+  // get translation
+  const scr_trans_t* t = scr_trans();
+
+  // select category
+  int choice = gui_list(SCR_CAT_NUM, selected, &offset, t->explore__select, t->back, scr_config_cat_cb, NULL,
+                        SCR_ACTION_TIMEOUT);
+  if (choice < 0) {
+    return scr_settings;
+  }
+
+  // store choice
+  selected = choice;
+  scr_config_cat = choice;
+
+  return scr_config_items;
 }
 
 static void* scr_check() {
