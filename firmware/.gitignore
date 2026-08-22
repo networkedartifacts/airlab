@@ -1,4 +1,6 @@
 naos/
 cmake-build-debug/
 test/fs
+test/unity/
+test/build/
 *.zip
