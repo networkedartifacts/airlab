@@ -108,6 +108,9 @@ int32_t al_sample_flags(al_sample_t sample, al_sample_field_t field) {
 int al_sample_search(al_sample_source_t *source, int32_t *offset) {
   // get count
   int count = (int)source->count(source->ctx);
+  if (count == 0) {
+    return -1;
+  }
 
   // calculate range
   int start = 0;
@@ -131,14 +134,12 @@ int al_sample_search(al_sample_source_t *source, int32_t *offset) {
         return -1;
       }
     } else {
-      if (middle == 0) {
-        return 0;
-      }
       end = middle - 1;
     }
   }
 
-  // update needle
+  // read found sample and update needle
+  source->read(source->ctx, &sample, 1, start);
   *offset = sample.off;
 
   return start;
@@ -176,7 +177,7 @@ size_t al_sample_query(al_sample_source_t *source, al_sample_t *samples, size_t 
   if (index == -1) {
     return 0;
   }
-  if (needle > start) {
+  if (index > 0 && needle > start) {
     index--;
   }
 
