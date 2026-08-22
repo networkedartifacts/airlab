@@ -39,4 +39,7 @@ void al_storage_write(al_storage_type_t type, const char *dir, const char *name,
                       size_t length, bool truncate);
 void al_storage_delete(al_storage_type_t type, const char *dir, const char *name);
 
+// test control for the free space reported by al_storage_info
+extern uint32_t al_storage_test_free[2];
+
 #endif  // AL_STORAGE_H

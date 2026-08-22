@@ -13,7 +13,7 @@ test: $(UNITY)/unity.c
 	cc -std=c11 -Wall -o test/build/tests \
 		-DLV_CONF_INCLUDE_SIMPLE \
 		-I test -I test/build -I test/shims -I $(UNITY) -I src -I lib -I $(LVGL) \
-		test/*.c $(UNITY)/unity.c src/fnt.c lib/sample.c \
+		test/*.c test/shims/*.c $(UNITY)/unity.c src/fnt.c lib/sample.c \
 		$(LVGL)/src/misc/lv_txt.c $(LVGL)/src/misc/lv_mem.c $(LVGL)/src/misc/lv_log.c \
 		$(LVGL)/src/misc/lv_utils.c $(LVGL)/src/misc/lv_gc.c \
 		$(LVGL)/src/font/lv_font.c $(LVGL)/src/font/lv_font_fmt_txt.c

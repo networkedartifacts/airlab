@@ -3,114 +3,6 @@
 // include the unit directly to access its static state for resets
 #include "../src/dat.c"
 
-/* Shims (declared in al/core.h, sig.h and the al/storage.h shim header) */
-
-void *al_alloc(size_t size) { return malloc(size); }
-
-void *al_calloc(size_t count, size_t size) { return calloc(count, size); }
-
-void sig_dispatch(sig_event_t event) { (void)event; }
-
-static uint32_t fs_free[2];
-
-static const char *fs_root(al_storage_type_t type) {
-  return type == AL_STORAGE_INT ? AL_STORAGE_INTERNAL : AL_STORAGE_EXTERNAL;
-}
-
-void al_storage_prepare(al_storage_type_t type) { (void)type; }
-
-al_storage_info_t al_storage_info(al_storage_type_t type) {
-  return (al_storage_info_t){.total = 4 * 1024 * 1024, .free = fs_free[type]};
-}
-
-void al_storage_enable_usb(al_storage_eject_t eject) { (void)eject; }
-
-void al_storage_disable_usb() {}
-
-int al_storage_stat(al_storage_type_t type, const char *dir, const char *name) {
-  char path[128];
-  snprintf(path, sizeof(path), "%s/%s/%s", fs_root(type), dir, name);
-  struct stat info;
-  if (stat(path, &info) != 0) {
-    return -1;
-  }
-  return (int)info.st_size;
-}
-
-bool al_storage_read(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,
-                     size_t length) {
-  char path[128];
-  snprintf(path, sizeof(path), "%s/%s/%s", fs_root(type), dir, name);
-  FILE *file = fopen(path, "r");
-  if (file == NULL) {
-    return false;
-  }
-  if (fseek(file, (long)offset, SEEK_SET) != 0) {
-    ESP_ERROR_CHECK(errno);
-  }
-  if (fread(buf, 1, length, file) != length) {
-    ESP_ERROR_CHECK(ESP_FAIL);
-  }
-  fclose(file);
-  return true;
-}
-
-void al_storage_write(al_storage_type_t type, const char *dir, const char *name, void *buf, size_t offset,
-                      size_t length, bool truncate) {
-  // ensure directories
-  char path[128];
-  mkdir(AL_STORAGE_ROOT, 0777);
-  mkdir(fs_root(type), 0777);
-  snprintf(path, sizeof(path), "%s/%s", fs_root(type), dir);
-  mkdir(path, 0777);
-
-  // write file, matching the semantics of the real implementation
-  snprintf(path, sizeof(path), "%s/%s/%s", fs_root(type), dir, name);
-  FILE *file = fopen(path, offset == 0 && truncate ? "w" : "r+");
-  if (file == NULL) {
-    ESP_ERROR_CHECK(errno);
-    return;
-  }
-  if (fseek(file, (long)offset, SEEK_SET) != 0) {
-    ESP_ERROR_CHECK(errno);
-  }
-  if (fwrite(buf, 1, length, file) != length) {
-    ESP_ERROR_CHECK(ESP_FAIL);
-  }
-  fclose(file);
-}
-
-void al_storage_delete(al_storage_type_t type, const char *dir, const char *name) {
-  char path[128];
-  snprintf(path, sizeof(path), "%s/%s/%s", fs_root(type), dir, name);
-  remove(path);
-}
-
-static void fs_wipe(const char *path) {
-  DIR *dir = opendir(path);
-  if (dir == NULL) {
-    return;
-  }
-  for (;;) {
-    struct dirent *entry = readdir(dir);
-    if (entry == NULL) {
-      break;
-    }
-    if (entry->d_type != DT_REG) {
-      continue;
-    }
-    char file[128];
-    snprintf(file, sizeof(file), "%s/%s", path, entry->d_name);
-    remove(file);
-  }
-  closedir(dir);
-}
-
-void al_storage_reset() {
-  fs_wipe(AL_STORAGE_INTERNAL "/" DAT_DATA_DIR);
-  fs_wipe(AL_STORAGE_EXTERNAL "/" DAT_EXPORT_DIR);
-}
-
 /* Helpers */
 
 void test_store_reset();
@@ -120,8 +12,8 @@ static void dat_test_reset() {
   al_storage_reset();
   dat_files_length = 0;
   dat_counter = 0;
-  fs_free[AL_STORAGE_INT] = 4 * 1024 * 1024;
-  fs_free[AL_STORAGE_EXT] = 4 * 1024 * 1024;
+  al_storage_test_free[AL_STORAGE_INT] = 4 * 1024 * 1024;
+  al_storage_test_free[AL_STORAGE_EXT] = 4 * 1024 * 1024;
 }
 
 static int prog_calls = 0;
@@ -321,10 +213,10 @@ static void test_dat_import() {
 
   // verify import fails on low space without appending
   uint16_t num = dat_create(1700000000000LL);
-  fs_free[AL_STORAGE_INT] = 1000;
+  al_storage_test_free[AL_STORAGE_INT] = 1000;
   TEST_ASSERT_FALSE(dat_import(num, 0, NULL));
   TEST_ASSERT_EQUAL_size_t(0, dat_find(num, NULL)->size);
-  fs_free[AL_STORAGE_INT] = 4 * 1024 * 1024;
+  al_storage_test_free[AL_STORAGE_INT] = 4 * 1024 * 1024;
 
   // import all samples
   prog_calls = 0;
@@ -402,7 +294,7 @@ static void test_dat_export() {
   TEST_ASSERT_EQUAL_INT((int)pos, al_storage_stat(AL_STORAGE_EXT, "export", "file-0001.csv"));
 
   // verify export fails on low space
-  fs_free[AL_STORAGE_EXT] = 100;
+  al_storage_test_free[AL_STORAGE_EXT] = 100;
   TEST_ASSERT_FALSE(dat_export(num, NULL));
 }
 
