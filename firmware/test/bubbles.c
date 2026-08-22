@@ -8,6 +8,8 @@
 
 #include "stm_data.inc"
 
+const size_t stm_num_entries = sizeof(stm_entries) / sizeof(stm_entry_t);
+
 // mirror of the bubble geometry in lvx.c (lvx_bubble_create/update)
 #define BUBBLE_WIDTH 200
 #define BUBBLE_LINES 3
