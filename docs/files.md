@@ -23,9 +23,9 @@ Files are first uploaded to `/int/tmp/` under a random name (12 hex characters),
 
 ## Sensor Data
 
-Sensor data is recorded to `/int/data/` as binary files named `file-0000.bin` through `file-0127.bin` (up to 128 files). Each file contains a header (`dat_head_t`) followed by an array of samples with CO2, temperature, humidity, VOC, NOX, and pressure values.
+Sensor data is recorded to `/int/data/` as binary files named by a persistent counter (`file-0001.bin`, `file-0002.bin`, ...), with up to 128 files present at once. Each file contains a header (`dat_head_t`) followed by an array of samples with CO2, temperature, humidity, VOC, NOX, pressure, and PM2.5 values. The binary format is documented in [`data.md`](data.md).
 
-Data files can be exported to `/ext/export/` as CSV files (e.g. `file-0001.csv`) with columns: `time,co2,tmp,hum,voc,nox,prs`.
+Data files can be exported to `/ext/export/` as CSV files (e.g. `file-0001.csv`) with columns: `time,co2,tmp,hum,voc,nox,prs,pm`.
 
 ## Plugins
 

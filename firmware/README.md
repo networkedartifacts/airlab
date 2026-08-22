@@ -4,7 +4,7 @@ The Air Lab firmware runs on the [NAOS](https://github.com/256dpi/naos) framewor
 
 > **Note:** The firmware is best modified directly in this tree. Creating a standalone firmware project and linking the board support library separately is not supported at the moment.
 
-**Target hardware:** ESP32-S3 with 16 MB flash, octal SPIRAM, 296x128 e-paper display, SCD41 (CO2), SGP41 (VOC/NOx), LPS22 (pressure) sensors, capacitive touch (CY8CMBR3108), accelerometer (FXLS8974CF), RTC (BQ32000), 1500 mAh LiPo with charger (BQ25601), USB-C.
+**Target hardware:** ESP32-S3 with 16 MB flash, octal SPIRAM, 296x128 e-paper display, SCD41 (CO2), SGP41 (VOC/NOx), LPS22 (pressure), optional BMV080 (PM2.5) sensors, capacitive touch (CY8CMBR3108), accelerometer (FXLS8974CF or LIS2DH12), RTC (BQ32000), 1500 mAh LiPo with charger (BQ25601), USB-C.
 
 ## Prerequisites
 
@@ -44,6 +44,16 @@ Build, flash, and attach can be combined:
 naos run
 ```
 
+## Testing
+
+Host-side unit tests live in [`test/`](test/) and build with the local C compiler — no ESP toolchain or device required:
+
+```bash
+make test
+```
+
+The harness downloads Unity on first run and compiles the tests together with selected firmware sources and a minimal LVGL subset from the installed SDK, so `naos build` must have completed at least once. `make fmt` formats all sources.
+
 ## Source Structure
 
 All application source lives in [`src/`](src/):
@@ -59,6 +69,7 @@ All application source lives in [`src/`](src/):
 | `lvx`  | LVGL extensions — custom widgets (bar, chart, bubble, wheel, status), sprite decoder, and helpers. |
 | `dat`  | Data — manages recorded measurement files on internal/external storage (create, append, load, import/export). |
 | `rec`  | Recorder — background recording task that periodically samples sensors and appends to the active data file. |
+| `pwr`  | Power — battery life model that estimates sleep current and runtime from the power-relevant settings. |
 | `com`  | Communication — handles serial protocol commands for plugin management and log streaming. |
 | `eng`  | Engine — plugin manager that enumerates, loads, and runs WASM plugins via WAMR. |
 | `stm`  | Statements — rule-based air quality feedback system with localized messages and moods. |
@@ -73,7 +84,7 @@ The hardware abstraction layer lives in [`lib/al/`](lib/al/) and exposes a clean
 |--------|-------------|
 | `core.h` | System initialization, reset trigger detection, memory allocation. |
 | `power.h` | Battery level/voltage, USB power, charging state. |
-| `sensor.h` | CO2, temperature, humidity, VOC, NOx, pressure readings and sample rates. |
+| `sensor.h` | CO2, temperature, humidity, VOC, NOx, pressure, and PM2.5 readings and sample rates. |
 | `storage.h` | Internal (LittleFS) and external (SD/FAT) file storage, USB mass storage. |
 | `store.h` | Long-term measurement store on external storage. |
 | `epd.h` | E-ink display driver. |
@@ -84,6 +95,7 @@ The hardware abstraction layer lives in [`lib/al/`](lib/al/) and exposes a clean
 | `led.h` | Status LED control. |
 | `clock.h` | RTC and time synchronization. |
 | `sample.h` | Measurement sample type definitions. |
+| `utils.h` | Small numeric helpers (range mapping). |
 
 ## Hardware Notes
 
