@@ -195,6 +195,12 @@ uint16_t dat_next() {
 }
 
 uint16_t dat_create(int64_t start) {
+  // check space
+  if (dat_files_length >= DAT_FILES) {
+    ESP_ERROR_CHECK(ESP_FAIL);
+    return 0;
+  }
+
   // increment counter
   int32_t counter = dat_counter + 1;
   naos_set_l("file-counter", counter);
