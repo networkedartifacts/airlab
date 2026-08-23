@@ -28,7 +28,8 @@ internal refactoring and development tooling are omitted.
 
 **Improvements**
 
-- Upgraded to NAOS v0.16.0 (ESP-IDF 5.5.5)
+- Upgraded to NAOS v0.16.1 (ESP-IDF 5.5.5)
+- Added network watchdog that recovers a stalled WiFi connection (via NAOS)
 - Enabled automatic light sleep
 - Reduced sleep power draw through improved RTC, touch controller, SGP41 and SCD41 power management, and selectable ULP use during deep sleep
 - Replay sparse samples to stabilize gas indices after wake
