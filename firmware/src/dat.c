@@ -90,9 +90,12 @@ void dat_init() {
     /* otherwise, handle files "FILE0001.BIN" */
 
     // prepare path
-    char path[32] = {0};
-    strcat(path, AL_STORAGE_INTERNAL "/" DAT_DATA_DIR "/");
-    strcat(path, entry->d_name);
+    char path[64];
+    int path_len = snprintf(path, sizeof(path), AL_STORAGE_INTERNAL "/" DAT_DATA_DIR "/%s", entry->d_name);
+    if (path_len < 0 || (size_t)path_len >= sizeof(path)) {
+      naos_log("dat: file name too long '%s'", entry->d_name);
+      continue;
+    }
 
     // stat file
     struct stat info = {0};

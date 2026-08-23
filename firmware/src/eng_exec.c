@@ -1257,9 +1257,12 @@ static int eng_exec_op_data_get(wasm_exec_env_t env, uint8_t *name, int name_len
   }
 
   // prepare dir
-  char dir[32] = {0};
-  strcat(dir, "data/");
-  strcat(dir, bundle_name);
+  char dir[64];
+  int dir_len = snprintf(dir, sizeof(dir), "data/%s", bundle_name);
+  if (dir_len < 0 || (size_t)dir_len >= sizeof(dir)) {
+    eng_exec_free(name_copy);
+    return -1;
+  }
 
   // get size
   int size = al_storage_stat(AL_STORAGE_INT, dir, name_copy);
@@ -1327,9 +1330,12 @@ static int eng_exec_op_data_set(wasm_exec_env_t env, uint8_t *name, int name_len
   }
 
   // prepare dir
-  char dir[32] = {0};
-  strcat(dir, "data/");
-  strcat(dir, bundle_name);
+  char dir[64];
+  int dir_len = snprintf(dir, sizeof(dir), "data/%s", bundle_name);
+  if (dir_len < 0 || (size_t)dir_len >= sizeof(dir)) {
+    eng_exec_free(name_copy);
+    return -1;
+  }
 
   // TODO: Move to storage write?
   mkdir(AL_STORAGE_INTERNAL "/data", 0777);
