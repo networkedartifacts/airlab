@@ -341,6 +341,21 @@ void al_power_hiz(bool enable) {
   naos_unlock(al_power_mutex);
 }
 
+void al_power_sleep() {
+  // acquire mutex
+  naos_lock(al_power_mutex);
+
+  // disable watchdog during deep sleep, as an expiry would reset the charger
+  // and wake the device via the interrupt line
+  if (al_power_read(0x05, &al_power_memory.reg5.raw, 1)) {
+    al_power_memory.reg5.watchdog = 0b00;
+    al_power_write(0x05, al_power_memory.reg5.raw, true);
+  }
+
+  // release mutex
+  naos_unlock(al_power_mutex);
+}
+
 void al_power_off() {
   // power down
   ESP_ERROR_CHECK_WITHOUT_ABORT(rtc_gpio_hold_dis(AL_POWER_HOLD));

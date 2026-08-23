@@ -295,6 +295,10 @@ void al_sleep(bool ulp, uint64_t timeout) {
     al_ulp_sync();
   }
 
+  // disable the charger watchdog, as an expiry during sleep would reset the
+  // charger and wake the device via the interrupt line
+  al_power_sleep();
+
   // sleep peripherals after all other I2C traffic
   al_touch_sleep();
 

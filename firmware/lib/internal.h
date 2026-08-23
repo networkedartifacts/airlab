@@ -48,6 +48,8 @@ float al_sensor_raw_temp();
 
 void al_sensor_pm_sleep();
 
+void al_power_sleep();
+
 void al_touch_sleep();
 
 void al_ulp_stop();
