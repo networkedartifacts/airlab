@@ -4,6 +4,7 @@
 #include <ulp_riscv.h>
 #include <ulp_riscv_i2c.h>
 #include <esp_sleep.h>
+#include <esp_system.h>
 #include <hal/rtc_cntl_ll.h>
 
 #include <al/clock.h>
@@ -18,9 +19,13 @@ extern const uint8_t al_ulp_bin_start[] asm("_binary_ulp_al_bin_start");
 extern const uint8_t al_ulp_bin_end[] asm("_binary_ulp_al_bin_end");
 
 void al_ulp_stop() {
-  // halt ULP program directly if not woken from deep sleep, as in this case the
-  // ULP program was never started and the handover flags and state are stale
-  if (!al_wakeup_cause()) {
+  // halt ULP program directly on a power-on reset, as in this case the RTC
+  // domain was reset, the ULP program is guaranteed to not be running and the
+  // handover flags and state are invalid; all other resets (deep sleep wake,
+  // software, panic and watchdog resets) retain the RTC domain, so the ULP
+  // program may still be running and must be stopped cooperatively to not
+  // interrupt it in the middle of an I2C transfer
+  if (esp_reset_reason() == ESP_RST_POWERON) {
     ulp_riscv_timer_stop();
     ulp_riscv_halt();
     return;
@@ -30,17 +35,39 @@ void al_ulp_stop() {
   // acknowledge and self-halt without touching the sensors otherwise
   ulp_handover = 1;
 
-  // wait until the ULP program is idle with an inactive heater, or has
-  // acknowledged the handover after cleaning up
+  // wait until the ULP program has acknowledged the handover after cleaning
+  // up, or is idle with an inactive heater; the timer is left running here,
+  // as an idle ULP with an active heater needs one more run to turn it off
   al_sensor_hal_state_t *state = (al_sensor_hal_state_t *)&ulp_state;
+  bool idle = false;
   for (int i = 0; i < 250; i++) {
-    if (ulp_ack || (!ulp_running && state->heat == 0)) {
+    if (ulp_ack) {
+      break;
+    }
+    if (!ulp_running && state->heat == 0) {
+      idle = true;
       break;
     }
     naos_delay(10);
   }
 
-  // stop ULP program
+  // when observed idle, stop the timer first and then re-check: at most one
+  // already latched run can still launch, which will acknowledge the handover
+  // without touching the bus, as the heater is off
+  if (idle) {
+    ulp_riscv_timer_stop();
+    for (int i = 0; i < 25; i++) {
+      naos_delay(10);
+      if (!ulp_running || ulp_ack) {
+        break;
+      }
+    }
+  }
+
+  // stop ULP program: after an acknowledgement only memory writes remain and
+  // when confirmed idle the timer is already stopped, so the forced halt
+  // cannot interrupt a transfer; only a timed out wait above may still halt
+  // the ULP program mid-transfer, which is handled by the boot-time bus clear
   ulp_riscv_timer_stop();
   ulp_riscv_halt();
 
@@ -60,12 +87,18 @@ void al_ulp_stop() {
 }
 
 void al_ulp_init(bool reset) {
-  // clear memory on reset to prevent access of uninitialized memory
+  // clear memory on reset to prevent access of uninitialized memory; the
+  // handover flags and state are also cleared, so a stop after a later crash
+  // reset reads coherent values even if the ULP program never ran
   if (reset) {
     memset(ulp_offset, 0, sizeof(ulp_offset));
     memset(ulp_start, 0, sizeof(ulp_start));
+    memset(ulp_state, 0, sizeof(ulp_state));
     ulp_num_readings = 0;
     ulp_num_logs = 0;
+    ulp_handover = 0;
+    ulp_running = 0;
+    ulp_ack = 0;
   }
 
   // print logs

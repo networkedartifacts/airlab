@@ -96,6 +96,10 @@ static void run(void) {
 }
 
 int main(void) {
+  // mark run as in progress right away, so the main CPU observes a launched
+  // run before it decides to halt the core during a handover
+  running = 1;
+
   // wire sensor
   al_sensor_hal_init(
       (al_sensor_hal_ops_t){
@@ -105,9 +109,6 @@ int main(void) {
           .condition = true,
       },
       (al_sensor_hal_state_t *)&state);
-
-  // mark run as in progress
-  running = 1;
 
   // handle a requested handover: turn off an active heater, then acknowledge
   // and self-halt, so the main CPU can take over a heater-less sensor
