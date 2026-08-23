@@ -58,6 +58,17 @@ static al_trigger_t al_trigger() {
     }
   }
 
+  // the interrupt line is additionally armed as a level-triggered GPIO wakeup
+  // to catch events missed by the edge interrupt, treat those wakes the same
+  if (cause == ESP_SLEEP_WAKEUP_GPIO) {
+    return AL_INTERRUPT;
+  }
+
+  // log unmapped causes that fall through to a reset
+  if (cause != ESP_SLEEP_WAKEUP_UNDEFINED) {
+    naos_log("al: unmapped wakeup cause=%d", cause);
+  }
+
   return AL_RESET;
 }
 
