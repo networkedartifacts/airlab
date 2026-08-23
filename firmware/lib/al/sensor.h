@@ -21,9 +21,10 @@ void al_sensor_config(al_sensor_hook_t hook);
 /**
  * Await the next sensor sample and return it.
  *
+ * @param epoch Set to the epoch time of the sample if not NULL.
  * @return The sensor sample.
  */
-al_sample_t al_sensor_next();
+al_sample_t al_sensor_next(int64_t *epoch);
 
 /**
  * Set the sensor measurement interval. The most efficient sensor mode with a

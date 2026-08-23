@@ -439,7 +439,7 @@ static void com_start_task() {
 static void com_task() {
   for (;;) {
     // await sample
-    al_sample_t sample = al_sensor_next();
+    al_sample_t sample = al_sensor_next(NULL);
 
     // check connection
     if (naos_status() != NAOS_NETWORKED) {

@@ -31,13 +31,6 @@ int al_store_get_interval();
 void al_store_set_interval(int interval);
 
 /**
- * Returns the internal epoch time that references the sample offsets.
- *
- * @return The epoch time in milliseconds.
- */
-int64_t al_store_get_base();
-
-/**
  * Shifts the time reference of the stored samples, moving them along in time.
  * Used to remediate clock changes without touching the samples.
  *

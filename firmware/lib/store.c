@@ -115,15 +115,6 @@ void al_store_set_interval(int interval) {
   }
 }
 
-int64_t al_store_get_base() {
-  // get base
-  naos_lock(al_store_mutex);
-  int64_t base = al_store_base;
-  naos_unlock(al_store_mutex);
-
-  return base;
-}
-
 void al_store_shift(int64_t diff) {
   // lock mutex
   naos_lock(al_store_mutex);

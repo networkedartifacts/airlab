@@ -40,6 +40,8 @@ AL_KEEP static bool al_sensor_pm_manual = false;
 static float al_sensor_last_raw_temp = NAN;
 static uint16_t al_sensor_last_raw_voc = 0;
 static uint16_t al_sensor_last_raw_nox = 0;
+static al_sample_t al_sensor_last_sample = {0};
+static int64_t al_sensor_last_epoch = 0;
 
 #define AL_SENSOR_CHG_COMP_RATE 0.002f  // ramp rate (°C/s)
 
@@ -241,9 +243,13 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data, int16_t pm) {
       .pm = pm,
   };
   if (AL_SENSOR_DEBUG) {
-    naos_log("al-sns: ingest co2=%d tmp=%d hum=%d voc=%d nox=%d prs=%d epoch=%lld", sample.co2, sample.tmp, sample.hum,
-             sample.voc, sample.nox, sample.prs, data.epoch);
+    naos_log("al-sns: ingest co2=%d tmp=%d hum=%d voc=%d nox=%d prs=%d epoch=%lld diff=%lld", sample.co2, sample.tmp,
+             sample.hum, sample.voc, sample.nox, sample.prs, data.epoch, data.epoch - al_sensor_last_epoch);
   }
+
+  // track last sample and its time
+  al_sensor_last_sample = sample;
+  al_sensor_last_epoch = data.epoch;
 
   // ingest sample
   al_store_ingest(data.epoch, sample);
@@ -465,12 +471,17 @@ void al_sensor_config(al_sensor_hook_t hook) {
   naos_unlock(al_sensor_mutex);
 }
 
-al_sample_t al_sensor_next() {
+al_sample_t al_sensor_next(int64_t *epoch) {
   // await signal
   naos_await(al_sensor_signal, 1, true, -1);
 
-  // get last sample
-  al_sample_t sample = al_store_last();
+  // get last sample and its time
+  naos_lock(al_sensor_mutex);
+  al_sample_t sample = al_sensor_last_sample;
+  if (epoch != NULL) {
+    *epoch = al_sensor_last_epoch;
+  }
+  naos_unlock(al_sensor_mutex);
 
   return sample;
 }

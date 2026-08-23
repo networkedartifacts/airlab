@@ -65,8 +65,8 @@ static void rec_task() {
   for (;;) {
     // await next sample (without mutex)
     naos_unlock(rec_mutex);
-    al_sample_t sample = al_sensor_next();
-    int64_t base = al_store_get_base();
+    int64_t epoch;
+    al_sample_t sample = al_sensor_next(&epoch);
     naos_lock(rec_mutex);
 
     // skip if not running
@@ -94,8 +94,8 @@ static void rec_task() {
       continue;
     }
 
-    // adjust sample offset to reference file start
-    sample.off += (int32_t)(base - file->head.start);
+    // set sample offset to reference file start
+    sample.off = (int32_t)(epoch - file->head.start);
 
     // skip if sample is not newer than last recorded
     if (sample.off <= file->stop) {

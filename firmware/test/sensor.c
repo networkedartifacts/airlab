@@ -631,8 +631,10 @@ static void test_sensor_check_read() {
   TEST_ASSERT_EQUAL_INT16(900, hook_last.co2);
   TEST_ASSERT_EQUAL_INT16(55, hook_last.pm);
 
-  // the last sample is served to awaiting consumers
-  TEST_ASSERT_EQUAL_INT16(900, al_sensor_next().co2);
+  // the last sample is served to awaiting consumers with its time
+  int64_t epoch = 0;
+  TEST_ASSERT_EQUAL_INT16(900, al_sensor_next(&epoch).co2);
+  TEST_ASSERT_EQUAL_INT64(SNS_BASE + 60000, epoch);
 
   // a failing HAL read is dropped
   fake_hal_read_err = AL_SENSOR_HAL_ERR_TRANSFER | AL_SENSOR_HAL_ERR_SCD41;
