@@ -244,7 +244,7 @@ al_trigger_t al_init() {
   al_trigger_t trigger = al_trigger();
 
   // log initialization
-  naos_log("al_init: trigger=%d auth=%s rev=%d", trigger, auth ? "ok" : "failed", al_auth_data.revision);
+  naos_log("al-init: trigger=%d auth=%s rev=%d", trigger, auth ? "ok" : "failed", al_auth_data.revision);
 
   return trigger;
 }
