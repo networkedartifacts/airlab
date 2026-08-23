@@ -351,19 +351,14 @@ void dat_delete(uint16_t num) {
   }
 }
 
-static size_t dat_source_count(void *ctx) {
-  // return size
-  return ((dat_file_t *)ctx)->size;
-}
-
-static int64_t dat_source_start(void *ctx) {
-  // return start
-  return ((dat_file_t *)ctx)->head.start;
-}
-
-static int32_t dat_source_stop(void *ctx) {
-  // return stop
-  return ((dat_file_t *)ctx)->stop;
+static al_sample_info_t dat_source_info(void *ctx) {
+  // return info from file
+  dat_file_t *file = (dat_file_t *)ctx;
+  return (al_sample_info_t){
+      .start = file->head.start,
+      .length = file->stop,
+      .count = file->size,
+  };
 }
 
 static void dat_source_read(void *ctx, al_sample_t *samples, size_t count, size_t offset) {
@@ -380,9 +375,7 @@ al_sample_source_t dat_source(uint16_t num) {
 
   return (al_sample_source_t){
       .ctx = file,
-      .count = dat_source_count,
-      .start = dat_source_start,
-      .stop = dat_source_stop,
+      .info = dat_source_info,
       .read = dat_source_read,
   };
 }
@@ -397,35 +390,34 @@ bool dat_import(uint16_t num, int start, dat_progress_t progress) {
 
   // prepare source
   al_sample_source_t source = al_store_source();
-  size_t count = source.count(source.ctx);
+  al_sample_info_t info = source.info(source.ctx);
 
   // check required space
-  size_t space = sizeof(dat_head_t) + (count * sizeof(al_sample_t)) + 1024;
+  size_t space = sizeof(dat_head_t) + (info.count * sizeof(al_sample_t)) + 1024;
   if (space > al_storage_info(AL_STORAGE_INT).free) {
     return false;
   }
 
   // start progress
   if (progress != NULL) {
-    progress(0, count);
+    progress(0, info.count);
   }
 
   // append samples
-  for (size_t i = start; i < count; i += 32) {
+  for (size_t i = start; i < info.count; i += 32) {
     // read samples
-    size_t n = DAT_MIN(count - i, 32);
+    size_t n = DAT_MIN(info.count - i, 32);
     al_sample_t samples[32];
     source.read(source.ctx, samples, n, i);
-    int64_t base = source.start(source.ctx);
 
     // log
     if (DAT_DEBUG) {
-      naos_log("dat: import num=%u i=%zu n=%zu count=%zu", num, i, n, count);
+      naos_log("dat: import num=%u i=%zu n=%zu count=%zu", num, i, n, info.count);
     }
 
     // adjust sample offsets to reference file start
     for (size_t j = 0; j < n; j++) {
-      samples[j].off += (int32_t)(base - file->head.start);
+      samples[j].off += (int32_t)(info.start - file->head.start);
     }
 
     // append samples
@@ -433,7 +425,7 @@ bool dat_import(uint16_t num, int start, dat_progress_t progress) {
 
     // update progress
     if (progress != NULL) {
-      progress(i + n, count);
+      progress(i + n, info.count);
     }
   }
 

@@ -190,11 +190,12 @@ static void test_dat_source() {
   };
   dat_append(num, samples, 3);
 
-  // verify source count, start, stop and reads
+  // verify source info and reads
   al_sample_source_t src = dat_source(num);
-  TEST_ASSERT_EQUAL_size_t(3, src.count(src.ctx));
-  TEST_ASSERT_EQUAL_INT64(1700000000000LL, src.start(src.ctx));
-  TEST_ASSERT_EQUAL_INT32(10000, src.stop(src.ctx));
+  al_sample_info_t info = src.info(src.ctx);
+  TEST_ASSERT_EQUAL_size_t(3, info.count);
+  TEST_ASSERT_EQUAL_INT64(1700000000000LL, info.start);
+  TEST_ASSERT_EQUAL_INT32(10000, info.length);
   al_sample_t out[2];
   src.read(src.ctx, out, 2, 1);
   TEST_ASSERT_EQUAL_INT32(5000, out[0].off);

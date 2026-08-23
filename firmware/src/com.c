@@ -59,8 +59,8 @@ static naos_msg_reply_t com_cmd_sensor_read(naos_msg_t msg) {
   al_sample_source_t source = al_store_source();
 
   // get source info
-  size_t count = source.count(source.ctx);
-  int64_t start = source.start(source.ctx);
+  al_sample_info_t info = source.info(source.ctx);
+  int64_t start = info.start;
 
   // prepare index
   int index = 0;
@@ -85,7 +85,7 @@ static naos_msg_reply_t com_cmd_sensor_read(naos_msg_t msg) {
   }
 
   // send samples
-  for (size_t i = index; i < count; i++) {
+  for (size_t i = index; i < info.count; i++) {
     // get sample
     al_sample_t sample = {0};
     source.read(source.ctx, &sample, 1, i);

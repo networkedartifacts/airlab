@@ -54,7 +54,7 @@ static void test_store_empty() {
 
   // verify empty source
   al_sample_source_t src = al_store_source();
-  TEST_ASSERT_EQUAL_size_t(0, src.count(src.ctx));
+  TEST_ASSERT_EQUAL_size_t(0, src.info(src.ctx).count);
 }
 
 static void test_store_ingest() {
@@ -144,10 +144,11 @@ static void test_store_source() {
   al_store_set_base(500, false);
   al_sample_source_t src = al_store_source();
 
-  // verify count, start and stop
-  TEST_ASSERT_EQUAL_size_t(181, src.count(src.ctx));
-  TEST_ASSERT_EQUAL_INT64(10500, src.start(src.ctx));
-  TEST_ASSERT_EQUAL_INT32(900000, src.stop(src.ctx));
+  // verify info snapshot
+  al_sample_info_t info = src.info(src.ctx);
+  TEST_ASSERT_EQUAL_size_t(181, info.count);
+  TEST_ASSERT_EQUAL_INT64(10500, info.start);
+  TEST_ASSERT_EQUAL_INT32(900000, info.length);
 
   // verify reads across the store boundary are rebased to the first sample
   al_sample_t samples[3];

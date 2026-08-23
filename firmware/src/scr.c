@@ -1070,7 +1070,7 @@ static void* scr_view() {
   // prepare position
   int32_t position = 0;
   if (!recording) {
-    position = source.stop(source.ctx);
+    position = source.info(source.ctx).length;
   }
 
   // cache tracking for sample queries
@@ -1081,9 +1081,10 @@ static void* scr_view() {
 
   for (;;) {
     // get source info
-    size_t source_count = source.count(source.ctx);
-    int64_t source_start = source.start(source.ctx);
-    int32_t source_stop = source.stop(source.ctx);
+    al_sample_info_t info = source.info(source.ctx);
+    size_t source_count = info.count;
+    int64_t source_start = info.start;
+    int32_t source_stop = info.length;
 
     // update recording
     recording = rec_running() && rec_file() == scr_file;
@@ -1439,7 +1440,7 @@ static void* scr_create() {
   int64_t epoch = al_clock_get_epoch();
   if (import) {
     al_sample_source_t source = al_store_source();
-    epoch = source.start(source.ctx);
+    epoch = source.info(source.ctx).start;
   }
 
   // create measurement

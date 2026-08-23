@@ -107,7 +107,7 @@ int32_t al_sample_flags(al_sample_t sample, al_sample_field_t field) {
 
 int al_sample_search(al_sample_source_t *source, int32_t *offset) {
   // get count
-  int count = (int)source->count(source->ctx);
+  int count = (int)source->info(source->ctx).count;
   if (count == 0) {
     return -1;
   }
@@ -157,7 +157,7 @@ size_t al_sample_count(al_sample_source_t *source, int32_t start, int32_t end) {
   int32_t needle_end = end;
   int last = al_sample_search(source, &needle_end);
   if (last < 0) {
-    return source->count(source->ctx) - first;
+    return source->info(source->ctx).count - first;
   }
 
   return last - first;
@@ -169,7 +169,7 @@ size_t al_sample_query(al_sample_source_t *source, al_sample_t *samples, size_t 
   memset(samples, 0, count * sizeof(al_sample_t));
 
   // get size
-  size_t size = source->count(source->ctx);
+  size_t size = source->info(source->ctx).count;
 
   // find beginning of range
   int32_t needle = start;
@@ -239,7 +239,7 @@ size_t al_sample_query(al_sample_source_t *source, al_sample_t *samples, size_t 
 size_t al_sample_pick(al_sample_source_t *source, al_sample_field_t field, int num, float *values, float *min,
                       float *max) {
   // limit number to count
-  int count = (int)source->count(source->ctx);
+  int count = (int)source->info(source->ctx).count;
   if (num > count) {
     num = count;
   } else if (num < -count) {

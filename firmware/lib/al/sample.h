@@ -106,19 +106,24 @@ int32_t al_sample_flags(al_sample_t sample, al_sample_field_t field);
 al_sample_t al_sample_lerp(al_sample_t a, al_sample_t b, int32_t offset);
 
 /**
- * A sample source.
+ * Information about a sample source, obtained as one consistent snapshot.
+ */
+typedef struct {
+  int64_t start;   // epoch time of the first sample (ms)
+  int32_t length;  // ms between the first and last sample
+  size_t count;    // number of samples
+} al_sample_info_t;
+
+/**
+ * A sample source. Sample offsets are relative to the source start.
  *
  * @param ctx The context.
- * @param count A function to count the number of samples.
- * @param start A function to get the start time.
- * @param stop A function to get the stop time.
+ * @param info A function to get information about the source.
  * @param read A function to read samples.
  */
 typedef struct {
   void *ctx;
-  size_t (*count)(void *ctx);
-  int64_t (*start)(void *ctx);  // epoch
-  int32_t (*stop)(void *ctx);   // ms since start
+  al_sample_info_t (*info)(void *ctx);
   void (*read)(void *ctx, al_sample_t *samples, size_t num, size_t offset);
 } al_sample_source_t;
 

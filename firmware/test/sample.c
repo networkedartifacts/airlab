@@ -11,7 +11,10 @@
 static al_sample_t src_data[SRC_MAX];
 static size_t src_num;
 
-static size_t src_count(void* ctx) { return src_num; }
+static al_sample_info_t src_info(void* ctx) {
+  // the helpers only consume the count
+  return (al_sample_info_t){.count = src_num};
+}
 
 static void src_read(void* ctx, al_sample_t* samples, size_t num, size_t offset) {
   // negative offsets read from the end, like the store
@@ -24,7 +27,7 @@ static void src_read(void* ctx, al_sample_t* samples, size_t num, size_t offset)
   }
 }
 
-static al_sample_source_t src = {.count = src_count, .read = src_read};
+static al_sample_source_t src = {.info = src_info, .read = src_read};
 
 static void src_fill(const int32_t* offsets, const int16_t* co2, size_t num) {
   src_num = num;

@@ -240,19 +240,15 @@ al_sample_t al_store_get(al_store_t store, int num) {
   return sample;
 }
 
-static size_t al_store_source_count(void *ctx) {
-  // return cumulative count
-  return al_store_count(AL_STORE_LONG) + al_store_count(AL_STORE_SHORT);
-}
-
-static int64_t al_store_source_start(void *ctx) {
-  // return epoch based on oldest sample
-  return al_store_get_base() + al_store_first().off;
-}
-
-static int32_t al_store_source_stop(void *ctx) {
-  // return stop based on newest and oldest sample
-  return al_store_last().off - al_store_first().off;
+static al_sample_info_t al_store_source_info(void *ctx) {
+  // return info based on oldest and newest sample
+  al_sample_t first = al_store_first();
+  al_sample_t last = al_store_last();
+  return (al_sample_info_t){
+      .start = al_store_get_base() + first.off,
+      .length = last.off - first.off,
+      .count = al_store_count(AL_STORE_LONG) + al_store_count(AL_STORE_SHORT),
+  };
 }
 
 static void al_store_source_read(void *ctx, al_sample_t *samples, size_t num, size_t offset) {
@@ -281,9 +277,7 @@ static void al_store_source_read(void *ctx, al_sample_t *samples, size_t num, si
 
 al_sample_source_t al_store_source() {
   return (al_sample_source_t){
-      .count = al_store_source_count,
-      .start = al_store_source_start,
-      .stop = al_store_source_stop,
+      .info = al_store_source_info,
       .read = al_store_source_read,
   };
 }

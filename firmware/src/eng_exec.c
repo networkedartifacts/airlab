@@ -935,17 +935,18 @@ static int64_t eng_exec_op_store_info(wasm_exec_env_t env, int field) {
     naos_log("eng_exec_op_store_info: field=%d", field);
   }
 
-  // get source
+  // get source info
   al_sample_source_t source = al_store_source();
+  al_sample_info_t info = source.info(source.ctx);
 
   // handle field
   switch (field) {
     case ENG_STORE_INFO_START:
-      return source.start(source.ctx);
+      return info.start;
     case ENG_STORE_INFO_LENGTH:
-      return (int64_t)source.stop(source.ctx);
+      return (int64_t)info.length;
     case ENG_STORE_INFO_COUNT_ALL:
-      return (int64_t)source.count(source.ctx);
+      return (int64_t)info.count;
     case ENG_STORE_INFO_COUNT_SHORT:
       return (int64_t)al_store_count(AL_STORE_SHORT);
     case ENG_STORE_INFO_COUNT_LONG:
@@ -987,7 +988,7 @@ static int eng_exec_op_store_query(wasm_exec_env_t env, int field, float *values
   // handle raw mode
   if (resolution == 0) {
     // resolve start index (negative means from end)
-    size_t size = source.count(source.ctx);
+    size_t size = source.info(source.ctx).count;
     if (start < 0) {
       start = (int)size + start;
       if (start < 0) {

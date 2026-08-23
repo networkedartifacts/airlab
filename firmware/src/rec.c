@@ -30,16 +30,14 @@ static void rec_backfill() {
 
   // prepare store source
   al_sample_source_t source = al_store_source();
-  int64_t start = source.start(source.ctx);
-  int32_t stop = source.stop(source.ctx);
-  size_t count = source.count(source.ctx);
+  al_sample_info_t info = source.info(source.ctx);
 
   // calculate the source relative offset of the next sample
-  int32_t offset = (int32_t)(file->head.start + (int64_t)file->stop + 1000 - start);
+  int32_t offset = (int32_t)(file->head.start + (int64_t)file->stop + 1000 - info.start);
 
   // log debug info
   if (REC_DEBUG) {
-    naos_log("rec_backfill: source start=%lld needle=%zu stop=%d", start, offset, stop);
+    naos_log("rec_backfill: source start=%lld needle=%zu length=%d", info.start, offset, info.length);
   }
 
   // search for index of next sample
@@ -53,7 +51,7 @@ static void rec_backfill() {
 
   // log debug info
   if (REC_DEBUG) {
-    naos_log("rec_backfill: found sample index=%d num=%d", index, count - index);
+    naos_log("rec_backfill: found sample index=%d num=%d", index, (int)info.count - index);
   }
 
   // import samples
