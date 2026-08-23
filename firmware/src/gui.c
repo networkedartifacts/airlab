@@ -11,6 +11,44 @@
 #include "sig.h"
 #include "fnt.h"
 
+#define GUI_INACTION_TIMEOUT 60000
+
+static bool gui_inaction = false;
+
+sig_event_t gui_await(sig_type_t filter, int64_t timeout) {
+  // handle inaction awaits, returning immediately once latched
+  if (timeout == GUI_INACTION) {
+    if (gui_inaction) {
+      return (sig_event_t){.type = SIG_TIMEOUT};
+    }
+    sig_event_t event = gui_await(filter, GUI_INACTION_TIMEOUT);
+    if (event.type == SIG_TIMEOUT) {
+      gui_inaction = true;
+    }
+    return event;
+  }
+
+  // await event
+  sig_event_t event = sig_await(filter, timeout);
+
+  // a key event proves user presence and clears the inaction latch
+  if (event.type & SIG_KEYS) {
+    gui_inaction = false;
+  }
+
+  return event;
+}
+
+bool gui_inaction_latched() {
+  // return latch
+  return gui_inaction;
+}
+
+void gui_inaction_clear() {
+  // clear latch
+  gui_inaction = false;
+}
+
 void gui_cleanup(bool refresh) {
   // clear group and screen
   gfx_begin(refresh, false);
@@ -75,12 +113,12 @@ void gui_progress_update(size_t current, size_t total) {
   gui_progress_updated = naos_millis();
 }
 
-void gui_message(const char* text, uint32_t timeout) {
+void gui_message(const char* text, int64_t timeout) {
   // show message
   gui_write(text, false);
 
   // wait some time
-  sig_await(SIG_KEYS | SIG_TIMEOUT, timeout);
+  gui_await(SIG_KEYS | SIG_TIMEOUT, timeout);
 
   // cleanup
   gui_cleanup(false);
@@ -115,7 +153,7 @@ bool gui_confirm(const char* message, const char* confirm, const char* cancel, b
   gfx_end(false, false);
 
   // await event
-  sig_event_t event = sig_await(SIG_META, timeout);
+  sig_event_t event = gui_await(SIG_META, timeout);
 
   // cleanup
   gui_cleanup(false);
@@ -152,7 +190,7 @@ int gui_choose(const char* first, const char* second, bool invert, int64_t timeo
   gfx_end(false, false);
 
   // await event
-  sig_event_t event = sig_await(SIG_META, timeout);
+  sig_event_t event = gui_await(SIG_META, timeout);
 
   // cleanup
   gui_cleanup(false);
@@ -278,7 +316,7 @@ int gui_list(int total, int selected, int* offset, const char* select, const cha
     gfx_end(false, false);
 
     // await event
-    sig_event_t event = sig_await(SIG_UP | SIG_DOWN | SIG_META | SIG_SCROLL, timeout);
+    sig_event_t event = gui_await(SIG_UP | SIG_DOWN | SIG_META | SIG_SCROLL, timeout);
 
     // handle arrows
     if ((event.type & (SIG_UP | SIG_DOWN | SIG_SCROLL)) != 0) {
@@ -386,7 +424,7 @@ bool gui_wheel(const char* title, int* value, int min, int step, int max, const 
 
   for (;;) {
     // await event
-    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, timeout);
+    sig_event_t event = gui_await(SIG_KEYS | SIG_SCROLL, timeout);
 
     // apply wheel events
     if (event.type & (SIG_ARROWS | SIG_SCROLL)) {
@@ -466,7 +504,7 @@ void gui_cycle(bool small, const char* const* texts, const char* next, const cha
     gfx_end(false, false);
 
     // await event
-    sig_event_t event = sig_await(SIG_KEYS, 0);
+    sig_event_t event = gui_await(SIG_KEYS, 0);
 
     // handle navigation
     if (event.type & (SIG_ENTER | SIG_DOWN | SIG_RIGHT) && pos < num - 1) {

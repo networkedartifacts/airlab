@@ -3,10 +3,22 @@
 
 #include <stdbool.h>
 
+#include "sig.h"
+
+// Passing GUI_INACTION as timeout awaits with the shared inaction timeout and,
+// once it expires, latches: all further inaction awaits return SIG_TIMEOUT
+// immediately until gui_inaction_clear() is called.
+#define GUI_INACTION (-2)
+
+sig_event_t gui_await(sig_type_t filter, int64_t timeout);
+
+bool gui_inaction_latched();
+void gui_inaction_clear();
+
 void gui_cleanup(bool refresh);
 
 void gui_write(const char* text, bool wait);
-void gui_message(const char* text, uint32_t timeout);
+void gui_message(const char* text, int64_t timeout);
 
 void gui_progress_start(const char* text);
 void gui_progress_update(size_t current, size_t total);

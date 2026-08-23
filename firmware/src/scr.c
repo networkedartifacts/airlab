@@ -40,7 +40,7 @@
 
 #define SCR_MSG_TIMEOUT 2000
 #define SCR_IDLE_TIMEOUT 30000
-#define SCR_ACTION_TIMEOUT 60000
+#define SCR_UNLOCK_TIMEOUT 120000
 #define SCR_MIN_RESOLUTION 5000
 #define SCR_HIST_POINTS 8
 
@@ -51,6 +51,10 @@ DEV_KEEP static uint16_t scr_file = 0;
 DEV_KEEP static void* scr_return_timeout = NULL;
 DEV_KEEP static void* scr_return_unlock = NULL;
 DEV_KEEP static int scr_return_unlock_mask = 0;
+// The quick unlock return is preferred over the regular unlock return while
+// valid, waking a briefly left device back into the screen it was on.
+DEV_KEEP static void* scr_return_quick = NULL;
+DEV_KEEP static int64_t scr_return_quick_until = 0;
 DEV_KEEP static int scr_partial_count = 0;
 DEV_KEEP static int32_t scr_screen_index = 0;
 static int64_t scr_screen_start = 0;
@@ -186,6 +190,7 @@ static void scr_power_off(bool low_power, bool msg) {
   scr_return_timeout = NULL;
   scr_return_unlock = NULL;
   scr_return_unlock_mask = 0;
+  scr_return_quick = NULL;
 
   // power off
   al_power_off();
@@ -464,7 +469,7 @@ static bool scr_time() {
 
   for (;;) {
     // await event
-    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, SCR_ACTION_TIMEOUT);
+    sig_event_t event = gui_await(SIG_KEYS | SIG_SCROLL, GUI_INACTION);
 
     // apply wheel events
     if (event.type & (SIG_ARROWS | SIG_SCROLL)) {
@@ -547,7 +552,7 @@ static bool scr_date() {
 
   for (;;) {
     // await event
-    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, SCR_ACTION_TIMEOUT);
+    sig_event_t event = gui_await(SIG_KEYS | SIG_SCROLL, GUI_INACTION);
 
     // apply wheel events
     if (event.type & (SIG_ARROWS | SIG_SCROLL)) {
@@ -677,6 +682,25 @@ static void* scr_sensor() {
 
     return scr_develop;
   }
+}
+
+// Resolve the screen to wake into on unlock. A short absence returns to the
+// screen the inaction timeout closed into, a longer one falls back to the
+// regular unlock return.
+static void* scr_unlock_target() {
+  // select and consume the quick return while valid
+  void* target = scr_return_unlock;
+  if (scr_return_quick != NULL && al_clock_get_epoch() < scr_return_quick_until) {
+    target = scr_return_quick;
+  }
+  scr_return_quick = NULL;
+
+  // default to menu
+  if (target == NULL) {
+    return scr_menu;
+  }
+
+  return target;
 }
 
 static void* scr_idle() {
@@ -818,10 +842,7 @@ static void* scr_idle() {
     if (event.type & SIG_KEYS) {
       scr_wake_up("key");
       gui_cleanup(false);
-      if (scr_return_unlock == NULL) {
-        return scr_menu;
-      }
-      return scr_return_unlock;
+      return scr_unlock_target();
     }
   }
 
@@ -970,12 +991,21 @@ static void* scr_idle() {
   // cleanup
   gui_cleanup(false);
 
-  // default to menu if return was cleared
-  if (scr_return_unlock == NULL) {
-    return scr_menu;
-  }
+  return scr_unlock_target();
+}
 
-  return scr_return_unlock;
+// Handle an expired inaction timeout by entering the idle screen with a quick
+// return to the given screen and a regular return to the lab.
+static void* scr_inaction(void* quick) {
+  // consume a set latch
+  gui_inaction_clear();
+
+  // set returns
+  scr_return_quick = quick;
+  scr_return_quick_until = al_clock_get_epoch() + SCR_UNLOCK_TIMEOUT;
+  scr_return_unlock = scr_menu;
+
+  return scr_idle;
 }
 
 static void* scr_view() {
@@ -1271,10 +1301,7 @@ static void* scr_view() {
       // cleanup
       gui_cleanup(false);
 
-      // set return
-      scr_return_unlock = scr_view;
-
-      return scr_idle;
+      return scr_inaction(scr_view);
     }
 
     // handle escape
@@ -1291,7 +1318,7 @@ static void* scr_view() {
       // handle recording
       if (recording) {
         // choose option
-        int ret = gui_choose(scr_trans()->exit__stop, scr_trans()->exit__back, true, SCR_ACTION_TIMEOUT);
+        int ret = gui_choose(scr_trans()->exit__stop, scr_trans()->exit__back, true, GUI_INACTION);
         if (ret == 0) {
           return scr_view;
         }
@@ -1406,7 +1433,7 @@ static void* scr_create() {
   }
 
   // confirm import
-  bool import = gui_confirm(scr_trans()->create__import, scr_trans()->yes, scr_trans()->no, false, SCR_ACTION_TIMEOUT);
+  bool import = gui_confirm(scr_trans()->create__import, scr_trans()->yes, scr_trans()->no, false, GUI_INACTION);
 
   // determine epoch
   int64_t epoch = al_clock_get_epoch();
@@ -1443,6 +1470,13 @@ static void* scr_create() {
     scr_action = STM_START_FIRST_MEASUREMENT;
   } else {
     scr_action = STM_START_MEASUREMENT;
+  }
+
+  // on inaction during the import confirm, enter the idle screen with a quick
+  // return to the view, as re-running this screen would create another
+  // recording
+  if (gui_inaction_latched()) {
+    return scr_inaction(scr_view);
   }
 
   return scr_view;
@@ -1502,7 +1536,7 @@ static void* scr_edit() {
 
   for (;;) {
     // await event
-    sig_event_t event = sig_await(SIG_META | SIG_LEFT | SIG_RIGHT, SCR_ACTION_TIMEOUT);
+    sig_event_t event = gui_await(SIG_META | SIG_LEFT | SIG_RIGHT, GUI_INACTION);
 
     // cleanup
     gui_cleanup(false);
@@ -1511,7 +1545,7 @@ static void* scr_edit() {
     if (event.type == SIG_LEFT) {
       // confirm deletion
       const char* msg = lvx_fmt(scr_trans()->delete__confirm, scr_file_name(file));
-      if (!gui_confirm(msg, scr_trans()->delete__delete, scr_trans()->back, false, SCR_ACTION_TIMEOUT)) {
+      if (!gui_confirm(msg, scr_trans()->delete__delete, scr_trans()->back, false, GUI_INACTION)) {
         return scr_edit;
       }
 
@@ -1600,7 +1634,7 @@ static void* scr_explore() {
 
   // show list
   int selected = gui_list((int)total + 1, start, &offset, scr_trans()->explore__select, scr_trans()->back,
-                          scr_explore_cb, NULL, SCR_ACTION_TIMEOUT);
+                          scr_explore_cb, NULL, GUI_INACTION);
   if (selected < 0) {
     return scr_menu;
   }
@@ -1840,7 +1874,7 @@ static void scr_power_profile() {
     gfx_end(false, false);
 
     // await event
-    sig_event_t event = sig_await(SIG_KEYS | SIG_SCROLL, SCR_ACTION_TIMEOUT);
+    sig_event_t event = gui_await(SIG_KEYS | SIG_SCROLL, GUI_INACTION);
 
     // handle steps
     if ((event.type & (SIG_ARROWS | SIG_SCROLL)) != 0) {
@@ -1901,7 +1935,7 @@ static const scr_cat_t scr_cats[] = {
 
 #define SCR_CAT_NUM ((int)(sizeof(scr_cats) / sizeof(scr_cat_t)))
 
-static int scr_config_cat = 0;
+DEV_KEEP static int scr_config_cat = 0;
 
 static gui_list_item_t scr_config_cb(int num, void* ctx) {
   // get translation
@@ -2153,7 +2187,7 @@ static void* scr_config_items() {
   for (;;) {
     // select parameter
     int choice = gui_list(cat.num, selection[scr_config_cat], &offsets[scr_config_cat], t->change, t->back,
-                          scr_config_item_cb, (void*)&cat, SCR_ACTION_TIMEOUT);
+                          scr_config_item_cb, (void*)&cat, GUI_INACTION);
     if (choice < 0) {
       return scr_config;
     }
@@ -2318,7 +2352,7 @@ static void* scr_config_items() {
         } else if (value > max) {
           value = max;
         }
-        if (gui_wheel(t->config__gas_window, &value, 10, 5, max, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
+        if (gui_wheel(t->config__gas_window, &value, 10, 5, max, t->save, t->cancel, "%lds", GUI_INACTION)) {
           naos_set_l("gas-window", value);
         }
 
@@ -2349,7 +2383,7 @@ static void* scr_config_items() {
       case 11: {
         // use wheel to change long interval
         int value = naos_get_l("long-interval");
-        if (gui_wheel(t->config__long_interval, &value, 30, 10, 900, t->save, t->cancel, "%lds", SCR_ACTION_TIMEOUT)) {
+        if (gui_wheel(t->config__long_interval, &value, 30, 10, 900, t->save, t->cancel, "%lds", GUI_INACTION)) {
           naos_set_l("long-interval", value);
         }
 
@@ -2403,7 +2437,7 @@ static void* scr_config_items() {
         bool value = !naos_get_b("ble-pairing");
         naos_set_b("ble-pairing", value);
         if (gui_confirm(lvx_fmt("Pairing: %s\n\nRestart now?", value ? "ON" : "OFF"), scr_trans()->yes, scr_trans()->no,
-                        false, SCR_ACTION_TIMEOUT)) {
+                        false, GUI_INACTION)) {
           naos_reboot();
         }
 
@@ -2415,7 +2449,7 @@ static void* scr_config_items() {
         bool value = !naos_get_b("ble-bonding");
         naos_set_b("ble-bonding", value);
         if (gui_confirm(lvx_fmt("Bonding: %s\n\nRestart now?", value ? "ON" : "OFF"), scr_trans()->yes, scr_trans()->no,
-                        false, SCR_ACTION_TIMEOUT)) {
+                        false, GUI_INACTION)) {
           naos_reboot();
         }
 
@@ -2434,7 +2468,7 @@ static void* scr_config_items() {
       case 24: {
         // use wheel to change altitude
         int value = naos_get_l("altitude");
-        if (gui_wheel(t->config__altitude, &value, -500, 10, 5000, t->save, t->cancel, "%dm", SCR_ACTION_TIMEOUT)) {
+        if (gui_wheel(t->config__altitude, &value, -500, 10, 5000, t->save, t->cancel, "%dm", GUI_INACTION)) {
           naos_set_l("altitude", value);
         }
 
@@ -2444,7 +2478,7 @@ static void* scr_config_items() {
       case 25: {
         // use wheel to change clock calibration
         int value = naos_get_l("clock-cal");
-        if (gui_wheel(t->config__clock_cal, &value, -63, 1, 126, t->save, t->cancel, "%dppm", SCR_ACTION_TIMEOUT)) {
+        if (gui_wheel(t->config__clock_cal, &value, -63, 1, 126, t->save, t->cancel, "%dppm", GUI_INACTION)) {
           naos_set_l("clock-cal", value);
         }
 
@@ -2459,7 +2493,7 @@ static void* scr_config_items() {
         }
 
         // confirm reset
-        if (!gui_confirm(scr_trans()->reset__confirm, scr_trans()->yes, scr_trans()->no, true, SCR_ACTION_TIMEOUT)) {
+        if (!gui_confirm(scr_trans()->reset__confirm, scr_trans()->yes, scr_trans()->no, true, GUI_INACTION)) {
           return scr_config_items;
         }
 
@@ -2507,7 +2541,7 @@ static void* scr_config_items() {
 
       default:
         // show read-only message for AL Studio managed settings
-        gui_message(t->config__studio, SCR_ACTION_TIMEOUT);
+        gui_message(t->config__studio, GUI_INACTION);
     }
   }
 }
@@ -2544,7 +2578,7 @@ static void* scr_config() {
 
   // select category
   int choice = gui_list(SCR_CAT_NUM, selected, &offset, t->explore__select, t->back, scr_config_cat_cb, NULL,
-                        SCR_ACTION_TIMEOUT);
+                        GUI_INACTION);
   if (choice < 0) {
     return scr_settings;
   }
@@ -2713,7 +2747,7 @@ static void* scr_about() {
 
   for (;;) {
     // select parameter
-    int choice = gui_list(5, selected, &offset, NULL, t->back, scr_about_cb, NULL, SCR_ACTION_TIMEOUT);
+    int choice = gui_list(5, selected, &offset, NULL, t->back, scr_about_cb, NULL, GUI_INACTION);
     if (choice < 0) {
       return scr_settings;
     }
@@ -2778,7 +2812,7 @@ static void* scr_settings() {
   gfx_end(false, false);
 
   // await event
-  sig_event_t event = sig_await(SIG_KEYS, SCR_ACTION_TIMEOUT);
+  sig_event_t event = gui_await(SIG_KEYS, GUI_INACTION);
 
   // cleanup
   gui_cleanup(false);
@@ -2872,7 +2906,7 @@ static void* scr_engine() {
   for (;;) {
     // select plugin
     selected = gui_list(count, selected, &offset, scr_trans()->engine__run, scr_trans()->back, scr_engine_cb, NULL,
-                        SCR_ACTION_TIMEOUT);
+                        GUI_INACTION);
     if (selected < 0) {
       return scr_menu;
     }
@@ -2896,7 +2930,7 @@ static void* scr_develop() {
 
   for (;;) {
     // select item
-    selected = gui_list_strings(selected, &offset, labels, "Select", "Cancel", SCR_ACTION_TIMEOUT);
+    selected = gui_list_strings(selected, &offset, labels, "Select", "Cancel", GUI_INACTION);
     if (selected < 0) {
       return scr_menu;
     }
@@ -3240,7 +3274,7 @@ static void* scr_develop() {
       // use wheel to change power test level (0: off, 1: hi-Z, 2: + stay
       // awake, 3: + keep screen)
       int value = naos_get_l("power-test");
-      if (gui_wheel("Power Test", &value, 0, 1, 3, "Save", "Cancel", "%d", SCR_ACTION_TIMEOUT)) {
+      if (gui_wheel("Power Test", &value, 0, 1, 3, "Save", "Cancel", "%d", GUI_INACTION)) {
         naos_set_l("power-test", value);
       }
     }
@@ -3643,8 +3677,9 @@ static void* scr_intro() {
     al_clock_get_time(&hour, &minute, &seconds);
     const char* date_time = lvx_fmt(scr_trans()->intro__watch, hour, minute, year, month, day);
 
-    // confirm date/time
-    if (gui_confirm(date_time, scr_trans()->intro__correct, scr_trans()->intro__adjust, false, SCR_ACTION_TIMEOUT)) {
+    // confirm date/time (plain timeout, the intro should not enter the idle
+    // screen on inactivity)
+    if (gui_confirm(date_time, scr_trans()->intro__correct, scr_trans()->intro__adjust, false, 60 * 1000)) {
       break;
     }
 
@@ -3654,8 +3689,8 @@ static void* scr_intro() {
     }
   }
 
-  // test knowledge
-  if (gui_confirm(scr_trans()->intro__test, scr_trans()->yes, scr_trans()->no, false, SCR_ACTION_TIMEOUT)) {
+  // test knowledge (plain timeout, see above)
+  if (gui_confirm(scr_trans()->intro__test, scr_trans()->yes, scr_trans()->no, false, 60 * 1000)) {
     gui_cycle(false, scr_trans()->intro__infos, scr_trans()->next, scr_trans()->back);
   }
 
@@ -3676,6 +3711,16 @@ static void scr_task() {
   // call handlers
   for (;;) {
     void* next = scr_handler();
+
+    // on an expired inaction timeout, close all menus and enter the idle
+    // screen, waking from a short absence back into the interrupted screen
+    // and from a longer one directly into the lab (screens whose interrupted
+    // flow must not be re-entered handle the latch themselves to select a
+    // different quick return)
+    if (gui_inaction_latched()) {
+      next = scr_inaction(scr_handler);
+    }
+
     scr_handler = next;
   }
 }
@@ -3706,7 +3751,7 @@ void scr_run(al_trigger_t trigger) {
     scr_handler = scr_intro;
   } else if (trigger == AL_BUTTON && scr_return_unlock != NULL) {
     if (scr_return_unlock_mask != 0 && (al_buttons_wakeup() & scr_return_unlock_mask) != 0) {
-      scr_handler = scr_return_unlock;
+      scr_handler = scr_unlock_target();
       scr_return_unlock = NULL;
       scr_return_unlock_mask = 0;
     } else {
