@@ -12,6 +12,8 @@
 #include <naos/connect.h>
 #include <naos/sys.h>
 #include <esp_err.h>
+#include <esp_wifi.h>
+#include <esp_pm.h>
 
 #include <al/sensor.h>
 #include <al/store.h>
@@ -399,6 +401,36 @@ static const char *com_power_state_str(al_power_state_t power) {
   }
 }
 
+static bool com_perf_fast = false;
+static bool com_perf_awake = false;
+static esp_pm_lock_handle_t com_perf_lock;
+
+// Speed policy: on USB power, WiFi power save is disabled entirely; while
+// message sessions are active, light sleep is blocked to keep the device
+// responsive. On battery without sessions, full power saving applies. The
+// session timeout bounds the tail after a client disappears.
+static void com_perf() {
+  // adjust WiFi power save on USB power changes (only track applied changes
+  // to self-heal if WiFi was not ready)
+  bool fast = al_power_get().has_usb;
+  if (fast != com_perf_fast && esp_wifi_set_ps(fast ? WIFI_PS_NONE : WIFI_PS_MIN_MODEM) == ESP_OK) {
+    naos_log("com: wifi power save %s", fast ? "disabled" : "enabled");
+    com_perf_fast = fast;
+  }
+
+  // block light sleep while sessions are active
+  bool awake = naos_msg_count() > 0;
+  if (awake != com_perf_awake) {
+    if (awake) {
+      ESP_ERROR_CHECK(esp_pm_lock_acquire(com_perf_lock));
+    } else {
+      ESP_ERROR_CHECK(esp_pm_lock_release(com_perf_lock));
+    }
+    naos_log("com: light sleep %s", awake ? "blocked" : "allowed");
+    com_perf_awake = awake;
+  }
+}
+
 static void com_sync() {
   // update storage metric
   naos_set_d("int-storage", al_storage_info(AL_STORAGE_INT).usage);
@@ -431,6 +463,10 @@ static void com_start_task() {
   // start sync
   naos_defer("sync", 2000, com_sync);
   naos_repeat_defer("sync", 30000, com_sync);
+
+  // start speed policy
+  ESP_ERROR_CHECK(esp_pm_lock_create(ESP_PM_NO_LIGHT_SLEEP, 0, "com-perf", &com_perf_lock));
+  naos_repeat_defer("com-perf", 1000, com_perf);
 
   // set flag
   com_did_start = true;
