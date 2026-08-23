@@ -3,7 +3,7 @@
 
 #include <al/sample.h>
 
-#define AL_STORE_NUM_SHORT 180  // 15min-3h (5s/60s)
+#define AL_STORE_NUM_SHORT 180  // 15min-30h (5s/600s)
 #define AL_STORE_NUM_LONG 264   // 2.2h-66h (30s/15m)
 
 /**
