@@ -232,7 +232,6 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data, int16_t pm) {
 
   // create sample
   al_sample_t sample = {
-      .off = (int32_t)(data.epoch - al_store_get_base()),
       .co2 = (int16_t)co2,
       .tmp = (int16_t)(tmp * 100.f),
       .hum = (int16_t)(hum * 100.f),
@@ -242,13 +241,12 @@ static al_sample_t al_sensor_ingest(al_sensor_hal_data_t data, int16_t pm) {
       .pm = pm,
   };
   if (AL_SENSOR_DEBUG) {
-    int64_t diff = sample.off - al_store_last().off;
-    naos_log("al-sns: ingest co2=%d tmp=%d hum=%d voc=%d nox=%d prs=%d ingest off=%d epoch=%lld diff=%lld", sample.co2,
-             sample.tmp, sample.hum, sample.voc, sample.nox, sample.prs, sample.off, data.epoch, diff);
+    naos_log("al-sns: ingest co2=%d tmp=%d hum=%d voc=%d nox=%d prs=%d epoch=%lld", sample.co2, sample.tmp, sample.hum,
+             sample.voc, sample.nox, sample.prs, data.epoch);
   }
 
   // ingest sample
-  al_store_ingest(sample);
+  al_store_ingest(data.epoch, sample);
 
   return sample;
 }
@@ -318,14 +316,6 @@ static void al_sensor_monitor() {
   // get time
   int64_t now = al_clock_get_epoch();
 
-  /* check if store needs to be shifted */
-
-  // move store base if zero, or older than 5 minutes
-  int64_t store_base = al_store_get_base();
-  if (store_base == 0 || now - store_base >= 5 * 60 * 1000) {
-    al_store_set_base(now, true);
-  }
-
   /* check if the sensor configuration needs to be re-applied */
 
   // re-apply the last requested interval, which applies pending gas window,
@@ -363,16 +353,16 @@ static void al_sensor_monitor() {
   }
 
   // if the difference is larger than 1 minute we assume that the clock has been
-  // changed. to remediate this we will just shift the store base by the changed
+  // changed. to remediate this we will just shift the store by the changed
   // amount and leave all samples in place
 
   // remove interval from difference
   diff += 1000;
-  naos_log("al-sns: clock shift detected: shifting store base by %lld ms", diff);
+  naos_log("al-sns: clock shift detected: shifting store by %lld ms", diff);
 
-  // set new store base
+  // shift store, serialized with in-flight ingests
   naos_lock(al_sensor_mutex);
-  al_store_set_base(al_store_get_base() + diff, false);
+  al_store_shift(diff);
   naos_unlock(al_sensor_mutex);
 
   // adjust compensation times
@@ -452,7 +442,7 @@ void al_sensor_init(bool reset) {
   naos_log("al-sns: init mode=%d interval=%d duty=%d", al_sensor_state.mode, al_sensor_state.interval,
            al_sensor_state.duty);
 
-  // ensure store is shifted once
+  // settle the monitor's internal clock reference
   al_sensor_monitor();
 
   // ingest ULP readings

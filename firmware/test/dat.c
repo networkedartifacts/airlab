@@ -208,9 +208,8 @@ static void test_dat_import() {
 
   // populate the sample store
   test_store_reset();
-  al_store_set_base(1700000000000LL, false);
   for (int i = 0; i < 40; i++) {
-    al_store_ingest((al_sample_t){.off = i * 5000, .co2 = (int16_t)(400 + i)});
+    al_store_ingest(1700000000000LL + i * 5000, (al_sample_t){.co2 = (int16_t)(400 + i)});
   }
 
   // verify import fails on low space without appending

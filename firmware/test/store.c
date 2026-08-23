@@ -19,10 +19,19 @@ void test_store_reset() {
   al_store_base = 0;
 }
 
-static void store_fill(int num, int32_t start) {
+// non-static, as other suites use them to access the internal base
+void test_store_seed_base(int64_t base) { al_store_base = base; }
+int64_t test_store_get_base() { return al_store_base; }
+
+#define STORE_BASE 1600000000000LL
+
+// resolve a stored sample to its epoch time, robust against internal rebasing
+static int64_t store_epoch(al_store_t store, int num) { return al_store_base + al_store_get(store, num).off; }
+
+static void store_fill(int num, int64_t start) {
   // ingest samples 5s apart with increasing CO2 values
   for (int i = 0; i < num; i++) {
-    al_store_ingest((al_sample_t){.off = start + i * 5000, .co2 = (int16_t)(400 + i)});
+    al_store_ingest(start + i * 5000, (al_sample_t){.co2 = (int16_t)(400 + i)});
   }
 }
 
@@ -61,46 +70,57 @@ static void test_store_ingest() {
   test_store_reset();
 
   // ingest three samples
-  store_fill(3, 10000);
+  store_fill(3, STORE_BASE + 10000);
   TEST_ASSERT_EQUAL_size_t(3, al_store_count(AL_STORE_SHORT));
   TEST_ASSERT_EQUAL_size_t(0, al_store_count(AL_STORE_LONG));
 
   // verify positive and negative indexing
-  TEST_ASSERT_EQUAL_INT32(10000, al_store_get(AL_STORE_SHORT, 0).off);
-  TEST_ASSERT_EQUAL_INT32(15000, al_store_get(AL_STORE_SHORT, 1).off);
-  TEST_ASSERT_EQUAL_INT32(20000, al_store_get(AL_STORE_SHORT, 2).off);
-  TEST_ASSERT_EQUAL_INT32(20000, al_store_get(AL_STORE_SHORT, -1).off);
-  TEST_ASSERT_EQUAL_INT32(10000, al_store_get(AL_STORE_SHORT, -3).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 10000, store_epoch(AL_STORE_SHORT, 0));
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 15000, store_epoch(AL_STORE_SHORT, 1));
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 20000, store_epoch(AL_STORE_SHORT, 2));
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 20000, store_epoch(AL_STORE_SHORT, -1));
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 10000, store_epoch(AL_STORE_SHORT, -3));
 
   // verify indexes are clamped at both ends
-  TEST_ASSERT_EQUAL_INT32(20000, al_store_get(AL_STORE_SHORT, 5).off);
-  TEST_ASSERT_EQUAL_INT32(10000, al_store_get(AL_STORE_SHORT, -5).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 20000, store_epoch(AL_STORE_SHORT, 5));
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 10000, store_epoch(AL_STORE_SHORT, -5));
 
   // verify first/last with an empty long store
-  TEST_ASSERT_EQUAL_INT32(10000, al_store_first().off);
-  TEST_ASSERT_EQUAL_INT32(20000, al_store_last().off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 10000, al_store_base + al_store_first().off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 20000, al_store_base + al_store_last().off);
 }
 
 static void test_store_base() {
   test_store_reset();
 
-  // fill both stores (181st ingest moves the first sample to the long store)
-  store_fill(181, 0);
-  TEST_ASSERT_EQUAL_size_t(1, al_store_count(AL_STORE_LONG));
+  // verify the base is claimed by the first ingest
+  TEST_ASSERT_EQUAL_INT64(0, al_store_base);
+  al_store_ingest(STORE_BASE, (al_sample_t){.co2 = 400});
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE, al_store_base);
+  TEST_ASSERT_EQUAL_INT32(0, al_store_last().off);
 
-  // verify setting the base without moving keeps offsets
-  TEST_ASSERT_EQUAL_INT64(0, al_store_get_base());
-  al_store_set_base(1000, false);
-  TEST_ASSERT_EQUAL_INT64(1000, al_store_get_base());
-  TEST_ASSERT_EQUAL_INT32(0, al_store_get(AL_STORE_LONG, 0).off);
-  TEST_ASSERT_EQUAL_INT32(5000, al_store_get(AL_STORE_SHORT, 0).off);
+  // verify ingests within the rebase interval keep the base
+  al_store_ingest(STORE_BASE + 60000, (al_sample_t){.co2 = 401});
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE, al_store_base);
+  TEST_ASSERT_EQUAL_INT32(60000, al_store_last().off);
 
-  // verify setting the base with moving shifts both stores
-  al_store_set_base(6000, true);
-  TEST_ASSERT_EQUAL_INT64(6000, al_store_get_base());
-  TEST_ASSERT_EQUAL_INT32(-5000, al_store_get(AL_STORE_LONG, 0).off);
-  TEST_ASSERT_EQUAL_INT32(0, al_store_get(AL_STORE_SHORT, 0).off);
-  TEST_ASSERT_EQUAL_INT32(895000, al_store_get(AL_STORE_SHORT, -1).off);
+  // verify an ingest beyond the rebase interval rebases and shifts the offsets
+  al_store_ingest(STORE_BASE + 300000, (al_sample_t){.co2 = 402});
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 300000, al_store_base);
+  TEST_ASSERT_EQUAL_INT32(-300000, al_store_get(AL_STORE_SHORT, 0).off);
+  TEST_ASSERT_EQUAL_INT32(0, al_store_last().off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE, store_epoch(AL_STORE_SHORT, 0));
+
+  // verify shifting moves the samples in time without touching offsets
+  al_store_shift(5000);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 305000, al_store_base);
+  TEST_ASSERT_EQUAL_INT32(-300000, al_store_get(AL_STORE_SHORT, 0).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 5000, store_epoch(AL_STORE_SHORT, 0));
+
+  // verify a shift without a claimed base is ignored
+  test_store_reset();
+  al_store_shift(5000);
+  TEST_ASSERT_EQUAL_INT64(0, al_store_base);
 }
 
 static void test_store_move() {
@@ -109,45 +129,44 @@ static void test_store_move() {
   // fill until the second move: the 181st ingest moves the first sample as the
   // long store is empty, then samples are dropped until one is a full interval
   // (60s) newer than the last long sample (sample 13 at 65s, on ingest 194)
-  store_fill(194, 0);
+  store_fill(194, STORE_BASE);
   TEST_ASSERT_EQUAL_size_t(2, al_store_count(AL_STORE_LONG));
   TEST_ASSERT_EQUAL_size_t(180, al_store_count(AL_STORE_SHORT));
-  TEST_ASSERT_EQUAL_INT32(0, al_store_get(AL_STORE_LONG, 0).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE, store_epoch(AL_STORE_LONG, 0));
   TEST_ASSERT_EQUAL_INT16(400, al_store_get(AL_STORE_LONG, 0).co2);
-  TEST_ASSERT_EQUAL_INT32(65000, al_store_get(AL_STORE_LONG, 1).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 65000, store_epoch(AL_STORE_LONG, 1));
   TEST_ASSERT_EQUAL_INT16(413, al_store_get(AL_STORE_LONG, 1).co2);
 
   // verify short store wrapped and holds the newest 180 samples
-  TEST_ASSERT_EQUAL_INT32(70000, al_store_get(AL_STORE_SHORT, 0).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 70000, store_epoch(AL_STORE_SHORT, 0));
   TEST_ASSERT_EQUAL_INT16(414, al_store_get(AL_STORE_SHORT, 0).co2);
-  TEST_ASSERT_EQUAL_INT32(965000, al_store_get(AL_STORE_SHORT, -1).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 965000, store_epoch(AL_STORE_SHORT, -1));
   TEST_ASSERT_EQUAL_INT16(593, al_store_get(AL_STORE_SHORT, -1).co2);
 
   // verify first/last span both stores
-  TEST_ASSERT_EQUAL_INT32(0, al_store_first().off);
-  TEST_ASSERT_EQUAL_INT32(965000, al_store_last().off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE, al_store_base + al_store_first().off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 965000, al_store_base + al_store_last().off);
 
   // verify a shorter interval moves samples earlier (sample 7 at 35s)
   test_store_reset();
   al_store_set_interval(30);
-  store_fill(188, 0);
+  store_fill(188, STORE_BASE);
   TEST_ASSERT_EQUAL_size_t(2, al_store_count(AL_STORE_LONG));
-  TEST_ASSERT_EQUAL_INT32(35000, al_store_get(AL_STORE_LONG, 1).off);
-  TEST_ASSERT_EQUAL_INT32(40000, al_store_get(AL_STORE_SHORT, 0).off);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 35000, store_epoch(AL_STORE_LONG, 1));
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 40000, store_epoch(AL_STORE_SHORT, 0));
 }
 
 static void test_store_source() {
   test_store_reset();
 
-  // fill both stores with a non-zero first offset and base
-  store_fill(181, 10000);
-  al_store_set_base(500, false);
+  // fill both stores with a non-zero first offset (rebases internally)
+  store_fill(181, STORE_BASE + 10000);
   al_sample_source_t src = al_store_source();
 
   // verify info snapshot
   al_sample_info_t info = src.info(src.ctx);
   TEST_ASSERT_EQUAL_size_t(181, info.count);
-  TEST_ASSERT_EQUAL_INT64(10500, info.start);
+  TEST_ASSERT_EQUAL_INT64(STORE_BASE + 10000, info.start);
   TEST_ASSERT_EQUAL_INT32(900000, info.length);
 
   // verify reads across the store boundary are rebased to the first sample
@@ -182,7 +201,7 @@ static void test_store_source() {
 
   // verify negative offsets with an empty long store
   test_store_reset();
-  store_fill(3, 0);
+  store_fill(3, STORE_BASE);
   src.read(src.ctx, samples, 1, (size_t)-1);
   TEST_ASSERT_EQUAL_INT32(10000, samples[0].off);
   TEST_ASSERT_EQUAL_INT16(402, samples[0].co2);

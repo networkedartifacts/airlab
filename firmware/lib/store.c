@@ -6,6 +6,7 @@
 #include <al/store.h>
 
 #define AL_STORE_DEBUG false
+#define AL_STORE_REBASE (5 * 60 * 1000)  // 5min
 
 static naos_mutex_t al_store_mutex;
 
@@ -54,6 +55,33 @@ static size_t al_store_index(al_store_t store, int num) {
   return index;
 }
 
+// requires the mutex to be held
+static al_sample_t al_store_fetch(al_store_t store, int num) {
+  // get sample
+  size_t index = al_store_index(store, num);
+  if (store == AL_STORE_SHORT) {
+    return al_store_short[index];
+  } else {
+    return al_store_long[index];
+  }
+}
+
+// requires the mutex to be held
+static al_sample_t al_store_oldest() {
+  // get sample
+  if (al_store_count_long > 0) {
+    return al_store_fetch(AL_STORE_LONG, 0);
+  } else {
+    return al_store_fetch(AL_STORE_SHORT, 0);
+  }
+}
+
+// requires the mutex to be held
+static al_sample_t al_store_newest() {
+  // get newest sample
+  return al_store_fetch(AL_STORE_SHORT, -1);
+}
+
 void al_store_init() {
   // create mutex
   al_store_mutex = naos_mutex();
@@ -96,38 +124,51 @@ int64_t al_store_get_base() {
   return base;
 }
 
-void al_store_set_base(int64_t base, bool move) {
+void al_store_shift(int64_t diff) {
   // lock mutex
   naos_lock(al_store_mutex);
 
-  // determine shift
-  int64_t shift = base - al_store_base;
-
-  // set base
-  al_store_base = base;
-
-  // update stores
-  if (move) {
-    for (int i = 0; i < al_store_count_short; i++) {
-      al_store_short[i].off -= (int32_t)shift;
-    }
-    for (int i = 0; i < al_store_count_long; i++) {
-      al_store_long[i].off -= (int32_t)shift;
-    }
+  // shift base if claimed, moving the samples along in time
+  if (al_store_base != 0) {
+    al_store_base += diff;
   }
 
-  // log base change
+  // log shift
   if (AL_STORE_DEBUG) {
-    naos_log("al-str: set base=%lld shift=%lld move=%d", al_store_base, shift, move);
+    naos_log("al-str: shift base=%lld diff=%lld", al_store_base, diff);
   }
 
   // unlock mutex
   naos_unlock(al_store_mutex);
 }
 
-void al_store_ingest(al_sample_t sample) {
+void al_store_ingest(int64_t epoch, al_sample_t sample) {
   // lock mutex
   naos_lock(al_store_mutex);
+
+  // claim base on first use
+  if (al_store_base == 0) {
+    al_store_base = epoch;
+  }
+
+  // rebase once the base is older than the rebase interval, shifting the
+  // sample offsets accordingly to keep them small
+  int64_t shift = epoch - al_store_base;
+  if (shift >= AL_STORE_REBASE) {
+    for (int i = 0; i < al_store_count_short; i++) {
+      al_store_short[i].off -= (int32_t)shift;
+    }
+    for (int i = 0; i < al_store_count_long; i++) {
+      al_store_long[i].off -= (int32_t)shift;
+    }
+    al_store_base = epoch;
+    if (AL_STORE_DEBUG) {
+      naos_log("al-str: rebase base=%lld shift=%lld", al_store_base, shift);
+    }
+  }
+
+  // set sample offset
+  sample.off = (int32_t)(epoch - al_store_base);
 
   // check if short store is at capacity
   if (al_store_count_short == AL_STORE_NUM_SHORT) {
@@ -188,17 +229,21 @@ void al_store_ingest(al_sample_t sample) {
 }
 
 al_sample_t al_store_first() {
-  // get sample
-  if (al_store_count(AL_STORE_LONG) > 0) {
-    return al_store_get(AL_STORE_LONG, 0);
-  } else {
-    return al_store_get(AL_STORE_SHORT, 0);
-  }
+  // get oldest sample
+  naos_lock(al_store_mutex);
+  al_sample_t sample = al_store_oldest();
+  naos_unlock(al_store_mutex);
+
+  return sample;
 }
 
 al_sample_t al_store_last() {
   // get newest sample
-  return al_store_get(AL_STORE_SHORT, -1);
+  naos_lock(al_store_mutex);
+  al_sample_t sample = al_store_newest();
+  naos_unlock(al_store_mutex);
+
+  return sample;
 }
 
 size_t al_store_count(al_store_t store) {
@@ -220,44 +265,43 @@ size_t al_store_count(al_store_t store) {
 }
 
 al_sample_t al_store_get(al_store_t store, int num) {
-  // lock mutex
-  naos_lock(al_store_mutex);
-
-  // calculate index
-  size_t index = al_store_index(store, num);
-
   // get sample
-  al_sample_t sample;
-  if (store == AL_STORE_SHORT) {
-    sample = al_store_short[index];
-  } else {
-    sample = al_store_long[index];
-  }
-
-  // unlock mutex
+  naos_lock(al_store_mutex);
+  al_sample_t sample = al_store_fetch(store, num);
   naos_unlock(al_store_mutex);
 
   return sample;
 }
 
 static al_sample_info_t al_store_source_info(void *ctx) {
-  // return info based on oldest and newest sample
-  al_sample_t first = al_store_first();
-  al_sample_t last = al_store_last();
-  return (al_sample_info_t){
-      .start = al_store_get_base() + first.off,
+  // lock mutex
+  naos_lock(al_store_mutex);
+
+  // snapshot info based on oldest and newest sample
+  al_sample_t first = al_store_oldest();
+  al_sample_t last = al_store_newest();
+  al_sample_info_t info = {
+      .start = al_store_base + first.off,
       .length = last.off - first.off,
-      .count = al_store_count(AL_STORE_LONG) + al_store_count(AL_STORE_SHORT),
+      .count = (size_t)al_store_count_long + al_store_count_short,
   };
+
+  // unlock mutex
+  naos_unlock(al_store_mutex);
+
+  return info;
 }
 
 static void al_store_source_read(void *ctx, al_sample_t *samples, size_t num, size_t offset) {
+  // lock mutex
+  naos_lock(al_store_mutex);
+
   // get first sample
-  al_sample_t first = al_store_first();
+  al_sample_t first = al_store_oldest();
 
   // get counts
-  int count_long = (int)al_store_count(AL_STORE_LONG);
-  int count_short = (int)al_store_count(AL_STORE_SHORT);
+  int count_long = al_store_count_long;
+  int count_short = al_store_count_short;
 
   // read samples
   for (size_t i = 0; i < num; i++) {
@@ -267,12 +311,15 @@ static void al_store_source_read(void *ctx, al_sample_t *samples, size_t num, si
       index += count_long + count_short;
     }
     if (index < count_long) {
-      samples[i] = al_store_get(AL_STORE_LONG, index);
+      samples[i] = al_store_fetch(AL_STORE_LONG, index);
     } else {
-      samples[i] = al_store_get(AL_STORE_SHORT, index - count_long);
+      samples[i] = al_store_fetch(AL_STORE_SHORT, index - count_long);
     }
     samples[i].off -= first.off;
   }
+
+  // unlock mutex
+  naos_unlock(al_store_mutex);
 }
 
 al_sample_source_t al_store_source() {

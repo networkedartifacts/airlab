@@ -171,6 +171,8 @@ bool naos_await(naos_signal_t signal, uint16_t bits, bool clear, int32_t timeout
 /* Helpers */
 
 void test_store_reset();
+void test_store_seed_base(int64_t base);
+int64_t test_store_get_base();
 void test_clock_set_epoch(int64_t epoch);
 
 #define SNS_BASE 1800000000000LL
@@ -208,7 +210,7 @@ static void sensor_reset() {
 
   // reset unit and store state
   test_store_reset();
-  al_store_set_base(SNS_BASE, false);
+  test_store_seed_base(SNS_BASE);
   al_sensor_hook = NULL;
   memset(&al_sensor_state, 0, sizeof(al_sensor_state));
   al_sensor_state.mode = AL_SENSOR_HAL_SLEEP;  // a zeroed mode would read as normal
@@ -281,7 +283,6 @@ static void test_sensor_ingest_conversion() {
 
   // verify raw value conversion with all compensations at rest
   al_sample_t sample = ingest(SNS_BASE + 60000, 900, 22.5f, 50.f, 0, 0, 123);
-  TEST_ASSERT_EQUAL_INT32(60000, sample.off);
   TEST_ASSERT_EQUAL_INT16(900, sample.co2);
   TEST_ASSERT_INT16_WITHIN(1, 2250, sample.tmp);
   TEST_ASSERT_INT16_WITHIN(1, 5000, sample.hum);
@@ -528,22 +529,6 @@ static void test_sensor_gas_grace() {
   TEST_ASSERT_EQUAL_INT64(0, al_sensor_unpowered_since);
 }
 
-static void test_sensor_monitor_base() {
-  sensor_reset();
-
-  // a zero store base is claimed by the monitor
-  test_store_reset();
-  al_sensor_monitor();
-  TEST_ASSERT_EQUAL_INT64(SNS_BASE, al_store_get_base());
-
-  // the base is moved along once it is older than five minutes
-  for (int i = 1; i <= 7; i++) {
-    test_clock_set_epoch(SNS_BASE + i * 45000);
-    al_sensor_monitor();
-  }
-  TEST_ASSERT_EQUAL_INT64(SNS_BASE + 7 * 45000, al_store_get_base());
-}
-
 static void test_sensor_monitor_clock_shift() {
   sensor_reset();
   al_sensor_gas_last = SNS_BASE;
@@ -553,7 +538,7 @@ static void test_sensor_monitor_clock_shift() {
   // minus the monitor interval
   test_clock_set_epoch(SNS_BASE + 240000);
   al_sensor_monitor();
-  TEST_ASSERT_EQUAL_INT64(SNS_BASE + 241000, al_store_get_base());
+  TEST_ASSERT_EQUAL_INT64(SNS_BASE + 241000, test_store_get_base());
   TEST_ASSERT_EQUAL_INT64(SNS_BASE + 241000, al_sensor_switch_comp);
   TEST_ASSERT_EQUAL_INT64(SNS_BASE + 241000, al_sensor_long_comp_last);
   TEST_ASSERT_EQUAL_INT64(SNS_BASE + 241000, al_sensor_gas_last);
@@ -562,7 +547,7 @@ static void test_sensor_monitor_clock_shift() {
   // a backwards jump shifts them back
   test_clock_set_epoch(SNS_BASE);
   al_sensor_monitor();
-  TEST_ASSERT_EQUAL_INT64(SNS_BASE + 2000, al_store_get_base());
+  TEST_ASSERT_EQUAL_INT64(SNS_BASE + 2000, test_store_get_base());
   TEST_ASSERT_EQUAL_INT64(SNS_BASE + 2000, al_sensor_switch_comp);
 }
 
@@ -744,7 +729,6 @@ void suite_sensor() {
   RUN_TEST(test_sensor_gas_window);
   RUN_TEST(test_sensor_gas_reenable);
   RUN_TEST(test_sensor_gas_grace);
-  RUN_TEST(test_sensor_monitor_base);
   RUN_TEST(test_sensor_monitor_clock_shift);
   RUN_TEST(test_sensor_pm_policy);
   RUN_TEST(test_sensor_check_read);

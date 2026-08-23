@@ -108,9 +108,8 @@ static void test_rec_backfill() {
   rec_test_reset();
 
   // populate the store with 20 samples
-  al_store_set_base(REC_BASE, false);
   for (int i = 0; i < 20; i++) {
-    al_store_ingest((al_sample_t){.off = i * 5000, .co2 = (int16_t)(400 + i)});
+    al_store_ingest(REC_BASE + i * 5000, (al_sample_t){.co2 = (int16_t)(400 + i)});
   }
 
   // create a file holding the first 10 samples, as before a reboot
@@ -136,7 +135,7 @@ static void test_rec_backfill() {
   TEST_ASSERT_EQUAL_size_t(20, file->size);
 
   // verify a reset init skips the backfill
-  al_store_ingest((al_sample_t){.off = 100000, .co2 = 420});
+  al_store_ingest(REC_BASE + 100000, (al_sample_t){.co2 = 420});
   rec_init(true);
   TEST_ASSERT_EQUAL_size_t(20, file->size);
 
@@ -151,9 +150,8 @@ static void test_rec_backfill_shifted() {
   rec_test_reset();
 
   // populate the store with 5 samples
-  al_store_set_base(REC_BASE, false);
   for (int i = 0; i < 5; i++) {
-    al_store_ingest((al_sample_t){.off = i * 5000, .co2 = (int16_t)(400 + i)});
+    al_store_ingest(REC_BASE + i * 5000, (al_sample_t){.co2 = (int16_t)(400 + i)});
   }
 
   // verify backfill into an empty file that starts before the samples
