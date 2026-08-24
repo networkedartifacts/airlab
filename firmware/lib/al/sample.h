@@ -20,7 +20,8 @@ typedef struct __attribute__((packed)) {
 } al_sample_t;
 
 /**
- * The available sample fields.
+ * The available sample fields. The values are part of the plugin API, new
+ * fields must be appended to keep existing values stable.
  */
 typedef enum {
   AL_SAMPLE_CO2,
@@ -29,8 +30,8 @@ typedef enum {
   AL_SAMPLE_VOC,
   AL_SAMPLE_NOX,
   AL_SAMPLE_PRS,
-  AL_SAMPLE_PM,
   AL_SAMPLE_OFF,
+  AL_SAMPLE_PM,
 } al_sample_field_t;
 
 /**
