@@ -10,7 +10,7 @@
 
 static naos_mutex_t al_store_mutex;
 
-RTC_FAST_ATTR static int32_t al_store_interval = 60;  // 1min
+RTC_FAST_ATTR static int32_t al_store_interval = 300;  // 5min
 RTC_FAST_ATTR static uint16_t al_store_pos_short = 0;
 RTC_FAST_ATTR static uint16_t al_store_pos_long = 0;
 RTC_FAST_ATTR static uint16_t al_store_count_short = 0;

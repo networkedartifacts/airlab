@@ -41,6 +41,7 @@ internal refactoring and development tooling are omitted.
 - Improved Spanish translations and shortened others
 - Split config menu into sub-sections
 - Changed default sleep rate to 60s
+- Changed default long-term interval to 5m (retains about a day of history)
 - Improved WiFi transfer speed through larger TCP window and receive buffers
 - Keep WiFi and sessions responsive while USB powered or actively communicating
 - Close menus automatically after inactivity and return to them quickly on wake
