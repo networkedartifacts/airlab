@@ -3,7 +3,7 @@
 This changelog lists notable user-facing changes per release. Minor changes,
 internal refactoring and development tooling are omitted.
 
-## Unreleased
+## v1.0.0 (2026-08-24)
 
 **Highlights**
 
@@ -28,7 +28,7 @@ internal refactoring and development tooling are omitted.
 
 **Improvements**
 
-- Upgraded to NAOS v0.16.1 (ESP-IDF 5.5.5)
+- Upgraded to NAOS v0.16.2 (ESP-IDF 5.5.5)
 - Added network watchdog that recovers a stalled WiFi connection (via NAOS)
 - Enabled automatic light sleep
 - Reduced sleep power draw through improved RTC, touch controller, SGP41 and SCD41 power management, and selectable ULP use during deep sleep
