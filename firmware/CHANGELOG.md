@@ -41,12 +41,18 @@ internal refactoring and development tooling are omitted.
 - Improved Spanish translations and shortened others
 - Split config menu into sub-sections
 - Changed default sleep rate to 60s
+- Improved WiFi transfer speed through larger TCP window and receive buffers
+- Keep WiFi and sessions responsive while USB powered or actively communicating
+- Close menus automatically after inactivity and return to them quickly on wake
 
 **Bug Fixes**
 
 - Fixed charge detection (falsely showing charging icon despite being fully charged)
 - Fixed several data storage, history query and clock stability issues
 - Hide connectivity icons when going to sleep
+- Fixed loading of plugins with long file names
+- Fixed a communication deadlock during connection handling (via NAOS)
+- Fixed spurious wakeups caused by the charger watchdog during deep sleep
 
 ## v0.11.2 (2026-04-25)
 
