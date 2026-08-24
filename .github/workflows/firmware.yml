@@ -49,3 +49,10 @@ jobs:
           files: firmware/na-airlab.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to CDN
+        if: startsWith(github.ref, 'refs/tags/firmware/v')
+        run: |
+          curl --fail --retry 3 -X PUT \
+            -H "Authorization: Bearer ${{ secrets.CDN_TOKEN }}" \
+            --data-binary @na-airlab.zip \
+            https://cdn.networkedartifacts.com/al1-fw__${GITHUB_REF_NAME#firmware/}.zip
