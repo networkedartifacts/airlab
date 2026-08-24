@@ -120,17 +120,15 @@ static const char* scr_field_str(al_sample_field_t field, float value) {
   return lvx_fmt(scr_field_fmt[field], value);
 }
 
-// history fields in display order (PM last, as it is only offered if available)
+// history fields in display order (PM joins the other pollutant values)
 static const int8_t scr_field_order[] = {
     AL_SAMPLE_CO2, AL_SAMPLE_TMP, AL_SAMPLE_HUM, AL_SAMPLE_VOC,
-    AL_SAMPLE_NOX, AL_SAMPLE_PRS, AL_SAMPLE_PM,
+    AL_SAMPLE_NOX, AL_SAMPLE_PM,  AL_SAMPLE_PRS,
 };
 
 static void scr_field_cycle(bool forward, bool has_pm) {
-  // determine number of offered fields (PM is only offered if available)
-  int count = (int)sizeof(scr_field_order) - (has_pm ? 0 : 1);
-
   // locate current field
+  int count = (int)sizeof(scr_field_order);
   int index = 0;
   for (int i = 0; i < count; i++) {
     if (scr_field_order[i] == scr_field) {
@@ -139,8 +137,12 @@ static void scr_field_cycle(bool forward, bool has_pm) {
     }
   }
 
-  // step to next field
-  index = (index + (forward ? 1 : count - 1)) % count;
+  // step to next field (PM is only offered if available)
+  do {
+    index = (index + (forward ? 1 : count - 1)) % count;
+  } while (!has_pm && scr_field_order[index] == AL_SAMPLE_PM);
+
+  // set field
   scr_field = scr_field_order[index];
 }
 
