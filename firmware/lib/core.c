@@ -155,6 +155,19 @@ al_trigger_t al_init() {
   // read authentication data
   bool auth = naos_auth_describe(&al_auth_data) == NAOS_AUTH_ERR_OK;
 
+  // disarm all pin interrupts before installing the service, which enables the
+  // shared GPIO interrupt while no pin handler exists yet: a panic reset only
+  // resets the CPUs and a few peripherals, but not the GPIO peripheral, so the
+  // enables and trigger types of the previous run survive; a pin left on the
+  // low-level trigger with its line still latched low then re-fires as soon as
+  // the interrupt goes live and starves this core for good, as the task that
+  // would clear the sources over I2C runs on it too
+  for (int pin = 0; pin < GPIO_NUM_MAX; pin++) {
+    if (GPIO_IS_VALID_GPIO(pin)) {
+      ESP_ERROR_CHECK(gpio_intr_disable(pin));
+    }
+  }
+
   // install interrupt service
   ESP_ERROR_CHECK(gpio_install_isr_service(0));
 
