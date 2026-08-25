@@ -3,6 +3,13 @@
 This changelog lists notable user-facing changes per release. Minor changes,
 internal refactoring and development tooling are omitted.
 
+## v1.0.1 (2026-08-25)
+
+**Bug Fixes**
+
+- Fixed continuous restarting after a crash that required disconnecting the battery
+- Fixed crash while establishing a secure remote connection (via NAOS)
+
 ## v1.0.0 (2026-08-24)
 
 **Highlights**
