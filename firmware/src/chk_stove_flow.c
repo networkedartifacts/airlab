@@ -18,6 +18,17 @@
 
 #define CHK_STOVE_BASELINE_N 12
 
+// Where the flow resumes after a deep sleep. The passes share one step and
+// the pass index is the context's phase, so a sleep inside pass two comes
+// back into pass two.
+enum {
+  STOVE_STEP_INTRO,
+  STOVE_STEP_PRECHECK,
+  STOVE_STEP_BASELINE,
+  STOVE_STEP_PASSES,
+  STOVE_STEP_RESULT,
+};
+
 // what each pass asks for and how it ends
 typedef struct {
   const char* prompt;
@@ -61,41 +72,60 @@ static chk_step_t stove_baseline_sample(chk_t* c, float value, int32_t t_ms) {
 }
 
 void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
-  chk_t state;
-  chk_t* c = &state;
-  chk_begin(c, CHK_STOVE);
+  // pick the check up where it stopped, or start it
+  chk_t* c = chk_context();
+  if (!chk_resuming(c, CHK_STOVE)) {
+    chk_begin(c, CHK_STOVE);
+  }
 
   const char* title = CHK_TEXT(stove__title);
 
+// Leaving and timing out are not the same thing. A user who presses escape
+// has abandoned the check, so the context is released and the next run starts
+// over. A timeout is the device going to sleep with the user still intending
+// to finish, so the context is kept and the flow resumes into the step it
+// was on.
 #define STOVE_TRY(expr)                 \
   do {                                  \
     chk_result_t _r = (expr);           \
-    if (_r == CHK_EXIT) return on_exit; \
+    if (_r == CHK_EXIT) {               \
+      chk_end(c);                       \
+      return on_exit;                   \
+    }                                   \
     if (_r == CHK_IDLE) return on_idle; \
-    if (_r == CHK_AGAIN) return self;   \
+    if (_r == CHK_AGAIN) {              \
+      chk_end(c);                       \
+      return self;                      \
+    }                                   \
   } while (0)
 
   /* Introduction */
 
-  const chk_bubble_t intro[] = {
-      {&img_robin_happy, CHK_TEXT(stove__intro_1), CHK_TEXT(next)},
-      {&img_robin_pointing, CHK_TEXT(stove__intro_2), CHK_TEXT(next)},
-      {&img_robin_standing, CHK_TEXT(stove__intro_3), CHK_TEXT(start)},
-  };
-  STOVE_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
+  if (c->step == STOVE_STEP_INTRO) {
+    const chk_bubble_t intro[] = {
+        {&img_robin_happy, CHK_TEXT(stove__intro_1), CHK_TEXT(next)},
+        {&img_robin_pointing, CHK_TEXT(stove__intro_2), CHK_TEXT(next)},
+        {&img_robin_standing, CHK_TEXT(stove__intro_3), CHK_TEXT(start)},
+    };
+    STOVE_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
+    c->step = STOVE_STEP_PRECHECK;
+  }
 
   /* Precheck */
 
-  const char* const items[] = {
-      CHK_TEXT(stove__list_off),
-      CHK_TEXT(stove__list_pot),
-      CHK_TEXT(stove__list_away),
-  };
-  STOVE_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
+  if (c->step == STOVE_STEP_PRECHECK) {
+    const char* const items[] = {
+        CHK_TEXT(stove__list_off),
+        CHK_TEXT(stove__list_pot),
+        CHK_TEXT(stove__list_away),
+    };
+    STOVE_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
+    c->step = STOVE_STEP_BASELINE;
+  }
 
   /* Baseline */
 
-  chk_measure_run_t run;
+  if (c->step == STOVE_STEP_BASELINE) {
   const chk_screen_t baseline = {
       .title = title,
       .stage = CHK_TEXT(stage__baseline),
@@ -106,13 +136,16 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
       .cfg = {.capacity = CHK_STOVE_BASELINE_N},
       .on_sample = stove_baseline_sample,
   };
-  STOVE_TRY(chk_measure(c, &baseline, &run));
+  STOVE_TRY(chk_measure(c, &baseline));
 
-  c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
-  c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
+    c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
+    c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
 
-  // the boundary between the baseline and the first pass
-  chk_mark(c);
+    // the boundary between the baseline and the first pass
+    chk_mark(c);
+    c->phase = 0;
+    c->step = STOVE_STEP_PASSES;
+  }
 
   /* Three passes */
 
@@ -122,10 +155,11 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
       {CHK_TEXT(stove__pass_hood), CHK_TEXT(stove__burner_on), CHK_TEXT(stove__stage_hood), true},
   };
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = c->step == STOVE_STEP_PASSES ? c->phase : 3; i < 3; i++) {
     const chk_stove_pass_t* pass = &passes[i];
 
-    // the callback reads the pass back off the context
+    // the callback reads the pass back off the context, and a resume comes
+    // back into the pass it left
     c->phase = (uint8_t)i;
 
     al_buzzer_beep(1047, 80, false);
@@ -145,7 +179,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
         .on_sample = stove_sample,
         .floor = c->result[CHK_STOVE_C0],
     };
-    STOVE_TRY(chk_measure(c, &measure, &run));
+    STOVE_TRY(chk_measure(c, &measure));
 
     // where this pass ended, so the page can band the chart per pass
     chk_mark(c);
@@ -154,9 +188,14 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {
       const chk_bubble_t stop = {&img_robin_angry1, CHK_TEXT(stove__too_much), CHK_TEXT(ok)};
       chk_result_t said = chk_say(&stop, 1);
+      chk_end(c);
       return said == CHK_IDLE ? on_idle : on_exit;
     }
+
+    // the next pass starts fresh
+    chk_measure_reset(&c->run);
   }
+  c->step = STOVE_STEP_RESULT;
 
   /* Result */
 
@@ -166,6 +205,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
         {&img_robin_standing, CHK_TEXT(stove__unclear_2), CHK_TEXT(again)},
     };
     chk_result_t said = chk_say(unclear, 2);
+    chk_end(c);
     if (said == CHK_IDLE) return on_idle;
     if (said == CHK_NEXT) return self;
     return on_exit;
@@ -202,5 +242,6 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
 
 #undef STOVE_TRY
 
+  chk_end(c);
   return on_exit;
 }

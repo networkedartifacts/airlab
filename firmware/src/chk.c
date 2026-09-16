@@ -6,6 +6,7 @@
 #include <al/sensor.h>
 
 #include "chk.h"
+#include "dev.h"
 #include "chk_trans.inc"
 
 #define CHK_NUM_LANGS (sizeof(chk_trans_map) / sizeof(chk_trans_t))
@@ -179,10 +180,29 @@ chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t
   return CHK_RUN_GO;
 }
 
+// The check in progress. RTC-retained, so it survives the deep sleep that a
+// long check spends most of its time in — and is lost on a crash, which is
+// the line the design draws.
+DEV_KEEP static chk_t chk_current;
+
+chk_t *chk_context(void) {
+  return &chk_current;
+}
+
+bool chk_resuming(const chk_t *c, uint8_t id) {
+  return c->id == id && c->start != 0;
+}
+
 void chk_begin(chk_t *c, uint8_t id) {
   memset(c, 0, sizeof(*c));
   c->id = id;
+  c->step = 0;
   c->start = al_clock_get_epoch();
+}
+
+void chk_end(chk_t *c) {
+  memset(c, 0, sizeof(*c));
+  c->id = CHK_NONE;
 }
 
 int32_t chk_elapsed(const chk_t *c) {

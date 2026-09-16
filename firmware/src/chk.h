@@ -28,6 +28,28 @@ typedef enum {
   CHK_IDLE,   // timed out
 } chk_result_t;
 
+// What a check makes of one sample.
+typedef enum {
+  CHK_STEP_WAIT,  // taken, but nothing is moving yet
+  CHK_STEP_GO,    // taken, and the signal is moving
+  CHK_STEP_DONE,  // the check has what it needs
+} chk_step_t;
+
+typedef struct {
+  int32_t min_ms;    // the earliest a check may declare itself done
+  int32_t max_ms;    // the latest the run may go on, 0 for no limit
+  int capacity;      // samples the run may take, 0 for no limit
+  int32_t nudge_ms;  // how long to wait before prompting, 0 to never
+} chk_measure_cfg_t;
+
+typedef struct {
+  int attempts;      // readings asked for
+  int fails;         // readings that came back unusable
+  int count;         // readings that counted
+  int32_t elapsed;   // ms since the run began
+  bool nudging;      // the user should be prompted
+} chk_measure_run_t;
+
 // Least-squares terms accumulated one sample at a time. The context must fit
 // in RTC-retained memory so a check survives deep sleep, which is why a check
 // never holds its sample stream: the stream lives in the device's own stores
@@ -43,13 +65,29 @@ typedef struct {
 
 // The in-flight state of a check. Retained across deep sleep, lost on a crash.
 typedef struct {
-  uint8_t id;
+  uint8_t id;                   // which check, or CHK_NONE when idle
+  uint8_t step;                 // how far through the flow, for resuming
   int64_t start;                // epoch ms
-  uint8_t phase;                // current phase
+  uint8_t phase;                // current phase within a step
   int32_t marks[CHK_MARKS];     // phase boundaries, ms since start
   chk_accum_t accum[CHK_PASSES];
   float result[CHK_RESULTS];    // evaluator outputs
+  int64_t seen;                 // epoch of the last sample folded in
+  chk_measure_run_t run;        // the run in progress
 } chk_t;
+
+// No check is in progress. A context holding this is free to be begun.
+#define CHK_NONE 0xFF
+
+// The check in progress, which lives in RTC-retained memory so that it
+// survives a deep sleep. A deep sleep on this device is a reset: main memory
+// is lost, the flow is re-entered from the top, and `step` is what lets it
+// pick up where it stopped. Nothing here survives a crash, by decision.
+chk_t *chk_context(void);
+
+// True when this context is already part-way through the given check, so the
+// flow should resume rather than start over.
+bool chk_resuming(const chk_t *c, uint8_t id);
 
 typedef enum {
   CHK_DE,
@@ -191,6 +229,9 @@ bool chk_available(uint16_t needs);
 // the recorded window are measured.
 void chk_begin(chk_t *c, uint8_t id);
 
+// Ends a check, freeing the context for the next one.
+void chk_end(chk_t *c);
+
 // Marks a phase boundary at the current moment. A check is not one contiguous
 // window — the user is prompted between phases and takes as long as they take
 // — so the boundaries have to be recorded as they happen rather than inferred
@@ -229,13 +270,6 @@ bool chk_accum_stderr(const chk_accum_t *a, float *stderr_slope);
 // the same loop, differing only in when they stop. The drawing lives in the
 // screen; what follows is the policy, kept separate so it can be tested.
 
-// What a check makes of one sample.
-typedef enum {
-  CHK_STEP_WAIT,  // taken, but nothing is moving yet
-  CHK_STEP_GO,    // taken, and the signal is moving
-  CHK_STEP_DONE,  // the check has what it needs
-} chk_step_t;
-
 // What the engine does next.
 typedef enum {
   CHK_RUN_GO,      // keep sampling
@@ -247,21 +281,6 @@ typedef enum {
 // and not before there have been enough attempts for that to mean anything.
 #define CHK_FAIL_MIN_ATTEMPTS 8
 #define CHK_FAIL_SHARE 4
-
-typedef struct {
-  int32_t min_ms;    // the earliest a check may declare itself done
-  int32_t max_ms;    // the latest the run may go on, 0 for no limit
-  int capacity;      // samples the run may take, 0 for no limit
-  int32_t nudge_ms;  // how long to wait before prompting, 0 to never
-} chk_measure_cfg_t;
-
-typedef struct {
-  int attempts;      // readings asked for
-  int fails;         // readings that came back unusable
-  int count;         // readings that counted
-  int32_t elapsed;   // ms since the run began
-  bool nudging;      // the user should be prompted
-} chk_measure_run_t;
 
 // Clears a run.
 void chk_measure_reset(chk_measure_run_t *r);
@@ -299,7 +318,7 @@ typedef struct {
 // Runs a measurement: draws the screen, samples at the device's cadence,
 // feeds each reading to the check, and stops when the policy says so. The
 // run is filled in as it goes, so the caller can see what happened.
-chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, chk_measure_run_t *run);
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen);
 
 // Runs the ventilation check. The three arguments are the screens each
 // outcome lands on: leaving, timing out, and starting over.

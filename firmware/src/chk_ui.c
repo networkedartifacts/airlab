@@ -235,14 +235,18 @@ static chk_result_t chk_await(void) {
   }
 }
 
-chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, chk_measure_run_t *run) {
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
   // prepare the canvas once and keep it: a check may run many times
   if (screen->show == CHK_SHOW_CHART && chk_canvas_buffer == NULL) {
     chk_canvas_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(280, 50));
   }
 
-  // clear the run and the bars
-  chk_measure_reset(run);
+  // the run lives in the context so it survives a sleep; a fresh one starts
+  // only when this measurement has not been entered before
+  chk_measure_run_t *run = &c->run;
+  if (run->attempts == 0) {
+    chk_measure_reset(run);
+  }
   chk_bar_count = 0;
 
   // take an opening reading so the screen has something to show

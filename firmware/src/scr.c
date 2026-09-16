@@ -3777,13 +3777,26 @@ static void* scr_checks() {
 // Runs the ventilation check, telling it which screen each outcome lands on.
 static void* scr_check_vent() {
   chk_init(scr_lang());
-  return chk_vent_run(scr_checks, scr_menu, scr_check_vent);
+
+  // a check that times out is asleep rather than finished, so park it as the
+  // screen to wake back into
+  void* next = chk_vent_run(scr_checks, scr_idle, scr_check_vent);
+  if (next == scr_idle) {
+    scr_return_timeout = scr_check_vent;
+  }
+  return next;
 }
 
 // Runs the gas stove check.
 static void* scr_check_stove() {
   chk_init(scr_lang());
-  return chk_stove_run(scr_checks, scr_menu, scr_check_stove);
+
+  // as above: waking returns to the check, not to the lab
+  void* next = chk_stove_run(scr_checks, scr_idle, scr_check_stove);
+  if (next == scr_idle) {
+    scr_return_timeout = scr_check_stove;
+  }
+  return next;
 }
 
 // Lists the checks already run, newest first, so one can be shown again

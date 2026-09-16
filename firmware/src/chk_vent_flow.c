@@ -20,6 +20,19 @@
 // minute of closed-window air.
 #define CHK_VENT_BASELINE_N 6
 
+// Where the flow can be resumed from after a deep sleep, which on this device
+// is a reset: main memory is gone and the flow is re-entered from the top, so
+// each step records that it is done before moving on.
+enum {
+  VENT_STEP_INTRO,
+  VENT_STEP_PRECHECK,
+  VENT_STEP_OUTDOOR,
+  VENT_STEP_BASELINE,
+  VENT_STEP_TRIGGER,
+  VENT_STEP_MEASURE,
+  VENT_STEP_RESULT,
+};
+
 // The measurement runs at least ninety seconds so the fit has a span, at most
 // five, and stops early once a fifth of the excess has gone.
 #define CHK_VENT_MIN_MS 90000
@@ -65,51 +78,73 @@ static chk_step_t vent_decay_sample(chk_t *c, float value, int32_t t_ms) {
 }
 
 void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
-  chk_t state;
-  chk_t *c = &state;
-  chk_begin(c, CHK_VENT);
+  // pick the check up where it stopped, or start it
+  chk_t *c = chk_context();
+  if (!chk_resuming(c, CHK_VENT)) {
+    chk_begin(c, CHK_VENT);
+  }
 
   const char *title = CHK_TEXT(vent__title);
 
+// Leaving and timing out are not the same thing. A user who presses escape
+// has abandoned the check, so the context is released and the next run starts
+// over. A timeout is the device going to sleep with the user still intending
+// to finish, so the context is kept and the flow resumes into the step it
+// was on.
 #define VENT_TRY(expr)                    \
   do {                                    \
     chk_result_t _r = (expr);             \
-    if (_r == CHK_EXIT) return on_exit;   \
+    if (_r == CHK_EXIT) {                 \
+      chk_end(c);                         \
+      return on_exit;                     \
+    }                                     \
     if (_r == CHK_IDLE) return on_idle;   \
-    if (_r == CHK_AGAIN) return self;     \
+    if (_r == CHK_AGAIN) {                \
+      chk_end(c);                         \
+      return self;                        \
+    }                                     \
   } while (0)
 
   /* Introduction */
 
-  const chk_bubble_t intro[] = {
-      {&img_robin_happy, CHK_TEXT(vent__intro_1), CHK_TEXT(next)},
-      {&img_robin_pointing, CHK_TEXT(vent__intro_2), CHK_TEXT(next)},
-      {&img_robin_pointing, CHK_TEXT(vent__intro_3), CHK_TEXT(next)},
-      {&img_robin_standing, CHK_TEXT(vent__intro_4), CHK_TEXT(start)},
-  };
-  VENT_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
+  if (c->step == VENT_STEP_INTRO) {
+    const chk_bubble_t intro[] = {
+        {&img_robin_happy, CHK_TEXT(vent__intro_1), CHK_TEXT(next)},
+        {&img_robin_pointing, CHK_TEXT(vent__intro_2), CHK_TEXT(next)},
+        {&img_robin_pointing, CHK_TEXT(vent__intro_3), CHK_TEXT(next)},
+        {&img_robin_standing, CHK_TEXT(vent__intro_4), CHK_TEXT(start)},
+    };
+    VENT_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
+    c->step = VENT_STEP_PRECHECK;
+  }
 
   /* Precheck */
 
   // the single-zone assumption the decay rests on is the user's to meet
-  const char *const items[] = {
-      CHK_TEXT(vent__list_windows),
-      CHK_TEXT(vent__list_door),
-      CHK_TEXT(vent__list_table),
-  };
-  VENT_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
-
-  // outdoor CO2, opened on the lowest the device has lately seen
-  int outdoor = (int)chk_vent_outdoor_guess();
-  if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
-                 GUI_INACTION)) {
-    return on_exit;
+  if (c->step == VENT_STEP_PRECHECK) {
+    const char *const items[] = {
+        CHK_TEXT(vent__list_windows),
+        CHK_TEXT(vent__list_door),
+        CHK_TEXT(vent__list_table),
+    };
+    VENT_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
+    c->step = VENT_STEP_OUTDOOR;
   }
-  c->result[CHK_VENT_COUT] = (float)outdoor;
+
+  if (c->step == VENT_STEP_OUTDOOR) {
+    // outdoor CO2, opened on the lowest the device has lately seen
+    int outdoor = (int)chk_vent_outdoor_guess();
+    if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
+                   GUI_INACTION)) {
+      return on_exit;
+    }
+    c->result[CHK_VENT_COUT] = (float)outdoor;
+    c->step = VENT_STEP_BASELINE;
+  }
 
   /* Baseline */
 
-  chk_measure_run_t run;
+  if (c->step == VENT_STEP_BASELINE) {
   const chk_screen_t baseline = {
       .title = title,
       .stage = CHK_TEXT(stage__baseline),
@@ -120,35 +155,42 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       .cfg = {.capacity = CHK_VENT_BASELINE_N},
       .on_sample = vent_baseline_sample,
   };
-  VENT_TRY(chk_measure(c, &baseline, &run));
+  VENT_TRY(chk_measure(c, &baseline));
 
-  // the baseline is the median of what the store holds, which is steadier
-  // than a mean when a reading or two is off
-  c->result[CHK_VENT_C0] = chk_vent_baseline_median(CHK_VENT_BASELINE_N);
+    // the baseline is the median of what the store holds, which is steadier
+    // than a mean when a reading or two is off
+    c->result[CHK_VENT_C0] = chk_vent_baseline_median(CHK_VENT_BASELINE_N);
 
-  // there has to be something above outdoor to watch leave
-  if (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT] < CHK_VENT_EXCESS_MIN) {
-    const chk_bubble_t fresh = {&img_robin_standing, CHK_TEXT(vent__already_fresh), CHK_TEXT(ok)};
-    chk_result_t said = chk_say(&fresh, 1);
-    return said == CHK_IDLE ? on_idle : on_exit;
+    // there has to be something above outdoor to watch leave
+    if (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT] < CHK_VENT_EXCESS_MIN) {
+      const chk_bubble_t fresh = {&img_robin_standing, CHK_TEXT(vent__already_fresh), CHK_TEXT(ok)};
+      chk_result_t said = chk_say(&fresh, 1);
+      chk_end(c);
+      return said == CHK_IDLE ? on_idle : on_exit;
+    }
+    c->step = VENT_STEP_TRIGGER;
   }
 
   /* Trigger */
 
-  al_buzzer_beep(1047, 80, false);
-  const chk_bubble_t open = {
-      &img_robin_pointing,
-      lvx_fmt(CHK_TEXT(vent__open_window), c->result[CHK_VENT_C0]),
-      CHK_TEXT(vent__window_is_open),
-  };
-  VENT_TRY(chk_say(&open, 1));
+  if (c->step == VENT_STEP_TRIGGER) {
+    al_buzzer_beep(1047, 80, false);
+    const chk_bubble_t open = {
+        &img_robin_pointing,
+        lvx_fmt(CHK_TEXT(vent__open_window), c->result[CHK_VENT_C0]),
+        CHK_TEXT(vent__window_is_open),
+    };
+    VENT_TRY(chk_say(&open, 1));
+
+    // the boundary between the closed-window baseline and the decay, which is
+    // where the page bands the chart
+    chk_mark(c);
+    c->step = VENT_STEP_MEASURE;
+  }
 
   /* Measurement */
 
-  // the boundary between the closed-window baseline and the decay, which is
-  // where the page bands the chart
-  chk_mark(c);
-
+  if (c->step == VENT_STEP_MEASURE) {
   const chk_screen_t decay = {
       .title = title,
       .stage = CHK_TEXT(stage__measuring),
@@ -163,11 +205,13 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       .on_sample = vent_decay_sample,
       .floor = c->result[CHK_VENT_COUT],
   };
-  VENT_TRY(chk_measure(c, &decay, &run));
+  VENT_TRY(chk_measure(c, &decay));
+    c->step = VENT_STEP_RESULT;
+  }
 
   /* Result */
 
-  chk_vent_quality_t quality = chk_vent_evaluate(c, run.elapsed);
+  chk_vent_quality_t quality = chk_vent_evaluate(c, c->run.elapsed);
 
   // no number worth reporting: say which way the air went and offer another go
   if (quality != CHK_VENT_SOLID) {
@@ -178,6 +222,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
         CHK_TEXT(again),
     };
     chk_result_t said = chk_say(&unclear, 1);
+    chk_end(c);
     if (said == CHK_IDLE) return on_idle;
     if (said == CHK_NEXT) return self;
     return on_exit;
@@ -217,5 +262,6 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
 #undef VENT_TRY
 
+  chk_end(c);
   return on_exit;
 }
