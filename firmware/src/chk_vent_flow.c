@@ -193,26 +193,17 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   };
   VENT_TRY(chk_say(verdict, 2));
 
-  /* Stats */
+  /* Stats and share */
 
-  const char *lines[] = {
-      lvx_fmt(CHK_TEXT(vent__stat_ach), c->result[CHK_VENT_ACH], c->result[CHK_VENT_ACH_BAND]),
-      lvx_fmt(CHK_TEXT(vent__stat_half_life), half),
-      lvx_fmt(CHK_TEXT(vent__stat_fresh), chk_round_minutes(c->result[CHK_VENT_FRESH])),
-      lvx_fmt(CHK_TEXT(vent__stat_co2), c->result[CHK_VENT_C0], c->result[CHK_VENT_CLAST],
-              c->result[CHK_VENT_COUT]),
-  };
-  VENT_TRY(chk_stats(title, CHK_TEXT(stage__results), lines, 4, CHK_TEXT(vent__stat_note)));
-
-  /* Share */
-
-  // ach, achSe, r2, c0, c1, cout, pre
-  const float payload[] = {
-      c->result[CHK_VENT_ACH],  c->result[CHK_VENT_ACH_BAND], c->result[CHK_VENT_R2],
-      c->result[CHK_VENT_C0],   c->result[CHK_VENT_CLAST],    c->result[CHK_VENT_COUT],
-      (float)CHK_VENT_BASELINE_N,
-  };
-  VENT_TRY(chk_share(title, 'A', payload, 7, AL_SAMPLE_CO2, run.elapsed, CHK_TEXT(share_scan)));
+  // the same view a stored check is reopened through, so a result shown now
+  // and the same result shown next week cannot say different things
+  chk_view_t view;
+  if (!chk_describe(CHK_VENT, c->result, &view)) {
+    return on_exit;
+  }
+  VENT_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
+  VENT_TRY(chk_share(c, view.title, view.letter, view.payload, view.num_payload, view.signal, run.elapsed,
+                     CHK_TEXT(share_scan)));
 
 #undef VENT_TRY
 

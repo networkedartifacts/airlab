@@ -56,10 +56,13 @@ set(SOURCE_FILES
         src/chk.h
         src/chk_code.c
         src/chk_code.h
+        src/chk_store.c
+        src/chk_store.h
         src/chk_stove.c
         src/chk_stove.h
         src/chk_stove_flow.c
         src/chk_ui.c
+        src/chk_view.c
         src/chk_vent.c
         src/chk_vent_flow.c
         src/chk_vent.h

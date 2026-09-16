@@ -34,6 +34,7 @@
 #include "stm.h"
 #include "hmi.h"
 #include "chk.h"
+#include "chk_store.h"
 #include "dat.h"
 #include "pwr.h"
 #include "eng.h"
@@ -478,6 +479,7 @@ static void* scr_develop();
 static void* scr_checks();
 static void* scr_check_vent();
 static void* scr_check_stove();
+static void* scr_check_past();
 
 static bool scr_time() {
   // begin draw
@@ -3744,6 +3746,14 @@ static void* scr_checks() {
     screens[num] = scr_check_stove;
     num++;
   }
+
+  // past checks, only once there are some
+  if (chk_store_count() > 0) {
+    labels[num] = CHK_TEXT(past_checks);
+    screens[num] = scr_check_past;
+    num++;
+  }
+
   labels[num] = NULL;
 
   // nothing to offer
@@ -3774,6 +3784,63 @@ static void* scr_check_vent() {
 static void* scr_check_stove() {
   chk_init(scr_lang());
   return chk_stove_run(scr_checks, scr_menu, scr_check_stove);
+}
+
+// Lists the checks already run, newest first, so one can be shown again
+// without re-running it.
+static gui_list_item_t scr_check_past_item(int num, void* ctx) {
+  (void)ctx;
+
+  // newest first
+  chk_store_file_t* file = chk_store_get(chk_store_count() - 1 - (size_t)num);
+  if (file == NULL) {
+    return (gui_list_item_t){.title = "?", .info = ""};
+  }
+
+  // the result block alone says what this check was
+  chk_view_t view;
+  if (!chk_describe(file->head.check, file->head.result, &view)) {
+    return (gui_list_item_t){.title = "?", .info = ""};
+  }
+
+  // the time it ran, which is all the device can say about where it was
+  uint16_t year, month, day, hour, minute, second;
+  al_clock_epoch_date(file->head.start, &year, &month, &day);
+  al_clock_epoch_time(file->head.start, &hour, &minute, &second);
+
+  return (gui_list_item_t){
+      .title = view.headline,
+      .info = lvx_fmt("%02d.%02d. %02d:%02d", day, month, hour, minute),
+  };
+}
+
+static void* scr_check_past() {
+  static int selected = 0;
+  static int offset = 0;
+
+  for (;;) {
+    int count = (int)chk_store_count();
+    if (count == 0) {
+      return scr_checks;
+    }
+
+    selected = gui_list(count, selected, &offset, scr_trans()->next, scr_trans()->back, scr_check_past_item, NULL,
+                        GUI_INACTION);
+    if (selected < 0) {
+      return scr_checks;
+    }
+
+    chk_store_file_t* file = chk_store_get(chk_store_count() - 1 - (size_t)selected);
+    if (file == NULL) {
+      return scr_checks;
+    }
+
+    chk_init(scr_lang());
+    chk_result_t result = chk_reopen(file->head.num);
+    if (result == CHK_IDLE) {
+      return scr_menu;
+    }
+  }
 }
 
 static void* scr_intro() {

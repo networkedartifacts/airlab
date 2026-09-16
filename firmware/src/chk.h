@@ -9,6 +9,8 @@
 
 #include <al/sample.h>
 
+#include "chk_code.h"
+
 // The guided air checks. A check is a screen function that calls the kit
 // below and returns an outcome; control flow stays ordinary C, because that
 // is where the per-check variety lives.
@@ -67,6 +69,7 @@ typedef struct {
   const char* back;
   const char* sensor_errors;
   const char* no_checks;
+  const char* past_checks;
   const char* stage__baseline;
   const char* stage__measuring;
   const char* stage__results;
@@ -292,11 +295,32 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self);
 // Runs the gas stove check, the same way.
 void *chk_stove_run(void *on_exit, void *on_idle, void *self);
 
+// A finished check, rebuilt from its result block. The same view serves the
+// live flow and a reopened one, so the two cannot drift apart.
+typedef struct {
+  const char *title;
+  char letter;
+  al_sample_field_t signal;
+  const char *headline;  // the one number the verdict is about
+  const char *lines[6];
+  size_t num_lines;
+  const char *note;
+  float payload[CHK_CODE_MAX_FIELDS];
+  size_t num_payload;
+} chk_view_t;
+
+// Fills a view from a check's result block. False for an unknown check.
+bool chk_describe(uint8_t id, const float *result, chk_view_t *out);
+
 // Packs a finished check and shows its code. `fields` are the format's own
 // values in its own order; the samples come from the device's own store, so
 // the check does not have to have kept them.
-chk_result_t chk_share(const char *title, char letter, const float *fields, size_t num_fields,
+chk_result_t chk_share(const chk_t *c, const char *title, char letter, const float *fields, size_t num_fields,
                        al_sample_field_t signal, int32_t span_ms, const char *caption);
+
+// Shows a stored check again: its result from the header, its code rebuilt
+// from the samples on flash. Nothing is re-run.
+chk_result_t chk_reopen(uint16_t num);
 
 // Converts a first-order decay rate in air changes per hour into the two
 // figures Persily 1997 defines: the half-life of the stale air, and the time

@@ -20,6 +20,7 @@
 
 #include "chk.h"
 #include "chk_code.h"
+#include "chk_store.h"
 #include "fnt.h"
 #include "gfx.h"
 #include "gui.h"
@@ -28,6 +29,8 @@
 #include "sig.h"
 
 // maps a key press or the lack of one onto an outcome
+static uint16_t chk_device_tag(void);
+
 static chk_result_t chk_outcome(sig_type_t event) {
   if (event & SIG_ENTER) {
     return CHK_NEXT;
@@ -511,7 +514,36 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
 // research measured rather than derived.
 #define CHK_SHARE_MAX_BYTES 153
 
-chk_result_t chk_share(const char *title, char letter, const float *fields, size_t num_fields,
+// The payload carries sixteen bits of device, shown on the page as a hex tag.
+// `device-id` is a hex string and the device name is "AL" plus its last six
+// characters, so taking the last four puts a tag on the page that the user can
+// match against the name on their own device.
+static uint16_t chk_device_tag(void) {
+  const char *id = naos_get_s("device-id");
+  size_t len = id != NULL ? strlen(id) : 0;
+  if (len < 4) {
+    return 0;
+  }
+
+  uint16_t tag = 0;
+  for (const char *p = id + len - 4; *p != '\0'; p++) {
+    int digit;
+    if (*p >= '0' && *p <= '9') {
+      digit = *p - '0';
+    } else if (*p >= 'a' && *p <= 'f') {
+      digit = *p - 'a' + 10;
+    } else if (*p >= 'A' && *p <= 'F') {
+      digit = *p - 'A' + 10;
+    } else {
+      return 0;  // not hex after all, so there is no tag worth showing
+    }
+    tag = (uint16_t)((tag << 4) | digit);
+  }
+
+  return tag;
+}
+
+chk_result_t chk_share(const chk_t *c, const char *title, char letter, const float *fields, size_t num_fields,
                        al_sample_field_t signal, int32_t span_ms, const char *caption) {
   static float samples[CHK_CODE_MAX_SAMPLES];
   static char digits[CHK_CODE_MAX_DIGITS];
@@ -557,10 +589,16 @@ chk_result_t chk_share(const char *title, char letter, const float *fields, size
 
   chk_code_meta_t meta = {
       .minute = (uint32_t)((al_clock_get_epoch() - 1735689600000LL) / 60000),
-      .device = (uint16_t)(naos_get_l("device-id") & 0xFFFF),
+      .device = chk_device_tag(),
       .room = 0,  // the device has no way to know where it stands yet
       .cadence = cadence,
   };
+
+  // keep the check before showing it: the store window this came from is a
+  // ring that will turn over, so this is the only chance to take a copy
+  if (c != NULL) {
+    chk_store_write(c, (uint8_t)signal, (uint8_t)interval, samples, have);
+  }
 
   if (!chk_code_pack(letter, &meta, fields, num_fields, samples, have, CHK_SHARE_MAX_BYTES, digits, sizeof(digits),
                      NULL, NULL)) {
@@ -569,4 +607,64 @@ chk_result_t chk_share(const char *title, char letter, const float *fields, size
   }
 
   return chk_qr(title, letter, digits, caption);
+}
+
+chk_result_t chk_reopen(uint16_t num) {
+  // find the stored check
+  chk_store_file_t *file = NULL;
+  for (size_t i = 0; i < chk_store_count(); i++) {
+    chk_store_file_t *candidate = chk_store_get(i);
+    if (candidate != NULL && candidate->head.num == num) {
+      file = candidate;
+      break;
+    }
+  }
+  if (file == NULL) {
+    return CHK_EXIT;
+  }
+
+  // rebuild the result from the header alone, without reading the samples
+  chk_view_t view;
+  if (!chk_describe(file->head.check, file->head.result, &view)) {
+    return CHK_EXIT;
+  }
+
+  // the stats as they were
+  chk_result_t result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
+  if (result != CHK_NEXT) {
+    return result;
+  }
+
+  // and the code, rebuilt from the samples on flash rather than from the
+  // device store, which turned over long ago
+  static float samples[CHK_CODE_MAX_SAMPLES];
+  size_t have = chk_store_samples(num, samples, CHK_CODE_MAX_SAMPLES);
+  if (have < 2) {
+    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
+    return chk_say(&sorry, 1);
+  }
+
+  uint8_t cadence = 2;
+  for (uint8_t i = 0; i < 8; i++) {
+    if (chk_code_cadences[i] == file->head.cadence) {
+      cadence = i;
+      break;
+    }
+  }
+
+  chk_code_meta_t meta = {
+      .minute = (uint32_t)((file->head.start - 1735689600000LL) / 60000),
+      .device = chk_device_tag(),
+      .room = 0,
+      .cadence = cadence,
+  };
+
+  static char digits[CHK_CODE_MAX_DIGITS];
+  if (!chk_code_pack(view.letter, &meta, view.payload, view.num_payload, samples, have, CHK_SHARE_MAX_BYTES, digits,
+                     sizeof(digits), NULL, NULL)) {
+    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
+    return chk_say(&sorry, 1);
+  }
+
+  return chk_qr(view.title, view.letter, digits, CHK_TEXT(share_scan));
 }

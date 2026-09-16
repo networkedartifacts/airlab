@@ -16,6 +16,7 @@
 #include "sig.h"
 #include "hmi.h"
 #include "gfx.h"
+#include "chk_store.h"
 #include "dat.h"
 #include "rec.h"
 #include "com.h"
@@ -82,6 +83,7 @@ static void setup() {
   hmi_init();
   gfx_init(reset);
   dat_init();
+  chk_store_init();
   rec_init(reset);
   com_init();
 

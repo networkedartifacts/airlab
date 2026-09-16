@@ -180,28 +180,14 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
 
   /* Stats */
 
-  const char* lines[] = {
-      lvx_fmt(CHK_TEXT(stove__stat_capture), percent),
-      c->result[CHK_STOVE_HOOD_ACH] > 0 ? lvx_fmt(CHK_TEXT(stove__stat_hood), c->result[CHK_STOVE_HOOD_ACH])
-                                        : CHK_TEXT(stove__stat_hood_none),
-      lvx_fmt(CHK_TEXT(stove__stat_peak), c->result[CHK_STOVE_PEAK]),
-  };
-  STOVE_TRY(chk_stats(title, CHK_TEXT(stage__results), lines, 3, CHK_TEXT(stove__stat_note)));
-
-  /* Share */
-
-  // ce, hoodAch, slope1, slope3, c0, noxPeak, pre, pass1, pass2, pass3
-  const float payload[] = {
-      c->result[CHK_STOVE_CAPTURE] * 100,
-      c->result[CHK_STOVE_HOOD_ACH] > 0 ? c->result[CHK_STOVE_HOOD_ACH] : 0,
-      c->result[CHK_STOVE_SLOPE1],
-      c->result[CHK_STOVE_SLOPE3],
-      c->result[CHK_STOVE_C0],
-      c->result[CHK_STOVE_NOX],
-      (float)CHK_STOVE_BASELINE_N,
-      0, 0, 0,  // per-pass counts, once the passes are recorded separately
-  };
-  STOVE_TRY(chk_share(title, 'E', payload, 10, AL_SAMPLE_CO2, CHK_STOVE_PASS_MAX_MS * 3, CHK_TEXT(share_scan)));
+  // the same view a stored check is reopened through
+  chk_view_t view;
+  if (!chk_describe(CHK_STOVE, c->result, &view)) {
+    return on_exit;
+  }
+  STOVE_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
+  STOVE_TRY(chk_share(c, view.title, view.letter, view.payload, view.num_payload, view.signal,
+                      CHK_STOVE_PASS_MAX_MS * 3, CHK_TEXT(share_scan)));
 
 #undef STOVE_TRY
 
