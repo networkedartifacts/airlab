@@ -188,6 +188,21 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
   };
   STOVE_TRY(chk_stats(title, CHK_TEXT(stage__results), lines, 3, CHK_TEXT(stove__stat_note)));
 
+  /* Share */
+
+  // ce, hoodAch, slope1, slope3, c0, noxPeak, pre, pass1, pass2, pass3
+  const float payload[] = {
+      c->result[CHK_STOVE_CAPTURE] * 100,
+      c->result[CHK_STOVE_HOOD_ACH] > 0 ? c->result[CHK_STOVE_HOOD_ACH] : 0,
+      c->result[CHK_STOVE_SLOPE1],
+      c->result[CHK_STOVE_SLOPE3],
+      c->result[CHK_STOVE_C0],
+      c->result[CHK_STOVE_NOX],
+      (float)CHK_STOVE_BASELINE_N,
+      0, 0, 0,  // per-pass counts, once the passes are recorded separately
+  };
+  STOVE_TRY(chk_share(title, 'E', payload, 10, AL_SAMPLE_CO2, CHK_STOVE_PASS_MAX_MS * 3, CHK_TEXT(share_scan)));
+
 #undef STOVE_TRY
 
   return on_exit;

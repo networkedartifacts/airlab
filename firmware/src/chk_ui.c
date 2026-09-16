@@ -11,9 +11,15 @@
 
 #include <al/core.h>
 #include <al/utils.h>
+#include <al/clock.h>
 #include <al/store.h>
 
+#include <stdio.h>
+
+#include "qrcodegen.h"
+
 #include "chk.h"
+#include "chk_code.h"
 #include "fnt.h"
 #include "gfx.h"
 #include "gui.h"
@@ -390,4 +396,177 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, chk_measure_run_t
   }
 
   return CHK_NEXT;
+}
+
+// The symbol is drawn at two pixels a module with the quiet zone inside the
+// margin: the 296x128 panel takes a version 9 symbol that way, which is the
+// 153-byte budget the payload is written to. A phone read every candidate in
+// the device test, so two pixels is the conservative choice rather than the
+// limit.
+#define CHK_QR_PX 2
+#define CHK_QR_MAX_VERSION 9
+
+static uint8_t chk_qr_temp[qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_QR_MAX_VERSION)];
+static uint8_t chk_qr_out[qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_QR_MAX_VERSION)];
+static lv_color_t *chk_qr_canvas_buffer;
+
+chk_result_t chk_qr(const char *title, char letter, const char *digits, const char *caption) {
+  // build the link as two segments: the prefix and letter in byte mode, the
+  // payload in numeric mode. Encoding the whole string instead would need a
+  // version 14 symbol, which does not fit the panel at this module size.
+  char head[sizeof(CHK_CODE_PREFIX) + 1];
+  snprintf(head, sizeof(head), "%s%c", CHK_CODE_PREFIX, letter);
+
+  struct qrcodegen_Segment segs[2];
+  segs[0] = qrcodegen_makeBytes((const uint8_t *)head, strlen(head), chk_qr_temp);
+  segs[1] = qrcodegen_makeNumeric(digits, chk_qr_temp + qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_QR_MAX_VERSION) / 2);
+
+  bool ok = qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN,
+                                             CHK_QR_MAX_VERSION, qrcodegen_Mask_AUTO, true, chk_qr_out, chk_qr_out);
+
+  // begin draw
+  gfx_begin(false, false);
+
+  // add chrome
+  chk_chrome(title, CHK_TEXT(stage__share));
+
+  if (!ok) {
+    // the result did not fit a symbol the panel can show, which is a bug
+    // rather than something the user did
+    lv_obj_t *lbl = lv_label_create(lv_scr_act());
+    lv_obj_set_style_text_font(lbl, &fnt_16, LV_PART_MAIN);
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_text(lbl, CHK_TEXT(share_failed));
+  } else {
+    int size = qrcodegen_getSize(chk_qr_out);
+    int side = size * CHK_QR_PX;
+
+    // keep the canvas once: a check may be shared more than once
+    if (chk_qr_canvas_buffer == NULL) {
+      chk_qr_canvas_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(128, 128));
+    }
+
+    lv_obj_t *canvas = lv_canvas_create(lv_scr_act());
+    memset(chk_qr_canvas_buffer, 0, LV_CANVAS_BUF_SIZE_TRUE_COLOR(128, 128));
+    lv_canvas_set_buffer(canvas, chk_qr_canvas_buffer, 128, 128, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
+
+    // the white ground around the symbol is the quiet zone
+    lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
+
+    lv_draw_rect_dsc_t dsc;
+    lv_draw_rect_dsc_init(&dsc);
+    dsc.bg_color = lv_color_black();
+    dsc.bg_opa = LV_OPA_COVER;
+    dsc.radius = 0;
+
+    // centre the symbol, leaving at least four modules of quiet zone
+    lv_coord_t off = (lv_coord_t)((128 - side) / 2);
+
+    // merge dark modules into horizontal runs, which is far fewer draws than
+    // one rectangle per module
+    for (int y = 0; y < size; y++) {
+      int x = 0;
+      while (x < size) {
+        if (!qrcodegen_getModule(chk_qr_out, x, y)) {
+          x++;
+          continue;
+        }
+        int run = 0;
+        while (x + run < size && qrcodegen_getModule(chk_qr_out, x + run, y)) {
+          run++;
+        }
+        lv_canvas_draw_rect(canvas, (lv_coord_t)(off + x * CHK_QR_PX), (lv_coord_t)(off + y * CHK_QR_PX),
+                            (lv_coord_t)(run * CHK_QR_PX), CHK_QR_PX, &dsc);
+        x += run;
+      }
+    }
+
+    // the caption sits beside the symbol, not under it
+    lv_obj_t *lbl = lv_label_create(lv_scr_act());
+    lv_obj_set_style_text_font(lbl, &fnt_16, LV_PART_MAIN);
+    lv_obj_set_width(lbl, 296 - 136);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 136, 34);
+    lv_label_set_text(lbl, caption != NULL ? caption : CHK_TEXT(share_scan));
+  }
+
+  // add sign
+  lvx_sign_t sign = {.title = "A", .text = CHK_TEXT(done), .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_create(&sign, lv_scr_act());
+
+  // end draw, refreshing fully: a half-drawn symbol does not scan
+  gfx_end(true, false);
+
+  // await the key, giving the user time to actually scan it
+  sig_event_t event = gui_await(SIG_META, CHK_ACTION_TIMEOUT * 3);
+
+  // cleanup
+  gui_cleanup(false);
+
+  return chk_outcome(event.type);
+}
+
+// The budget the 2 px symbol allows behind the prefix at level M, which the
+// research measured rather than derived.
+#define CHK_SHARE_MAX_BYTES 153
+
+chk_result_t chk_share(const char *title, char letter, const float *fields, size_t num_fields,
+                       al_sample_field_t signal, int32_t span_ms, const char *caption) {
+  static float samples[CHK_CODE_MAX_SAMPLES];
+  static char digits[CHK_CODE_MAX_DIGITS];
+
+  // read the window the check spanned back out of the device's own store,
+  // newest first, then reverse it: a check keeps accumulators rather than a
+  // sample stream, so this is where the curve comes from
+  int interval = al_store_get_interval();
+  if (interval <= 0) {
+    interval = 5;
+  }
+  size_t want = (size_t)(span_ms / 1000 / interval) + 1;
+  if (want > CHK_CODE_MAX_SAMPLES) {
+    want = CHK_CODE_MAX_SAMPLES;
+  }
+
+  size_t have = 0;
+  for (size_t i = 0; i < want; i++) {
+    al_sample_t sample = al_store_get(AL_STORE_SHORT, -(int)(want - i));
+    if (!al_sample_valid(sample)) {
+      continue;
+    }
+    float value = al_sample_read(sample, signal);
+    if (!isnan(value)) {
+      samples[have++] = value;
+    }
+  }
+
+  // nothing to draw a curve from
+  if (have < 2) {
+    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
+    return chk_say(&sorry, 1);
+  }
+
+  // the cadence index the payload carries
+  uint8_t cadence = 2;  // 5 s, the device's usual
+  for (uint8_t i = 0; i < 8; i++) {
+    if (chk_code_cadences[i] == interval) {
+      cadence = i;
+      break;
+    }
+  }
+
+  chk_code_meta_t meta = {
+      .minute = (uint32_t)((al_clock_get_epoch() - 1735689600000LL) / 60000),
+      .device = (uint16_t)(naos_get_l("device-id") & 0xFFFF),
+      .room = 0,  // the device has no way to know where it stands yet
+      .cadence = cadence,
+  };
+
+  if (!chk_code_pack(letter, &meta, fields, num_fields, samples, have, CHK_SHARE_MAX_BYTES, digits, sizeof(digits),
+                     NULL, NULL)) {
+    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
+    return chk_say(&sorry, 1);
+  }
+
+  return chk_qr(title, letter, digits, caption);
 }

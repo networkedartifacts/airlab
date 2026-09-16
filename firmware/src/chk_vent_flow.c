@@ -204,6 +204,16 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   };
   VENT_TRY(chk_stats(title, CHK_TEXT(stage__results), lines, 4, CHK_TEXT(vent__stat_note)));
 
+  /* Share */
+
+  // ach, achSe, r2, c0, c1, cout, pre
+  const float payload[] = {
+      c->result[CHK_VENT_ACH],  c->result[CHK_VENT_ACH_BAND], c->result[CHK_VENT_R2],
+      c->result[CHK_VENT_C0],   c->result[CHK_VENT_CLAST],    c->result[CHK_VENT_COUT],
+      (float)CHK_VENT_BASELINE_N,
+  };
+  VENT_TRY(chk_share(title, 'A', payload, 7, AL_SAMPLE_CO2, run.elapsed, CHK_TEXT(share_scan)));
+
 #undef VENT_TRY
 
   return on_exit;

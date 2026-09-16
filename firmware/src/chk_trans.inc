@@ -16,6 +16,9 @@ static const chk_trans_t chk_trans_map[] = {
             .stage__baseline = "Baseline",
             .stage__measuring = "Measuring",
             .stage__results = "Results",
+            .stage__share = "Share",
+            .share_scan = "Scan to open the full result on your phone.",
+            .share_failed = "Could not make a code for this result.",
 
             .vent__title = "Air Check: Ventilation",
             .vent__intro_1 = "Glad to assist with a ventilation check!",

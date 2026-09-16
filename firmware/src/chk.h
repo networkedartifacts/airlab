@@ -70,6 +70,9 @@ typedef struct {
   const char* stage__baseline;
   const char* stage__measuring;
   const char* stage__results;
+  const char* stage__share;
+  const char* share_scan;
+  const char* share_failed;
 
   // ventilation
   const char* vent__title;
@@ -161,6 +164,10 @@ void chk_chrome(const char *title, const char *stage);
 // Shows a checklist the user confirms before a check starts, so that the
 // single-zone assumption the decay and rise methods rest on is actually met.
 chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count);
+
+// Draws the QR code a phone scans to carry the result away, with a short
+// line beside it. Returns once acknowledged.
+chk_result_t chk_qr(const char *title, char letter, const char *digits, const char *caption);
 
 // Shows a run's result as labelled lines with a note beneath.
 chk_result_t chk_stats(const char *title, const char *stage, const char *const *lines, size_t count,
@@ -284,6 +291,12 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self);
 
 // Runs the gas stove check, the same way.
 void *chk_stove_run(void *on_exit, void *on_idle, void *self);
+
+// Packs a finished check and shows its code. `fields` are the format's own
+// values in its own order; the samples come from the device's own store, so
+// the check does not have to have kept them.
+chk_result_t chk_share(const char *title, char letter, const float *fields, size_t num_fields,
+                       al_sample_field_t signal, int32_t span_ms, const char *caption);
 
 // Converts a first-order decay rate in air changes per hour into the two
 // figures Persily 1997 defines: the half-life of the stale air, and the time

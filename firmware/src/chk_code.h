@@ -16,6 +16,11 @@
 // This is the encoder only. The decoder lives with the page that renders the
 // result; the host tests check that this produces the same bytes it does.
 
+// Where a scanned result lands. The lowercase prefix and the format letter
+// ride in a byte-mode QR segment, which is why the prefix is short: every
+// character of it costs payload.
+#define CHK_CODE_PREFIX "https://airlab.today/ac/"
+
 // The most a payload may be, which the QR budget rather than this code sets.
 #define CHK_CODE_MAX_BYTES 192
 #define CHK_CODE_MAX_DIGITS 480
