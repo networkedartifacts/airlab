@@ -56,6 +56,7 @@ set(SOURCE_FILES
         src/chk.h
         src/chk_ui.c
         src/chk_vent.c
+        src/chk_vent_flow.c
         src/chk_vent.h
         src/dat.c
         src/dat.h

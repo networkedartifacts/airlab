@@ -60,6 +60,19 @@ bool chk_vent_observe(chk_t *c, float co2, int32_t t_ms);
 // a number; when it did not, the drop rate decides which direction to report.
 chk_vent_quality_t chk_vent_evaluate(chk_t *c, int32_t elapsed_ms);
 
+// Guesses outdoor CO2 from the lowest reading the device has lately seen,
+// floored at 400 ppm. This is a guess and the user may overrule it.
+//
+// NOTE: its worth depends on whether the sensor's automatic self-calibration
+// is enabled, since that recalibrates so the rolling minimum reads about
+// 400 ppm — which would make this number an artefact of the calibration
+// rather than a measurement of outdoor air. Open question.
+float chk_vent_outdoor_guess(void);
+
+// The median of the last n readings, which is steadier than a mean when one
+// or two come back wrong.
+float chk_vent_baseline_median(int n);
+
 // The three-step scale for a solved rate.
 chk_vent_tier_t chk_vent_tier(float ach);
 

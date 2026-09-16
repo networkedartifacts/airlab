@@ -1,5 +1,7 @@
 #include <math.h>
 
+#include <al/store.h>
+
 #include "chk_vent.h"
 
 bool chk_vent_observe(chk_t *c, float co2, int32_t t_ms) {
@@ -66,4 +68,65 @@ chk_vent_tier_t chk_vent_tier(float ach) {
     return CHK_VENT_TIER_MID;
   }
   return CHK_VENT_TIER_LOW;
+}
+
+float chk_vent_outdoor_guess(void) {
+  // walk the long store, which reaches back far enough to have seen the room
+  // ventilated at least once
+  float lowest = NAN;
+  size_t count = al_store_count(AL_STORE_LONG);
+  for (size_t i = 0; i < count; i++) {
+    al_sample_t sample = al_store_get(AL_STORE_LONG, (int)i);
+    if (!al_sample_valid(sample)) {
+      continue;
+    }
+    float co2 = al_sample_read(sample, AL_SAMPLE_CO2);
+    if (!isnan(co2) && (isnan(lowest) || co2 < lowest)) {
+      lowest = co2;
+    }
+  }
+
+  // outdoor air is not below 400 ppm, whatever the sensor says
+  if (isnan(lowest) || lowest < 400) {
+    return 400;
+  }
+
+  return lowest;
+}
+
+float chk_vent_baseline_median(int n) {
+  // read the last n from the short store, newest first
+  float values[16];
+  if (n > (int)(sizeof(values) / sizeof(values[0]))) {
+    n = (int)(sizeof(values) / sizeof(values[0]));
+  }
+  int have = 0;
+  for (int i = 0; i < n; i++) {
+    al_sample_t sample = al_store_get(AL_STORE_SHORT, -1 - i);
+    if (!al_sample_valid(sample)) {
+      continue;
+    }
+    float co2 = al_sample_read(sample, AL_SAMPLE_CO2);
+    if (!isnan(co2)) {
+      values[have++] = co2;
+    }
+  }
+  if (have == 0) {
+    return NAN;
+  }
+
+  // insertion sort, which is plenty for a handful of readings
+  for (int i = 1; i < have; i++) {
+    for (int j = i; j > 0 && values[j] < values[j - 1]; j--) {
+      float tmp = values[j];
+      values[j] = values[j - 1];
+      values[j - 1] = tmp;
+    }
+  }
+
+  // the middle, or the mean of the two middles
+  if (have % 2 == 1) {
+    return values[have / 2];
+  }
+  return (values[have / 2 - 1] + values[have / 2]) / 2;
 }

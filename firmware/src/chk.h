@@ -79,7 +79,14 @@ typedef struct {
   const char* vent__list_windows;
   const char* vent__list_door;
   const char* vent__list_table;
+  const char* vent__outdoor;
   const char* vent__already_fresh;
+  const char* vent__nudge;
+  const char* vent__quickly;
+  const char* vent__slowly;
+  const char* vent__advice_low;
+  const char* vent__advice_mid;
+  const char* vent__advice_high;
   const char* vent__baseline_hint;
   const char* vent__open_window;
   const char* vent__window_is_open;
@@ -88,9 +95,15 @@ typedef struct {
   const char* vent__verdict_second_window;
   const char* vent__stat_ach;
   const char* vent__stat_half_life;
+  const char* vent__stat_fresh;
   const char* vent__stat_co2;
   const char* vent__stat_note;
 } chk_trans_t;
+
+// The checks themselves.
+typedef enum {
+  CHK_VENT,
+} chk_id_t;
 
 // How long a check waits on a prompt before giving the device back. A check
 // left standing on a table should not hold the screen awake indefinitely.

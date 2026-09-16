@@ -24,6 +24,15 @@ static const chk_trans_t chk_trans_map[] = {
             .vent__list_windows = "Windows closed",
             .vent__list_door = "Door closed",
             .vent__list_table = "Device on a table",
+            .vent__outdoor = "Outdoor CO2 today?",
+            .vent__nudge = "Hmm, nothing is changing. Is the window open?",
+            .vent__quickly = "quickly",
+            .vent__slowly = "slowly",
+            // the scale is a design choice, so the advice stays practical
+            // rather than claiming a health threshold
+            .vent__advice_low = "A tilted window is not airing. Open it wide.",
+            .vent__advice_mid = "A second window would make a cross-draught.",
+            .vent__advice_high = "That is brisk airing. Keep it short.",
             .vent__already_fresh = "Already fresh! Close the door, stay 20 min, then retry.",
             .vent__baseline_hint = "Keep windows closed",
             .vent__open_window = "Got it: %.0f ppm. Open a window wide, then step out!",
@@ -33,6 +42,7 @@ static const chk_trans_t chk_trans_map[] = {
             .vent__verdict_second_window = "A second window would speed it up.",
             .vent__stat_ach = "ACH: %.1f +/- %.1f",
             .vent__stat_half_life = "Half-life: %d min",
+            .vent__stat_fresh = "95%% fresh: %d min",
             .vent__stat_co2 = "CO2: %.0f to %.0f (out %.0f)",
             .vent__stat_note = "ACH = air changes per hour",
         },
