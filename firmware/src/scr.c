@@ -3799,7 +3799,8 @@ static gui_list_item_t scr_check_past_item(int num, void* ctx) {
 
   // the result block alone says what this check was
   chk_view_t view;
-  if (!chk_describe(file->head.check, file->head.result, &view)) {
+  if (!chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS, file->head.cadence,
+                    &view)) {
     return (gui_list_item_t){.title = "?", .info = ""};
   }
 

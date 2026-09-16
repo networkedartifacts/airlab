@@ -543,7 +543,7 @@ static uint16_t chk_device_tag(void) {
   return tag;
 }
 
-uint16_t chk_record(const chk_t *c, al_sample_field_t signal, int32_t span_ms) {
+uint16_t chk_record(const chk_t *c, al_sample_field_t signal) {
   static float samples[CHK_CODE_MAX_SAMPLES];
 
   if (c == NULL) {
@@ -558,7 +558,9 @@ uint16_t chk_record(const chk_t *c, al_sample_field_t signal, int32_t span_ms) {
   if (interval <= 0) {
     interval = 5;
   }
-  size_t want = (size_t)(span_ms / 1000 / interval) + 1;
+  // the whole check, from its own start: the phases are not contiguous, so a
+  // span counted back from now would miss the prompts between them
+  size_t want = (size_t)(chk_elapsed(c) / 1000 / interval) + 1;
   if (want > CHK_CODE_MAX_SAMPLES) {
     want = CHK_CODE_MAX_SAMPLES;
   }
@@ -595,7 +597,8 @@ chk_result_t chk_show_code(uint16_t num) {
   }
 
   chk_view_t view;
-  if (file == NULL || !chk_describe(file->head.check, file->head.result, &view)) {
+  if (file == NULL || !chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS,
+                                    file->head.cadence, &view)) {
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
   }
@@ -646,7 +649,8 @@ chk_result_t chk_reopen(uint16_t num) {
   }
 
   chk_view_t view;
-  if (file == NULL || !chk_describe(file->head.check, file->head.result, &view)) {
+  if (file == NULL || !chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS,
+                                    file->head.cadence, &view)) {
     return CHK_EXIT;
   }
 

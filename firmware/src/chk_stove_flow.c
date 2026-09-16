@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <al/buzzer.h>
+#include <al/store.h>
 
 #include "chk.h"
 #include "chk_stove.h"
@@ -62,8 +63,7 @@ static chk_step_t stove_baseline_sample(chk_t* c, float value, int32_t t_ms) {
 void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
   chk_t state;
   chk_t* c = &state;
-  memset(c, 0, sizeof(*c));
-  c->id = CHK_STOVE;
+  chk_begin(c, CHK_STOVE);
 
   const char* title = CHK_TEXT(stove__title);
 
@@ -111,6 +111,9 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
   c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
   c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
 
+  // the boundary between the baseline and the first pass
+  chk_mark(c);
+
   /* Three passes */
 
   const chk_stove_pass_t passes[] = {
@@ -144,6 +147,9 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     };
     STOVE_TRY(chk_measure(c, &measure, &run));
 
+    // where this pass ended, so the page can band the chart per pass
+    chk_mark(c);
+
     // the kitchen has had enough: stop the check rather than the pass
     if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {
       const chk_bubble_t stop = {&img_robin_angry1, CHK_TEXT(stove__too_much), CHK_TEXT(ok)};
@@ -166,7 +172,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
   }
 
   // keep it before saying anything, as the ventilation check does
-  uint16_t stored = chk_record(c, AL_SAMPLE_CO2, CHK_STOVE_PASS_MAX_MS * 3);
+  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
 
   int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
   chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
@@ -185,7 +191,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
 
   // the same view a stored check is reopened through
   chk_view_t view;
-  if (!chk_describe(CHK_STOVE, c->result, &view)) {
+  if (!chk_describe(CHK_STOVE, c->result, c->marks, CHK_MARKS, (uint8_t)al_store_get_interval(), &view)) {
     return on_exit;
   }
   STOVE_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));

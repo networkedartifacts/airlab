@@ -14,7 +14,15 @@
 #include "chk_vent.h"
 #include "lvx.h"
 
-static void chk_view_vent(const float *r, chk_view_t *v) {
+// how many samples fall between two phase boundaries, at this cadence
+static float chk_view_span(int32_t from_ms, int32_t to_ms, uint8_t cadence) {
+  if (cadence == 0 || to_ms <= from_ms) {
+    return 0;
+  }
+  return (float)((to_ms - from_ms) / 1000 / cadence);
+}
+
+static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
   v->title = CHK_TEXT(vent__title);
   v->letter = 'A';
   v->signal = AL_SAMPLE_CO2;
@@ -34,14 +42,16 @@ static void chk_view_vent(const float *r, chk_view_t *v) {
   v->payload[3] = r[CHK_VENT_C0];
   v->payload[4] = r[CHK_VENT_CLAST];
   v->payload[5] = r[CHK_VENT_COUT];
-  v->payload[6] = 6;
+  // the baseline samples at the head of the series, which is where the page
+  // stops shading the chart as "before the window opened"
+  v->payload[6] = chk_view_span(0, marks[0], cadence);
   v->num_payload = 7;
 
   // the one number the verdict is about
   v->headline = lvx_fmt(CHK_TEXT(vent__verdict_half_life), half);
 }
 
-static void chk_view_stove(const float *r, chk_view_t *v) {
+static void chk_view_stove(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
   v->title = CHK_TEXT(stove__title);
   v->letter = 'E';
   v->signal = AL_SAMPLE_CO2;
@@ -61,17 +71,19 @@ static void chk_view_stove(const float *r, chk_view_t *v) {
   v->payload[3] = r[CHK_STOVE_SLOPE3];
   v->payload[4] = r[CHK_STOVE_C0];
   v->payload[5] = r[CHK_STOVE_NOX];
-  v->payload[6] = 12;
-  v->payload[7] = 0;  // per-pass counts, once the passes are recorded apart
-  v->payload[8] = 0;
-  v->payload[9] = 0;
+  // the baseline, then a count per pass, from the boundaries the flow marked
+  v->payload[6] = chk_view_span(0, marks[0], cadence);
+  v->payload[7] = chk_view_span(marks[0], marks[1], cadence);
+  v->payload[8] = chk_view_span(marks[1], marks[2], cadence);
+  v->payload[9] = chk_view_span(marks[2], marks[3], cadence);
   v->num_payload = 10;
 
   v->headline = lvx_fmt(CHK_TEXT(stove__verdict), percent);
 }
 
-bool chk_describe(uint8_t id, const float *result, chk_view_t *out) {
-  if (result == NULL || out == NULL) {
+bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t marks_len, uint8_t cadence,
+                  chk_view_t *out) {
+  if (result == NULL || out == NULL || marks == NULL || marks_len < 4) {
     return false;
   }
 
@@ -79,10 +91,10 @@ bool chk_describe(uint8_t id, const float *result, chk_view_t *out) {
 
   switch (id) {
     case CHK_VENT:
-      chk_view_vent(result, out);
+      chk_view_vent(result, marks, cadence, out);
       return true;
     case CHK_STOVE:
-      chk_view_stove(result, out);
+      chk_view_stove(result, marks, cadence, out);
       return true;
     default:
       return false;

@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <al/buzzer.h>
+#include <al/store.h>
 #include <al/sensor.h>
 
 #include "chk.h"
@@ -66,8 +67,7 @@ static chk_step_t vent_decay_sample(chk_t *c, float value, int32_t t_ms) {
 void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   chk_t state;
   chk_t *c = &state;
-  memset(c, 0, sizeof(*c));
-  c->id = CHK_VENT;
+  chk_begin(c, CHK_VENT);
 
   const char *title = CHK_TEXT(vent__title);
 
@@ -145,6 +145,10 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
   /* Measurement */
 
+  // the boundary between the closed-window baseline and the decay, which is
+  // where the page bands the chart
+  chk_mark(c);
+
   const chk_screen_t decay = {
       .title = title,
       .stage = CHK_TEXT(stage__measuring),
@@ -181,7 +185,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
   // keep it before saying anything: walking away from the verdict should not
   // lose the check, and the store window it comes from turns over
-  uint16_t stored = chk_record(c, AL_SAMPLE_CO2, run.elapsed);
+  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
 
   // the verdict: the one number, and the advice the tier earns
   int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);
@@ -202,7 +206,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   // the same view a stored check is reopened through, so a result shown now
   // and the same result shown next week cannot say different things
   chk_view_t view;
-  if (!chk_describe(CHK_VENT, c->result, &view)) {
+  if (!chk_describe(CHK_VENT, c->result, c->marks, CHK_MARKS, (uint8_t)al_store_get_interval(), &view)) {
     return on_exit;
   }
   VENT_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));

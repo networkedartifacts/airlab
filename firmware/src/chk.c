@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <al/clock.h>
 #include <al/sensor.h>
 
 #include "chk.h"
@@ -176,4 +177,24 @@ chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t
   }
 
   return CHK_RUN_GO;
+}
+
+void chk_begin(chk_t *c, uint8_t id) {
+  memset(c, 0, sizeof(*c));
+  c->id = id;
+  c->start = al_clock_get_epoch();
+}
+
+int32_t chk_elapsed(const chk_t *c) {
+  return (int32_t)(al_clock_get_epoch() - c->start);
+}
+
+void chk_mark(chk_t *c) {
+  // find the first free slot, ignoring the mark once they are all taken
+  for (size_t i = 0; i < CHK_MARKS; i++) {
+    if (c->marks[i] == 0) {
+      c->marks[i] = chk_elapsed(c);
+      return;
+    }
+  }
 }

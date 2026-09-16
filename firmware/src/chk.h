@@ -187,6 +187,19 @@ chk_result_t chk_stats(const char *title, const char *stage, const char *const *
 // Reports whether the device in hand can run a check with these needs.
 bool chk_available(uint16_t needs);
 
+// Begins a check: stamps the start time, from which every phase boundary and
+// the recorded window are measured.
+void chk_begin(chk_t *c, uint8_t id);
+
+// Marks a phase boundary at the current moment. A check is not one contiguous
+// window — the user is prompted between phases and takes as long as they take
+// — so the boundaries have to be recorded as they happen rather than inferred
+// from the durations afterwards.
+void chk_mark(chk_t *c);
+
+// Milliseconds since the check began.
+int32_t chk_elapsed(const chk_t *c);
+
 // Selects the language for check copy, using the same indices as scr_lang_t.
 void chk_init(int lang);
 
@@ -310,7 +323,8 @@ typedef struct {
 } chk_view_t;
 
 // Fills a view from a check's result block. False for an unknown check.
-bool chk_describe(uint8_t id, const float *result, chk_view_t *out);
+bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t marks_len,
+                  uint8_t cadence, chk_view_t *out);
 
 // Packs a finished check and shows its code. `fields` are the format's own
 // values in its own order; the samples come from the device's own store, so
@@ -319,7 +333,7 @@ bool chk_describe(uint8_t id, const float *result, chk_view_t *out);
 // device's own stores. Called as soon as the result is evaluated rather than
 // when it is shown, so that walking away from the verdict does not lose it.
 // Returns the file number, or zero when there was nothing worth keeping.
-uint16_t chk_record(const chk_t *c, al_sample_field_t signal, int32_t span_ms);
+uint16_t chk_record(const chk_t *c, al_sample_field_t signal);
 
 // Draws the code for a stored check, rebuilt from its header and samples.
 chk_result_t chk_show_code(uint16_t num);
