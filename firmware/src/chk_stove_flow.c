@@ -172,6 +172,8 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
       STOVE_TRY(chk_say(&prompt, 1));
     }
 
+    // a burn is drawn against the rise that ends it, the clearing against
+    // the excess it has to lose
     const chk_screen_t measure = {
         .title = title,
         .stage = pass->stage,
@@ -184,6 +186,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
                 .nudge_ms = CHK_STOVE_SLOPE_MS},
         .on_sample = stove_sample,
         .floor = c->result[CHK_STOVE_C0],
+        .range = pass->burning ? CHK_STOVE_BURN_RISE : c->result[CHK_STOVE_PEAK] - c->result[CHK_STOVE_C0],
     };
     STOVE_TRY(chk_measure(c, &measure, self));
 
