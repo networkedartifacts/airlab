@@ -83,6 +83,53 @@ bool chk_accum_fit(const chk_accum_t *a, int min_n, float *slope, float *r2);
 // additionally when there are fewer than three observations.
 bool chk_accum_stderr(const chk_accum_t *a, float *stderr_slope);
 
+// The measurement engine covers a baseline and a measurement both: they are
+// the same loop, differing only in when they stop. The drawing lives in the
+// screen; what follows is the policy, kept separate so it can be tested.
+
+// What a check makes of one sample.
+typedef enum {
+  CHK_STEP_WAIT,  // taken, but nothing is moving yet
+  CHK_STEP_GO,    // taken, and the signal is moving
+  CHK_STEP_DONE,  // the check has what it needs
+} chk_step_t;
+
+// What the engine does next.
+typedef enum {
+  CHK_RUN_GO,      // keep sampling
+  CHK_RUN_DONE,    // stop, the run stands
+  CHK_RUN_FAILED,  // stop, too many readings were unusable
+} chk_run_state_t;
+
+// A run is abandoned once more than a quarter of the attempts have failed,
+// and not before there have been enough attempts for that to mean anything.
+#define CHK_FAIL_MIN_ATTEMPTS 8
+#define CHK_FAIL_SHARE 4
+
+typedef struct {
+  int32_t min_ms;    // the earliest a check may declare itself done
+  int32_t max_ms;    // the latest the run may go on, 0 for no limit
+  int capacity;      // samples the run may take, 0 for no limit
+  int32_t nudge_ms;  // how long to wait before prompting, 0 to never
+} chk_measure_cfg_t;
+
+typedef struct {
+  int attempts;      // readings asked for
+  int fails;         // readings that came back unusable
+  int count;         // readings that counted
+  int32_t elapsed;   // ms since the run began
+  bool nudging;      // the user should be prompted
+} chk_measure_run_t;
+
+// Clears a run.
+void chk_measure_reset(chk_measure_run_t *r);
+
+// Folds one reading into a run and says what to do next. `valid` is whether
+// the sensor gave a usable number; `verdict` is what the check made of it,
+// and is ignored when it did not.
+chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t *r, int32_t elapsed, bool valid,
+                                 chk_step_t verdict);
+
 // Converts a first-order decay rate in air changes per hour into the two
 // figures Persily 1997 defines: the half-life of the stale air, and the time
 // to 95 per cent fresh, which is three time constants. Both in minutes, and

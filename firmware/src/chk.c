@@ -133,3 +133,47 @@ int chk_round_minutes(float minutes) {
   }
   return (int)(minutes / 10 + 0.5f) * 10;
 }
+
+void chk_measure_reset(chk_measure_run_t *r) {
+  memset(r, 0, sizeof(*r));
+}
+
+chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t *r, int32_t elapsed, bool valid,
+                                 chk_step_t verdict) {
+  // record the attempt
+  r->elapsed = elapsed;
+  r->attempts++;
+  if (valid) {
+    r->count++;
+  } else {
+    r->fails++;
+  }
+
+  // give up once too many readings have come back unusable, but not before
+  // there have been enough of them to tell a bad sensor from a slow start
+  if (r->attempts >= CHK_FAIL_MIN_ATTEMPTS && r->fails * CHK_FAIL_SHARE > r->attempts) {
+    return CHK_RUN_FAILED;
+  }
+
+  // let the check stop the run, but never before the minimum duration: a
+  // fit needs a span of time whatever the signal happens to have done
+  if (valid && verdict == CHK_STEP_DONE && elapsed >= cfg->min_ms) {
+    return CHK_RUN_DONE;
+  }
+
+  // stop at the limits
+  if (cfg->max_ms > 0 && elapsed >= cfg->max_ms) {
+    return CHK_RUN_DONE;
+  }
+  if (cfg->capacity > 0 && r->count >= cfg->capacity) {
+    return CHK_RUN_DONE;
+  }
+
+  // prompt while nothing is moving, and stop prompting once something does.
+  // an unusable reading says nothing either way, so it leaves this alone.
+  if (valid && cfg->nudge_ms > 0) {
+    r->nudging = elapsed >= cfg->nudge_ms && verdict == CHK_STEP_WAIT;
+  }
+
+  return CHK_RUN_GO;
+}
