@@ -41,12 +41,13 @@ static chk_result_t chk_outcome(sig_type_t event) {
 }
 
 // the header every non-dialogue check screen carries: the check on the left,
-// the stage on the right, a rule beneath
-void chk_chrome(const char *title, const char *stage) {
+// the stage on the right, a rule beneath. It starts at `from`, so a screen
+// whose left side is spoken for keeps its header on the right.
+static void chk_chrome_from(lv_coord_t from, const char *title, const char *stage) {
   // add title
   lv_obj_t *lbl = lv_label_create(lv_scr_act());
   lv_obj_set_style_text_font(lbl, &fnt_8, LV_PART_MAIN);
-  lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 8, 6);
+  lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, (lv_coord_t)(from + 8), 6);
   lv_label_set_text(lbl, title);
 
   // add stage
@@ -57,12 +58,16 @@ void chk_chrome(const char *title, const char *stage) {
 
   // add rule
   lv_obj_t *line = lv_obj_create(lv_scr_act());
-  lv_obj_align(line, LV_ALIGN_TOP_LEFT, 0, 19);
-  lv_obj_set_width(line, lv_pct(100));
+  lv_obj_align(line, LV_ALIGN_TOP_LEFT, from, 19);
+  lv_obj_set_width(line, (lv_coord_t)(296 - from));
   lv_obj_set_height(line, 1);
   lv_obj_set_style_border_width(line, 1, LV_PART_MAIN);
   lv_obj_set_style_border_side(line, LV_BORDER_SIDE_TOP, LV_PART_MAIN);
   lv_obj_set_style_border_color(line, lv_color_black(), LV_PART_MAIN);
+}
+
+void chk_chrome(const char *title, const char *stage) {
+  chk_chrome_from(0, title, stage);
 }
 
 // one bubble, awaited
@@ -577,8 +582,9 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
   // before it does not scan as well as one on clean white
   gfx_begin(true, false);
 
-  // add chrome
-  chk_chrome(title, CHK_TEXT(stage__share));
+  // the symbol and its quiet zone take the left column to within three
+  // pixels of the top, so the header keeps to the right of it
+  chk_chrome_from(ok ? 128 : 0, title, CHK_TEXT(stage__share));
 
   if (!ok) {
     // the result did not fit a symbol the panel can show, which is a bug
