@@ -106,6 +106,8 @@ void chk_store_init(void) {
     al_storage_delete(AL_STORAGE_INT, CHK_STORE_DIR, abandoned[i]);
   }
 
+  naos_log("chk: %u stored checks, open record %u", chk_store_length, chk_store_pending());
+
   // oldest first, so the list reads in the order the checks were run
   for (size_t i = 1; i < chk_store_length; i++) {
     for (size_t j = i; j > 0 && chk_store_files[j].head.num < chk_store_files[j - 1].head.num; j--) {

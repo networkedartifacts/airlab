@@ -355,6 +355,7 @@ static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
     chk_samples[have++] = value;
   }
   if (have == 0) {
+    naos_log("chk: nothing to keep since %lld (first=%d long=%d count=%u)", since, first, long_count, info.count);
     return 0;
   }
 
@@ -362,11 +363,15 @@ static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
   if (c->file == 0) {
     c->file = chk_store_open(c, (uint8_t)signal, (uint8_t)chk_cadence());
     if (c->file == 0) {
+      naos_log("chk: could not open a record");
       return 0;
     }
   }
 
-  return chk_store_append(c->file, chk_samples, have);
+  size_t took = chk_store_append(c->file, chk_samples, have);
+  naos_log("chk: kept %u of %u samples onto record %u", took, have, c->file);
+
+  return took;
 }
 
 // awaits the next reading, or the user giving up
@@ -717,12 +722,15 @@ uint16_t chk_record(chk_t *c, al_sample_field_t signal) {
   // the tail since the last measurement ended, then the seal
   chk_keep(c, signal);
   if (c->file == 0) {
+    naos_log("chk: no record to seal");
     return 0;
   }
   if (!chk_store_finish(c->file, c)) {
+    naos_log("chk: record %u refused the seal", c->file);
     c->file = 0;
     return 0;
   }
+  naos_log("chk: sealed record %u", c->file);
 
   return c->file;
 }
@@ -740,6 +748,7 @@ chk_result_t chk_show_code(uint16_t num) {
 
   chk_view_t view;
   if (file == NULL || !chk_view_of(num, &view)) {
+    naos_log("chk: no record %u to share", num);
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
   }
@@ -748,6 +757,7 @@ chk_result_t chk_show_code(uint16_t num) {
   // turned over long ago
   size_t have = chk_store_samples(num, chk_samples, CHK_CODE_MAX_SAMPLES);
   if (have < 2) {
+    naos_log("chk: record %u holds %u samples", num, have);
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
   }
@@ -770,6 +780,11 @@ chk_result_t chk_show_code(uint16_t num) {
   static char digits[CHK_CODE_MAX_DIGITS];
   if (!chk_code_pack(view.letter, &meta, view.payload, view.num_payload, chk_samples, have, CHK_SHARE_MAX_BYTES,
                      digits, sizeof(digits), NULL, NULL)) {
+    naos_log("chk: record %u (%c, %u samples, cadence %u) refused by the packer", num, view.letter, have,
+             file->head.cadence);
+    for (size_t i = 0; i < view.num_payload; i++) {
+      naos_log("chk:   field %u = %f", i, view.payload[i]);
+    }
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
   }
