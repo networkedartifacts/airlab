@@ -167,7 +167,54 @@ static void test_stderr_refuses_without_a_degree_of_freedom() {
   TEST_ASSERT_FALSE(chk_accum_stderr(&a, &se));
 }
 
+// a source of evenly spaced samples, standing in for the device store
+typedef struct {
+  int64_t start;
+  int count;
+  int32_t step;
+} fake_source_t;
+
+static al_sample_info_t fake_source_info(void* ctx) {
+  fake_source_t* f = ctx;
+  return (al_sample_info_t){.start = f->start, .length = (f->count - 1) * f->step, .count = (size_t)f->count};
+}
+
+static void fake_source_read(void* ctx, al_sample_t* samples, size_t num, size_t offset) {
+  fake_source_t* f = ctx;
+  for (size_t i = 0; i < num; i++) {
+    samples[i] = (al_sample_t){.off = (int32_t)(offset + i) * f->step};
+  }
+}
+
+static void test_first_after_lands_on_the_next_sample() {
+  // a hundred samples five seconds apart, the first at t0
+  fake_source_t f = {.start = 1000000, .count = 100, .step = 5000};
+  al_sample_source_t src = {.ctx = &f, .info = fake_source_info, .read = fake_source_read};
+
+  // before the store: everything is new
+  TEST_ASSERT_EQUAL_INT(0, chk_first_after(&src, 0));
+  TEST_ASSERT_EQUAL_INT(0, chk_first_after(&src, f.start - 1));
+
+  // a moment equal to a sample is not after it
+  TEST_ASSERT_EQUAL_INT(1, chk_first_after(&src, f.start));
+  TEST_ASSERT_EQUAL_INT(3, chk_first_after(&src, f.start + 10000));
+
+  // between two samples: the later one
+  TEST_ASSERT_EQUAL_INT(3, chk_first_after(&src, f.start + 12500));
+
+  // the newest has been seen, so there is nothing
+  TEST_ASSERT_EQUAL_INT(99, chk_first_after(&src, f.start + 99 * 5000 - 1));
+  TEST_ASSERT_EQUAL_INT(-1, chk_first_after(&src, f.start + 99 * 5000));
+  TEST_ASSERT_EQUAL_INT(-1, chk_first_after(&src, f.start + 1000000));
+
+  // and an empty store has nothing either
+  fake_source_t empty = {.start = 0, .count = 0, .step = 5000};
+  al_sample_source_t none = {.ctx = &empty, .info = fake_source_info, .read = fake_source_read};
+  TEST_ASSERT_EQUAL_INT(-1, chk_first_after(&none, 0));
+}
+
 void suite_chk() {
+  RUN_TEST(test_first_after_lands_on_the_next_sample);
   RUN_TEST(test_language_order_matches_scr);
   RUN_TEST(test_english_is_complete);
   RUN_TEST(test_other_languages_are_not_blank);

@@ -234,6 +234,11 @@ void chk_begin(chk_t *c, uint8_t id);
 // Ends a check, freeing the context for the next one.
 void chk_end(chk_t *c);
 
+// The index of the first sample in a source taken after the given moment, or
+// -1 when there is none. A binary search, so a check picks up where it left
+// off without walking the whole store past everything it has already seen.
+int chk_first_after(al_sample_source_t *source, int64_t since);
+
 // Marks a phase boundary at the current moment. A check is not one contiguous
 // window — the user is prompted between phases and takes as long as they take
 // — so the boundaries have to be recorded as they happen rather than inferred

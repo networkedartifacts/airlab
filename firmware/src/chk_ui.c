@@ -234,8 +234,15 @@ static int chk_catch_up(chk_t *c, const chk_screen_t *screen, int64_t began, chk
   al_sample_source_t src = al_store_source();
   al_sample_info_t info = src.info(src.ctx);
 
+  // land on the first reading this check has not folded in, rather than
+  // walking the whole store past everything it has
+  int first = chk_first_after(&src, c->seen);
+  if (first < 0) {
+    return 0;
+  }
+
   int taken = 0;
-  for (size_t i = 0; i < info.count && *state == CHK_RUN_GO; i++) {
+  for (size_t i = (size_t)first; i < info.count && *state == CHK_RUN_GO; i++) {
     al_sample_t sample;
     src.read(src.ctx, &sample, 1, i);
 

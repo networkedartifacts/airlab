@@ -209,6 +209,26 @@ int32_t chk_elapsed(const chk_t *c) {
   return (int32_t)(al_clock_get_epoch() - c->start);
 }
 
+int chk_first_after(al_sample_source_t *source, int64_t since) {
+  al_sample_info_t info = source->info(source->ctx);
+  if (info.count == 0) {
+    return -1;
+  }
+
+  // offsets are relative to the oldest sample: anything at or before the
+  // moment is not wanted, and nothing is newer than the newest
+  int64_t off = since + 1 - info.start;
+  if (off < 0) {
+    off = 0;
+  }
+  if (off > info.length) {
+    return -1;
+  }
+
+  int32_t offset = (int32_t)off;
+  return al_sample_search(source, &offset);
+}
+
 void chk_mark(chk_t *c) {
   // find the first free slot, ignoring the mark once they are all taken
   for (size_t i = 0; i < CHK_MARKS; i++) {
