@@ -43,6 +43,7 @@ typedef struct {
 } chk_measure_cfg_t;
 
 typedef struct {
+  int64_t began;     // epoch ms the run started, 0 until it has been entered
   int attempts;      // readings asked for
   int fails;         // readings that came back unusable
   int count;         // readings that counted
@@ -321,7 +322,9 @@ int chk_cadence(void);
 
 // Runs a measurement: draws the screen, samples at the device's cadence,
 // feeds each reading to the check, and stops when the policy says so. The
-// run is filled in as it goes, so the caller can see what happened. At a
+// run is filled in as it goes, so the caller can see what happened. A run
+// that has already been entered (its `began` is set) is continued rather
+// than started, which is how a measurement picks up after a deep sleep. At a
 // slow cadence the wait between readings is spent in a deep sleep that wakes
 // back into `resume`, the flow's own screen, so the run continues there.
 chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume);

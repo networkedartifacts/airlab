@@ -313,12 +313,17 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
     chk_canvas_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(280, 50));
   }
 
-  // the run lives in the context so it survives a sleep; a fresh one starts
-  // only when this measurement has not been entered before
+  // the run lives in the context so it survives a sleep. One that has been
+  // entered before is continued from where it stopped; a fresh one is timed
+  // from now and ignores everything already in the store, which belongs to
+  // whatever came before it
   chk_measure_run_t *run = &c->run;
-  if (run->attempts == 0) {
+  if (run->began == 0) {
     chk_measure_reset(run);
+    run->began = al_clock_get_epoch();
+    c->seen = run->began;
   }
+  int64_t began = run->began;
   chk_bar_count = 0;
 
   // take an opening reading so the screen has something to show
@@ -390,19 +395,13 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
   // the cadence the device is sampling at, which decides whether waiting for
   // the next reading is worth a sleep
   int interval = chk_cadence();
-
-  // a run is timed from the check's own start, not from when this screen was
-  // drawn: a resumed measurement is drawn again but has not begun again
-  int64_t began = al_clock_get_epoch() - run->elapsed;
-
-  // a fresh run ignores everything already in the store, which belongs to
-  // whatever came before it
-  if (run->attempts == 0) {
-    c->seen = al_clock_get_epoch();
-  }
   chk_run_state_t state = CHK_RUN_GO;
 
-  while (state == CHK_RUN_GO) {
+  for (;;) {
+    // fold in everything new before drawing: awake that is the reading just
+    // taken, and on re-entry after a sleep it is everything the ULP gathered
+    // while the device was off
+    chk_catch_up(c, screen, began, &state, &value);
     int32_t elapsed = (int32_t)(al_clock_get_epoch() - began);
 
     // begin draw
@@ -444,6 +443,11 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
     // end draw
     gfx_end(false, false);
 
+    // the run has ended, and what ended it is on the screen
+    if (state != CHK_RUN_GO) {
+      break;
+    }
+
     // wait for the next reading. At a slow cadence that wait is worth a deep
     // sleep: the ULP keeps sampling into the store while the device is off,
     // the panel holds this screen, and waking re-enters the flow at this step.
@@ -457,10 +461,6 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
       gui_cleanup(false);
       return CHK_EXIT;
     }
-    elapsed = (int32_t)(al_clock_get_epoch() - began);
-
-    // fold in everything new, which after a sleep is more than one
-    chk_catch_up(c, screen, began, &state, &value);
   }
 
   // cleanup
