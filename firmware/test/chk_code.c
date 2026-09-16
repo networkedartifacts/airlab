@@ -91,18 +91,30 @@ static void test_an_unknown_letter_is_refused() {
   TEST_ASSERT_FALSE(chk_code_pack('Z', &meta, fields, 7, samples, 4, 153, digits, sizeof(digits), NULL, NULL));
 }
 
-static void test_a_field_out_of_range_is_refused() {
-  // c0 is thirteen bits of ppm, so 9000 fits and 90000 cannot
+static void test_a_field_past_its_width_saturates() {
+  // ach is twelve bits of hundredths, so 40.95 is the most it holds. A breath
+  // on the sensor once produced 42.4 and the whole share failed over it; the
+  // encoder now stores the ceiling instead, and the payload is the same as
+  // for a rate exactly at the ceiling rather than a wrapped or refused one
   float samples[8] = {600, 601, 602, 603, 604, 605, 606, 607};
   const chk_code_meta_t meta = {0};
-  char digits[CHK_CODE_MAX_DIGITS];
 
-  const float ok[] = {2.9f, 0.15f, 0.99f, 8000, 600, 425, 6};
-  TEST_ASSERT_TRUE(chk_code_pack('A', &meta, ok, 7, samples, 8, 153, digits, sizeof(digits), NULL, NULL));
+  const float ceiling[] = {40.95f, 0.15f, 0.99f, 843, 600, 425, 6};
+  char want[CHK_CODE_MAX_DIGITS];
+  TEST_ASSERT_TRUE(chk_code_pack('A', &meta, ceiling, 7, samples, 8, 153, want, sizeof(want), NULL, NULL));
 
-  const float bad[] = {2.9f, 0.15f, 0.99f, 90000, 600, 425, 6};
-  TEST_ASSERT_FALSE_MESSAGE(chk_code_pack('A', &meta, bad, 7, samples, 8, 153, digits, sizeof(digits), NULL, NULL),
-                            "a value too large for its field must fail rather than wrap");
+  const float past[] = {42.4f, 0.15f, 0.99f, 843, 600, 425, 6};
+  char got[CHK_CODE_MAX_DIGITS];
+  TEST_ASSERT_TRUE_MESSAGE(chk_code_pack('A', &meta, past, 7, samples, 8, 153, got, sizeof(got), NULL, NULL),
+                           "a value past its field must not lose the result");
+  TEST_ASSERT_EQUAL_STRING(want, got);
+
+  // and c0, thirteen bits of ppm, the same way
+  const float c0_ceiling[] = {2.9f, 0.15f, 0.99f, 8191, 600, 425, 6};
+  const float c0_past[] = {2.9f, 0.15f, 0.99f, 90000, 600, 425, 6};
+  TEST_ASSERT_TRUE(chk_code_pack('A', &meta, c0_ceiling, 7, samples, 8, 153, want, sizeof(want), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack('A', &meta, c0_past, 7, samples, 8, 153, got, sizeof(got), NULL, NULL));
+  TEST_ASSERT_EQUAL_STRING(want, got);
 }
 
 static void test_the_digits_are_only_digits() {
@@ -194,6 +206,6 @@ void suite_chk_code() {
   RUN_TEST(test_a_stove_payload_matches_the_page);
   RUN_TEST(test_a_long_check_loses_resolution_rather_than_failing);
   RUN_TEST(test_an_unknown_letter_is_refused);
-  RUN_TEST(test_a_field_out_of_range_is_refused);
+  RUN_TEST(test_a_field_past_its_width_saturates);
   RUN_TEST(test_the_digits_are_only_digits);
 }

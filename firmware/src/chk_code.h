@@ -46,10 +46,10 @@ typedef struct {
 //
 // The encoder tries the format's quantisation steps from fine to coarse and
 // keeps the first whose payload fits `max_bytes`, so a longer check loses
-// resolution rather than failing. The step it settled on is reported.
+// resolution rather than failing. The step it settled on is reported. A
+// field past its width is stored as the width's maximum, for the same reason.
 //
-// Returns false when the letter is unknown, a field is out of range, or no
-// step fits.
+// Returns false when the letter is unknown or no step fits.
 bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields, size_t num_fields,
                    const float *samples, size_t count, size_t max_bytes, char *digits, size_t digits_len,
                    int *step_out, size_t *bytes_out);

@@ -200,10 +200,19 @@ static bool chk_code_pack_fields(chk_code_writer_t *w, const chk_code_field_t *s
     if (isnan(v) || v < 0) {
       v = 0;  // a value the check could not produce reads back as zero
     }
+    // a value past the field's width is stored as the width's maximum rather
+    // than refused: a refusal loses the whole result over one scalar, where a
+    // saturated one still carries everything else and reads as the ceiling
+    // it is. A rate a breath on the sensor produces is the case that found
+    // this, and the evaluator is the place to gate it, not the encoder.
     double scaled = (double)v * spec[i].scale;
+    double limit = spec[i].bits < 32 ? (double)((1u << spec[i].bits) - 1) : 4294967295.0;
+    if (scaled > limit) {
+      scaled = limit;
+    }
     uint32_t stored = (uint32_t)(scaled + 0.5);
-    if (spec[i].bits < 32 && stored >= (1u << spec[i].bits)) {
-      return false;
+    if (stored > limit) {
+      stored = (uint32_t)limit;
     }
     if (!chk_code_write(w, stored, spec[i].bits)) {
       return false;
