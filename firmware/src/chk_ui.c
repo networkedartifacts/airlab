@@ -640,8 +640,14 @@ uint16_t chk_record(const chk_t *c, al_sample_field_t signal) {
   int interval = chk_cadence();
 
   // the whole check, from its own start: the phases are not contiguous, so a
-  // span counted back from now would miss the prompts between them
+  // span counted back from now would miss the prompts between them. What the
+  // short store no longer holds is gone, and asking for more than it holds
+  // would hand back its oldest sample over and over.
   size_t want = (size_t)(chk_elapsed(c) / 1000 / interval) + 1;
+  size_t held = al_store_count(AL_STORE_SHORT);
+  if (want > held) {
+    want = held;
+  }
   if (want > CHK_CODE_MAX_SAMPLES) {
     want = CHK_CODE_MAX_SAMPLES;
   }
