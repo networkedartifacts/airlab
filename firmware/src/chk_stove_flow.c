@@ -141,8 +141,10 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
     c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
 
-    // the boundary between the baseline and the first pass
+    // the boundary between the baseline and the first pass, which is a run
+    // of its own
     chk_mark(c);
+    chk_measure_reset(&c->run);
     c->phase = 0;
     c->step = STOVE_STEP_PASSES;
   }
@@ -162,9 +164,13 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     // back into the pass it left
     c->phase = (uint8_t)i;
 
-    al_buzzer_beep(1047, 80, false);
-    const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
-    STOVE_TRY(chk_say(&prompt, 1));
+    // the prompt, unless the pass is already under way: a resume into a
+    // measurement must not ask for the burner again
+    if (c->run.began == 0) {
+      al_buzzer_beep(1047, 80, false);
+      const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
+      STOVE_TRY(chk_say(&prompt, 1));
+    }
 
     const chk_screen_t measure = {
         .title = title,

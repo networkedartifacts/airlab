@@ -168,6 +168,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       chk_end(c);
       return said == CHK_IDLE ? on_idle : on_exit;
     }
+
+    // the decay is a run of its own, not a continuation of the baseline
+    chk_measure_reset(&c->run);
     c->step = VENT_STEP_TRIGGER;
   }
 
