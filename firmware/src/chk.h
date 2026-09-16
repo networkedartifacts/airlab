@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <al/sample.h>
+
 // The guided air checks. A check is a screen function that calls the kit
 // below and returns an outcome; control flow stays ordinary C, because that
 // is where the per-check variety lives.
@@ -45,6 +47,17 @@ typedef struct {
   float result[CHK_RESULTS];    // evaluator outputs
 } chk_t;
 
+// The signals a check needs, as a mask over al_sample_field_t. The feature
+// runs on both devices and they do not carry the same sensors: PM2.5 arrives
+// with the BMV080 on Air Lab 2, so a check that needs it must not be offered
+// on a device without one.
+#define CHK_NEEDS(field) (1u << (field))
+#define CHK_NEEDS_CO2 CHK_NEEDS(AL_SAMPLE_CO2)
+#define CHK_NEEDS_PM CHK_NEEDS(AL_SAMPLE_PM)
+
+// Reports whether the device in hand can run a check with these needs.
+bool chk_available(uint16_t needs);
+
 // Selects the language for check copy, using the same indices as scr_lang_t.
 void chk_init(int lang);
 
@@ -69,5 +82,20 @@ bool chk_accum_fit(const chk_accum_t *a, int min_n, float *slope, float *r2);
 // carries. Returns false under the same conditions as chk_accum_fit, and
 // additionally when there are fewer than three observations.
 bool chk_accum_stderr(const chk_accum_t *a, float *stderr_slope);
+
+// Converts a first-order decay rate in air changes per hour into the two
+// figures Persily 1997 defines: the half-life of the stale air, and the time
+// to 95 per cent fresh, which is three time constants. Both in minutes, and
+// both meaningless for a rate at or below zero, which they report as -1.
+float chk_half_life(float ach);
+float chk_fresh_time(float ach);
+
+// Propagates the band on a rate onto its half-life, since half-life is not
+// linear in the rate. Minutes, or -1 when the rate is not positive.
+float chk_half_life_band(float ach, float ach_band);
+
+// Rounds a duration in minutes to something worth saying out loud: whole
+// minutes below ten, five-minute steps below forty-five, ten above.
+int chk_round_minutes(float minutes);
 
 #endif  // CHK_H

@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <al/sensor.h>
+
 #include "chk.h"
 #include "chk_trans.inc"
 
@@ -82,4 +84,52 @@ bool chk_accum_stderr(const chk_accum_t *a, float *stderr_slope) {
   *stderr_slope = (float)sqrt(rss * a->n / ((a->n - 2) * dx));
 
   return true;
+}
+
+bool chk_available(uint16_t needs) {
+  // the particulate sensor is the only optional signal so far
+  if ((needs & CHK_NEEDS_PM) != 0 && !al_sensor_pm_present()) {
+    return false;
+  }
+  return true;
+}
+
+float chk_half_life(float ach) {
+  // a rate at or below zero describes no decay at all
+  if (ach <= 0) {
+    return -1;
+  }
+
+  // ln(2) / ACH, in minutes
+  return (float)(M_LN2 / ach * 60.0);
+}
+
+float chk_fresh_time(float ach) {
+  // as above
+  if (ach <= 0) {
+    return -1;
+  }
+
+  // three time constants leaves 5 % of the excess, which Persily 1997 calls
+  // 95 % fresh: ln(20) / ACH, in minutes
+  return (float)(log(20.0) / ach * 60.0);
+}
+
+float chk_half_life_band(float ach, float ach_band) {
+  // as above
+  if (ach <= 0) {
+    return -1;
+  }
+
+  // half-life goes as 1/ACH, so the band scales by its derivative, ln(2)/ACH^2
+  return (float)(M_LN2 / (ach * ach) * ach_band * 60.0);
+}
+
+int chk_round_minutes(float minutes) {
+  if (minutes < 10) {
+    return minutes < 1 ? 1 : (int)(minutes + 0.5f);
+  } else if (minutes < 45) {
+    return (int)(minutes / 5 + 0.5f) * 5;
+  }
+  return (int)(minutes / 10 + 0.5f) * 10;
 }

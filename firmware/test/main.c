@@ -4,6 +4,7 @@ void suite_config();
 void suite_font();
 void suite_scr();
 void suite_chk();
+void suite_chk_vent();
 void suite_pwr();
 void suite_bubbles();
 void suite_sample();
@@ -23,6 +24,7 @@ int main() {
   suite_font();
   suite_scr();
   suite_chk();
+  suite_chk_vent();
   suite_pwr();
   suite_bubbles();
   suite_sample();
