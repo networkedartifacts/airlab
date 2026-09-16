@@ -89,12 +89,12 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
   do {                                  \
     chk_result_t _r = (expr);           \
     if (_r == CHK_EXIT) {               \
-      chk_end(c);                       \
+      chk_release(c);                       \
       return on_exit;                   \
     }                                   \
     if (_r == CHK_IDLE) return on_idle; \
     if (_r == CHK_AGAIN) {              \
-      chk_end(c);                       \
+      chk_release(c);                       \
       return self;                      \
     }                                   \
   } while (0)
@@ -197,7 +197,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {
       const chk_bubble_t stop = {&img_robin_angry1, CHK_TEXT(stove__too_much), CHK_TEXT(ok)};
       chk_result_t said = chk_say(&stop, 1);
-      chk_end(c);
+      chk_release(c);
       return said == CHK_IDLE ? on_idle : on_exit;
     }
 
@@ -214,17 +214,14 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
         {&img_robin_standing, CHK_TEXT(stove__unclear_2), CHK_TEXT(again)},
     };
     chk_result_t said = chk_say(unclear, 2);
-    chk_end(c);
+    chk_release(c);
     if (said == CHK_IDLE) return on_idle;
     if (said == CHK_NEXT) return self;
     return on_exit;
   }
 
-  // keep it before saying anything, as the ventilation check does, and once
-  if (c->file == 0) {
-    c->file = chk_record(c, AL_SAMPLE_CO2);
-  }
-  uint16_t stored = c->file;
+  // seal it before saying anything, as the ventilation check does
+  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
 
   int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
   chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
@@ -254,6 +251,6 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
 
 #undef STOVE_TRY
 
-  chk_end(c);
+  chk_release(c);
   return on_exit;
 }

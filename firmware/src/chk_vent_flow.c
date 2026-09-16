@@ -95,12 +95,12 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   do {                                    \
     chk_result_t _r = (expr);             \
     if (_r == CHK_EXIT) {                 \
-      chk_end(c);                         \
+      chk_release(c);                         \
       return on_exit;                     \
     }                                     \
     if (_r == CHK_IDLE) return on_idle;   \
     if (_r == CHK_AGAIN) {                \
-      chk_end(c);                         \
+      chk_release(c);                         \
       return self;                        \
     }                                     \
   } while (0)
@@ -137,7 +137,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     int outdoor = (int)chk_vent_outdoor_guess();
     if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
                    GUI_INACTION)) {
-      chk_end(c);
+      chk_release(c);
       return on_exit;
     }
     c->result[CHK_VENT_COUT] = (float)outdoor;
@@ -167,7 +167,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     if (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT] < CHK_VENT_EXCESS_MIN) {
       const chk_bubble_t fresh = {&img_robin_standing, CHK_TEXT(vent__already_fresh), CHK_TEXT(ok)};
       chk_result_t said = chk_say(&fresh, 1);
-      chk_end(c);
+      chk_release(c);
       return said == CHK_IDLE ? on_idle : on_exit;
     }
 
@@ -227,19 +227,15 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
         CHK_TEXT(again),
     };
     chk_result_t said = chk_say(&unclear, 1);
-    chk_end(c);
+    chk_release(c);
     if (said == CHK_IDLE) return on_idle;
     if (said == CHK_NEXT) return self;
     return on_exit;
   }
 
-  // keep it before saying anything: walking away from the verdict should not
-  // lose the check, and the store window it comes from turns over. Once, no
-  // matter how often the result step is re-entered afterwards.
-  if (c->file == 0) {
-    c->file = chk_record(c, AL_SAMPLE_CO2);
-  }
-  uint16_t stored = c->file;
+  // seal it before saying anything: walking away from the verdict should not
+  // lose the check. A result step re-entered afterwards gets the same record.
+  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
 
   // the verdict: the one number, and the advice the tier earns
   int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);
@@ -271,6 +267,6 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
 #undef VENT_TRY
 
-  chk_end(c);
+  chk_release(c);
   return on_exit;
 }

@@ -302,6 +302,73 @@ int chk_cadence(void) {
   return interval > 0 ? interval : 5;
 }
 
+// the samples a record is built from, on their way between the store and flash
+static float chk_samples[CHK_CODE_MAX_SAMPLES];
+
+// Copies every reading taken since the last one this check kept out of the
+// short store and onto the check's record, opening the record for the first.
+// Called as each measurement ends, so no stretch of a check is older than the
+// ring by the time it is copied. What the ring has already let go is gone: the
+// long store's coarser samples are no substitute for it, so they are not
+// taken.
+static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
+  // a record that is no longer open is sealed or lost, and either way this
+  // check has nothing more to add to it
+  if (c->file != 0 && chk_store_pending() != c->file) {
+    return 0;
+  }
+
+  al_sample_source_t src = al_store_source();
+  al_sample_info_t info = src.info(src.ctx);
+
+  // everything after the last sample kept, or after the check began
+  int64_t since = c->kept != 0 ? c->kept : c->start;
+  int first = chk_first_after(&src, since);
+  if (first < 0) {
+    return 0;
+  }
+
+  // the combined source lists the long store ahead of the short one
+  int long_count = (int)al_store_count(AL_STORE_LONG);
+  if (first < long_count) {
+    first = long_count;
+  }
+
+  size_t have = 0;
+  for (size_t i = (size_t)first; i < info.count && have < CHK_CODE_MAX_SAMPLES; i++) {
+    al_sample_t sample;
+    src.read(src.ctx, &sample, 1, i);
+    int64_t at = info.start + sample.off;
+    if (at <= since) {
+      continue;
+    }
+    c->kept = at;
+
+    // a reading the sensor could not give is left out, as it always was
+    if (!al_sample_valid(sample)) {
+      continue;
+    }
+    float value = al_sample_read(sample, signal);
+    if (isnan(value)) {
+      continue;
+    }
+    chk_samples[have++] = value;
+  }
+  if (have == 0) {
+    return 0;
+  }
+
+  // open the record on the first samples worth keeping
+  if (c->file == 0) {
+    c->file = chk_store_open(c, (uint8_t)signal, (uint8_t)chk_cadence());
+    if (c->file == 0) {
+      return 0;
+    }
+  }
+
+  return chk_store_append(c->file, chk_samples, have);
+}
+
 // awaits the next reading, or the user giving up
 static chk_result_t chk_await(void) {
   for (;;) {
@@ -480,6 +547,9 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
     return said == CHK_NEXT ? CHK_AGAIN : said;
   }
 
+  // keep what the store holds now, while it still does
+  chk_keep(c, screen->field);
+
   return CHK_NEXT;
 }
 
@@ -633,50 +703,36 @@ bool chk_view_of(uint16_t num, chk_view_t *out) {
   return chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS, file->head.cadence, out);
 }
 
-uint16_t chk_record(const chk_t *c, al_sample_field_t signal) {
-  static float samples[CHK_CODE_MAX_SAMPLES];
-
+uint16_t chk_record(chk_t *c, al_sample_field_t signal) {
   if (c == NULL) {
     return 0;
   }
 
-  // read the window the check spanned back out of the device's own store,
-  // oldest first: a check keeps accumulators rather than a sample stream, so
-  // this is where the curve comes from. The store is a ring that will turn
-  // over, so this is the only chance to take a copy.
-  int interval = chk_cadence();
-
-  // the whole check, from its own start: the phases are not contiguous, so a
-  // span counted back from now would miss the prompts between them. What the
-  // short store no longer holds is gone, and asking for more than it holds
-  // would hand back its oldest sample over and over.
-  size_t want = (size_t)(chk_elapsed(c) / 1000 / interval) + 1;
-  size_t held = al_store_count(AL_STORE_SHORT);
-  if (want > held) {
-    want = held;
-  }
-  if (want > CHK_CODE_MAX_SAMPLES) {
-    want = CHK_CODE_MAX_SAMPLES;
+  // sealed already: a result step re-entered after a timeout shows the same
+  // record rather than writing another
+  if (c->file != 0 && chk_store_pending() != c->file) {
+    return c->file;
   }
 
-  size_t have = 0;
-  for (size_t i = 0; i < want; i++) {
-    al_sample_t sample = al_store_get(AL_STORE_SHORT, -(int)(want - i));
-    if (!al_sample_valid(sample)) {
-      continue;
-    }
-    float value = al_sample_read(sample, signal);
-    if (!isnan(value)) {
-      samples[have++] = value;
-    }
+  // the tail since the last measurement ended, then the seal
+  chk_keep(c, signal);
+  if (c->file == 0) {
+    return 0;
   }
-
-  // a curve needs at least two points
-  if (have < 2) {
+  if (!chk_store_finish(c->file, c)) {
+    c->file = 0;
     return 0;
   }
 
-  return chk_store_write(c, (uint8_t)signal, (uint8_t)interval, samples, have);
+  return c->file;
+}
+
+void chk_release(chk_t *c) {
+  // a record the check did not finish goes with it
+  if (c->file != 0) {
+    chk_store_discard(c->file);
+  }
+  chk_end(c);
 }
 
 chk_result_t chk_show_code(uint16_t num) {
@@ -690,8 +746,7 @@ chk_result_t chk_show_code(uint16_t num) {
 
   // the samples come off flash, not out of the device store, which may have
   // turned over long ago
-  static float samples[CHK_CODE_MAX_SAMPLES];
-  size_t have = chk_store_samples(num, samples, CHK_CODE_MAX_SAMPLES);
+  size_t have = chk_store_samples(num, chk_samples, CHK_CODE_MAX_SAMPLES);
   if (have < 2) {
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
@@ -713,8 +768,8 @@ chk_result_t chk_show_code(uint16_t num) {
   };
 
   static char digits[CHK_CODE_MAX_DIGITS];
-  if (!chk_code_pack(view.letter, &meta, view.payload, view.num_payload, samples, have, CHK_SHARE_MAX_BYTES, digits,
-                     sizeof(digits), NULL, NULL)) {
+  if (!chk_code_pack(view.letter, &meta, view.payload, view.num_payload, chk_samples, have, CHK_SHARE_MAX_BYTES,
+                     digits, sizeof(digits), NULL, NULL)) {
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
   }

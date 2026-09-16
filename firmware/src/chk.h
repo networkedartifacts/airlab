@@ -74,8 +74,9 @@ typedef struct {
   chk_accum_t accum[CHK_PASSES];
   float result[CHK_RESULTS];    // evaluator outputs
   int64_t seen;                 // epoch of the last sample folded in
+  int64_t kept;                 // epoch of the last sample copied onto the record
   chk_measure_run_t run;        // the run in progress
-  uint16_t file;                // the stored record, 0 until it is written
+  uint16_t file;                // the record on flash, 0 until one is opened
 } chk_t;
 
 // No check is in progress. A context holding this is free to be begun.
@@ -234,6 +235,11 @@ void chk_begin(chk_t *c, uint8_t id);
 // Ends a check, freeing the context for the next one.
 void chk_end(chk_t *c);
 
+// Releases the context of a check that is over, finished or abandoned, and
+// drops a record it left unfinished. The flows call this rather than chk_end,
+// which resets the context alone.
+void chk_release(chk_t *c);
+
 // The index of the first sample in a source taken after the given moment, or
 // -1 when there is none. A binary search, so a check picks up where it left
 // off without walking the whole store past everything it has already seen.
@@ -360,14 +366,15 @@ typedef struct {
 bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t marks_len,
                   uint8_t cadence, chk_view_t *out);
 
-// Packs a finished check and shows its code. `fields` are the format's own
-// values in its own order; the samples come from the device's own store, so
-// the check does not have to have kept them.
-// Writes a finished check to flash, taking the window it spanned out of the
-// device's own stores. Called as soon as the result is evaluated rather than
-// when it is shown, so that walking away from the verdict does not lose it.
-// Returns the file number, or zero when there was nothing worth keeping.
-uint16_t chk_record(const chk_t *c, al_sample_field_t signal);
+// Seals the record of a finished check and returns its number, or zero when
+// there was nothing worth keeping. The record was opened and appended to as
+// each measurement ended, so this copies out only what the store holds since
+// the last one; a check keeps accumulators rather than a sample stream, and
+// the record is where its curve comes from. Called as soon as the result is
+// evaluated rather than when it is shown, so that walking away from the
+// verdict does not lose it, and a result step re-entered afterwards gets the
+// same number back rather than a second record.
+uint16_t chk_record(chk_t *c, al_sample_field_t signal);
 
 // Fills a view from a stored check, using the cadence it was recorded at
 // rather than whatever the device is set to now. A live flow describes its
