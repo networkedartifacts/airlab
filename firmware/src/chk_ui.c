@@ -573,8 +573,9 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
   // an independent encoding
   bool ok = chk_code_symbol(letter, digits, chk_qr_symbol);
 
-  // begin draw
-  gfx_begin(false, false);
+  // begin draw, as a full refresh: a symbol over the ghost of the screen
+  // before it does not scan as well as one on clean white
+  gfx_begin(true, false);
 
   // add chrome
   chk_chrome(title, CHK_TEXT(stage__share));
@@ -644,8 +645,9 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
   lvx_sign_t sign = {.title = "A", .text = CHK_TEXT(done), .align = LV_ALIGN_BOTTOM_RIGHT};
   lvx_sign_create(&sign, lv_scr_act());
 
-  // end draw, refreshing fully: a half-drawn symbol does not scan
-  gfx_end(true, false);
+  // end draw and wait for the panel: the first flag skips the update, which
+  // is the layout pass other screens take and not what a symbol wants
+  gfx_end(false, true);
 
   // await the key, giving the user time to actually scan it
   sig_event_t event = gui_await(SIG_META, CHK_ACTION_TIMEOUT * 3);
