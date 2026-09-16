@@ -1,0 +1,194 @@
+// The gas stove check as the user walks through it. Three passes with a pot
+// of water; the only structural difference from the ventilation check is that
+// the middle of it is a loop.
+
+#include <math.h>
+#include <stdbool.h>
+#include <string.h>
+
+#include <al/buzzer.h>
+
+#include "chk.h"
+#include "chk_stove.h"
+#include "chk_vent.h"
+#include "gui.h"
+#include "img.h"
+#include "lvx.h"
+
+#define CHK_STOVE_BASELINE_N 12
+
+// what each pass asks for and how it ends
+typedef struct {
+  const char* prompt;
+  const char* action;
+  const char* stage;
+  bool burning;
+} chk_stove_pass_t;
+
+static chk_step_t stove_sample(chk_t* c, float value, int32_t t_ms) {
+  // the clearing pass falls, the burn passes rise
+  if (c->phase == CHK_STOVE_PASS_CLEAR) {
+    chk_stove_observe_clear(c, value, t_ms);
+    float gone = c->result[CHK_STOVE_PEAK] - value;
+    if (gone >= 0.5f * (c->result[CHK_STOVE_PEAK] - c->result[CHK_STOVE_C0])) {
+      return CHK_STEP_DONE;
+    }
+    return gone >= 10.0f ? CHK_STEP_GO : CHK_STEP_WAIT;
+  }
+
+  chk_stove_observe_burn(c, c->phase, value, t_ms);
+
+  // stop the experiment once the kitchen has had enough, whatever the fit
+  if (value >= CHK_STOVE_ABORT_PPM) {
+    return CHK_STEP_DONE;
+  }
+
+  // enough signal for a slope
+  float risen = value - c->result[CHK_STOVE_C0];
+  if (risen >= CHK_STOVE_BURN_RISE) {
+    return CHK_STEP_DONE;
+  }
+
+  return risen >= 10.0f ? CHK_STEP_GO : CHK_STEP_WAIT;
+}
+
+static chk_step_t stove_baseline_sample(chk_t* c, float value, int32_t t_ms) {
+  (void)c;
+  (void)value;
+  (void)t_ms;
+  return CHK_STEP_WAIT;
+}
+
+void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
+  chk_t state;
+  chk_t* c = &state;
+  memset(c, 0, sizeof(*c));
+  c->id = CHK_STOVE;
+
+  const char* title = CHK_TEXT(stove__title);
+
+#define STOVE_TRY(expr)                 \
+  do {                                  \
+    chk_result_t _r = (expr);           \
+    if (_r == CHK_EXIT) return on_exit; \
+    if (_r == CHK_IDLE) return on_idle; \
+    if (_r == CHK_AGAIN) return self;   \
+  } while (0)
+
+  /* Introduction */
+
+  const chk_bubble_t intro[] = {
+      {&img_robin_happy, CHK_TEXT(stove__intro_1), CHK_TEXT(next)},
+      {&img_robin_pointing, CHK_TEXT(stove__intro_2), CHK_TEXT(next)},
+      {&img_robin_standing, CHK_TEXT(stove__intro_3), CHK_TEXT(start)},
+  };
+  STOVE_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
+
+  /* Precheck */
+
+  const char* const items[] = {
+      CHK_TEXT(stove__list_off),
+      CHK_TEXT(stove__list_pot),
+      CHK_TEXT(stove__list_away),
+  };
+  STOVE_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
+
+  /* Baseline */
+
+  chk_measure_run_t run;
+  const chk_screen_t baseline = {
+      .title = title,
+      .stage = CHK_TEXT(stage__baseline),
+      .hint = CHK_TEXT(stove__baseline_hint),
+      .unit = "ppm",
+      .show = CHK_SHOW_PROGRESS,
+      .field = AL_SAMPLE_CO2,
+      .cfg = {.capacity = CHK_STOVE_BASELINE_N},
+      .on_sample = stove_baseline_sample,
+  };
+  STOVE_TRY(chk_measure(c, &baseline, &run));
+
+  c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
+  c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
+
+  /* Three passes */
+
+  const chk_stove_pass_t passes[] = {
+      {CHK_TEXT(stove__pass_open), CHK_TEXT(stove__burner_on), CHK_TEXT(stove__stage_open), true},
+      {CHK_TEXT(stove__pass_clear), CHK_TEXT(stove__hood_on), CHK_TEXT(stove__stage_clear), false},
+      {CHK_TEXT(stove__pass_hood), CHK_TEXT(stove__burner_on), CHK_TEXT(stove__stage_hood), true},
+  };
+
+  for (int i = 0; i < 3; i++) {
+    const chk_stove_pass_t* pass = &passes[i];
+
+    // the callback reads the pass back off the context
+    c->phase = (uint8_t)i;
+
+    al_buzzer_beep(1047, 80, false);
+    const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
+    STOVE_TRY(chk_say(&prompt, 1));
+
+    const chk_screen_t measure = {
+        .title = title,
+        .stage = pass->stage,
+        .nudge = pass->burning ? CHK_TEXT(stove__nudge) : NULL,
+        .unit = "ppm",
+        .show = CHK_SHOW_CHART,
+        .field = AL_SAMPLE_CO2,
+        .cfg = {.min_ms = CHK_STOVE_SLOPE_MS,
+                .max_ms = CHK_STOVE_PASS_MAX_MS,
+                .nudge_ms = CHK_STOVE_SLOPE_MS},
+        .on_sample = stove_sample,
+        .floor = c->result[CHK_STOVE_C0],
+    };
+    STOVE_TRY(chk_measure(c, &measure, &run));
+
+    // the kitchen has had enough: stop the check rather than the pass
+    if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {
+      const chk_bubble_t stop = {&img_robin_angry1, CHK_TEXT(stove__too_much), CHK_TEXT(ok)};
+      chk_result_t said = chk_say(&stop, 1);
+      return said == CHK_IDLE ? on_idle : on_exit;
+    }
+  }
+
+  /* Result */
+
+  if (chk_stove_evaluate(c) != CHK_STOVE_SOLID) {
+    const chk_bubble_t unclear[] = {
+        {&img_robin_standing, CHK_TEXT(stove__unclear_1), CHK_TEXT(next)},
+        {&img_robin_standing, CHK_TEXT(stove__unclear_2), CHK_TEXT(again)},
+    };
+    chk_result_t said = chk_say(unclear, 2);
+    if (said == CHK_IDLE) return on_idle;
+    if (said == CHK_NEXT) return self;
+    return on_exit;
+  }
+
+  int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
+  chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
+  const char* advice = tier == CHK_STOVE_TIER_LOW    ? CHK_TEXT(stove__advice_low)
+                       : tier == CHK_STOVE_TIER_MID  ? CHK_TEXT(stove__advice_mid)
+                                                     : CHK_TEXT(stove__advice_high);
+
+  const chk_bubble_t verdict[] = {
+      {tier == CHK_STOVE_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
+       lvx_fmt(CHK_TEXT(stove__verdict), percent), CHK_TEXT(next)},
+      {&img_robin_pointing, advice, CHK_TEXT(next)},
+  };
+  STOVE_TRY(chk_say(verdict, 2));
+
+  /* Stats */
+
+  const char* lines[] = {
+      lvx_fmt(CHK_TEXT(stove__stat_capture), percent),
+      c->result[CHK_STOVE_HOOD_ACH] > 0 ? lvx_fmt(CHK_TEXT(stove__stat_hood), c->result[CHK_STOVE_HOOD_ACH])
+                                        : CHK_TEXT(stove__stat_hood_none),
+      lvx_fmt(CHK_TEXT(stove__stat_peak), c->result[CHK_STOVE_PEAK]),
+  };
+  STOVE_TRY(chk_stats(title, CHK_TEXT(stage__results), lines, 3, CHK_TEXT(stove__stat_note)));
+
+#undef STOVE_TRY
+
+  return on_exit;
+}

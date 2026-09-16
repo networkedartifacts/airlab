@@ -99,11 +99,43 @@ typedef struct {
   const char* vent__stat_fresh;
   const char* vent__stat_co2;
   const char* vent__stat_note;
+
+  // gas stove
+  const char* stove__title;
+  const char* stove__intro_1;
+  const char* stove__intro_2;
+  const char* stove__intro_3;
+  const char* stove__list_off;
+  const char* stove__list_pot;
+  const char* stove__list_away;
+  const char* stove__baseline_hint;
+  const char* stove__stage_open;
+  const char* stove__stage_clear;
+  const char* stove__stage_hood;
+  const char* stove__pass_open;
+  const char* stove__pass_clear;
+  const char* stove__pass_hood;
+  const char* stove__burner_on;
+  const char* stove__hood_on;
+  const char* stove__nudge;
+  const char* stove__too_much;
+  const char* stove__unclear_1;
+  const char* stove__unclear_2;
+  const char* stove__verdict;
+  const char* stove__advice_low;
+  const char* stove__advice_mid;
+  const char* stove__advice_high;
+  const char* stove__stat_capture;
+  const char* stove__stat_hood;
+  const char* stove__stat_hood_none;
+  const char* stove__stat_peak;
+  const char* stove__stat_note;
 } chk_trans_t;
 
 // The checks themselves.
 typedef enum {
   CHK_VENT,
+  CHK_STOVE,
 } chk_id_t;
 
 // How long a check waits on a prompt before giving the device back. A check
@@ -249,6 +281,9 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, chk_measure_run_t
 // Runs the ventilation check. The three arguments are the screens each
 // outcome lands on: leaving, timing out, and starting over.
 void *chk_vent_run(void *on_exit, void *on_idle, void *self);
+
+// Runs the gas stove check, the same way.
+void *chk_stove_run(void *on_exit, void *on_idle, void *self);
 
 // Converts a first-order decay rate in air changes per hour into the two
 // figures Persily 1997 defines: the half-life of the stale air, and the time

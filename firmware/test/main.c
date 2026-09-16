@@ -6,6 +6,7 @@ void suite_scr();
 void suite_chk();
 void suite_chk_vent();
 void suite_chk_measure();
+void suite_chk_stove();
 void suite_pwr();
 void suite_bubbles();
 void suite_sample();
@@ -27,6 +28,7 @@ int main() {
   suite_chk();
   suite_chk_vent();
   suite_chk_measure();
+  suite_chk_stove();
   suite_pwr();
   suite_bubbles();
   suite_sample();

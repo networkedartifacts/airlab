@@ -477,6 +477,7 @@ static void* scr_config();
 static void* scr_develop();
 static void* scr_checks();
 static void* scr_check_vent();
+static void* scr_check_stove();
 
 static bool scr_time() {
   // begin draw
@@ -3739,6 +3740,9 @@ static void* scr_checks() {
     labels[num] = CHK_TEXT(vent__title);
     screens[num] = scr_check_vent;
     num++;
+    labels[num] = CHK_TEXT(stove__title);
+    screens[num] = scr_check_stove;
+    num++;
   }
   labels[num] = NULL;
 
@@ -3764,6 +3768,12 @@ static void* scr_checks() {
 static void* scr_check_vent() {
   chk_init(scr_lang());
   return chk_vent_run(scr_checks, scr_menu, scr_check_vent);
+}
+
+// Runs the gas stove check.
+static void* scr_check_stove() {
+  chk_init(scr_lang());
+  return chk_stove_run(scr_checks, scr_menu, scr_check_stove);
 }
 
 static void* scr_intro() {
