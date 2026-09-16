@@ -132,10 +132,12 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   }
 
   if (c->step == VENT_STEP_OUTDOOR) {
-    // outdoor CO2, opened on the lowest the device has lately seen
+    // outdoor CO2, opened on the lowest the device has lately seen. The wheel
+    // cannot tell leaving from timing out, so both release the check.
     int outdoor = (int)chk_vent_outdoor_guess();
     if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
                    GUI_INACTION)) {
+      chk_end(c);
       return on_exit;
     }
     c->result[CHK_VENT_COUT] = (float)outdoor;
