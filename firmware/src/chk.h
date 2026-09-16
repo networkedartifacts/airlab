@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <lvgl.h>
+
 #include <al/sample.h>
 
 // The guided air checks. A check is a screen function that calls the kit
@@ -46,6 +48,77 @@ typedef struct {
   chk_accum_t accum[CHK_PASSES];
   float result[CHK_RESULTS];    // evaluator outputs
 } chk_t;
+
+typedef enum {
+  CHK_DE,
+  CHK_EN,
+  CHK_ES,
+  CHK_FR,
+} chk_lang_t;
+
+typedef struct {
+  // shared across checks
+  const char* next;
+  const char* start;
+  const char* ok;
+  const char* again;
+  const char* done;
+  const char* check;
+  const char* back;
+  const char* sensor_errors;
+  const char* stage__baseline;
+  const char* stage__measuring;
+  const char* stage__results;
+
+  // ventilation
+  const char* vent__title;
+  const char* vent__intro_1;
+  const char* vent__intro_2;
+  const char* vent__intro_3;
+  const char* vent__intro_4;
+  const char* vent__list_windows;
+  const char* vent__list_door;
+  const char* vent__list_table;
+  const char* vent__already_fresh;
+  const char* vent__baseline_hint;
+  const char* vent__open_window;
+  const char* vent__window_is_open;
+  const char* vent__unclear;
+  const char* vent__verdict_half_life;
+  const char* vent__verdict_second_window;
+  const char* vent__stat_ach;
+  const char* vent__stat_half_life;
+  const char* vent__stat_co2;
+  const char* vent__stat_note;
+} chk_trans_t;
+
+// How long a check waits on a prompt before giving the device back. A check
+// left standing on a table should not hold the screen awake indefinitely.
+#define CHK_ACTION_TIMEOUT 60000
+
+// One thing Robin says, with the sign under the A key.
+typedef struct {
+  const lv_img_dsc_t *mood;
+  const char *text;
+  const char *action;
+} chk_bubble_t;
+
+// Says a sequence of bubbles, one key press each, and returns once the last
+// is acknowledged. The action of each bubble labels the key; a NULL action
+// falls back to the shared "Next".
+chk_result_t chk_say(const chk_bubble_t *bubbles, size_t count);
+
+// Draws the header every non-dialogue check screen carries. Must be called
+// between gfx_begin and gfx_end.
+void chk_chrome(const char *title, const char *stage);
+
+// Shows a checklist the user confirms before a check starts, so that the
+// single-zone assumption the decay and rise methods rest on is actually met.
+chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count);
+
+// Shows a run's result as labelled lines with a note beneath.
+chk_result_t chk_stats(const char *title, const char *stage, const char *const *lines, size_t count,
+                       const char *note);
 
 // The signals a check needs, as a mask over al_sample_field_t. The feature
 // runs on both devices and they do not carry the same sensors: PM2.5 arrives

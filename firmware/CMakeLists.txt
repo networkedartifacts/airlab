@@ -52,6 +52,11 @@ set(SOURCE_FILES
         lib/store.c
         lib/touch.c
         lib/ulp.c
+        src/chk.c
+        src/chk.h
+        src/chk_ui.c
+        src/chk_vent.c
+        src/chk_vent.h
         src/dat.c
         src/dat.h
         src/dev.h
