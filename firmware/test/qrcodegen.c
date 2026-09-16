@@ -27,7 +27,9 @@ static int encode_link(const char *digits, int max_version) {
   segs[0] = qrcodegen_makeBytes(prefix_buf, strlen(QR_PREFIX), temp);
   segs[1] = qrcodegen_makeNumeric(digits, temp + qrcodegen_BUFFER_LEN_FOR_VERSION(40) / 2);
 
-  if (!qrcodegen_encodeSegments(segs, 2, QR_ECC, out, out)) {
+  // the scratch and the output must be different arrays: the library reads
+  // the data out of the scratch while it draws the symbol into the output
+  if (!qrcodegen_encodeSegments(segs, 2, QR_ECC, temp, out)) {
     return -1;
   }
   int size = qrcodegen_getSize(out);

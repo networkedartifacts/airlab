@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "qrcodegen.h"
+
 // The result payload: the bytes behind the QR code, as one decimal number.
 //
 // A result URL is <prefix><LETTER><digits>. The lowercase prefix and the
@@ -51,5 +53,17 @@ typedef struct {
 bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields, size_t num_fields,
                    const float *samples, size_t count, size_t max_bytes, char *digits, size_t digits_len,
                    int *step_out, size_t *bytes_out);
+
+// The largest symbol the 296x128 panel shows at two pixels a module with the
+// quiet zone inside the margin. The 153-byte budget above is what fits it at
+// error correction level M.
+#define CHK_CODE_QR_MAX_VERSION 9
+#define CHK_CODE_QR_BUFFER_LEN qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_CODE_QR_MAX_VERSION)
+
+// Encodes a result link as a QR symbol: the prefix and letter in a byte-mode
+// segment, the digits in a numeric-mode one. `qrcode` receives the symbol and
+// must hold CHK_CODE_QR_BUFFER_LEN bytes. Returns false when the link needs a
+// symbol larger than the panel shows.
+bool chk_code_symbol(char letter, const char *digits, uint8_t *qrcode);
 
 #endif  // CHK_CODE_H

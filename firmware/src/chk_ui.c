@@ -17,8 +17,6 @@
 
 #include <stdio.h>
 
-#include "qrcodegen.h"
-
 #include "chk.h"
 #include "scr.h"
 #include "chk_code.h"
@@ -484,25 +482,14 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
 // the device test, so two pixels is the conservative choice rather than the
 // limit.
 #define CHK_QR_PX 2
-#define CHK_QR_MAX_VERSION 9
 
-static uint8_t chk_qr_temp[qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_QR_MAX_VERSION)];
-static uint8_t chk_qr_out[qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_QR_MAX_VERSION)];
+static uint8_t chk_qr_symbol[CHK_CODE_QR_BUFFER_LEN];
 static lv_color_t *chk_qr_canvas_buffer;
 
 chk_result_t chk_qr(const char *title, char letter, const char *digits, const char *caption) {
-  // build the link as two segments: the prefix and letter in byte mode, the
-  // payload in numeric mode. Encoding the whole string instead would need a
-  // version 14 symbol, which does not fit the panel at this module size.
-  char head[sizeof(CHK_CODE_PREFIX) + 1];
-  snprintf(head, sizeof(head), "%s%c", CHK_CODE_PREFIX, letter);
-
-  struct qrcodegen_Segment segs[2];
-  segs[0] = qrcodegen_makeBytes((const uint8_t *)head, strlen(head), chk_qr_temp);
-  segs[1] = qrcodegen_makeNumeric(digits, chk_qr_temp + qrcodegen_BUFFER_LEN_FOR_VERSION(CHK_QR_MAX_VERSION) / 2);
-
-  bool ok = qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN,
-                                             CHK_QR_MAX_VERSION, qrcodegen_Mask_AUTO, true, chk_qr_out, chk_qr_out);
+  // encode the link, which the codec does so the host tests can hold it to
+  // an independent encoding
+  bool ok = chk_code_symbol(letter, digits, chk_qr_symbol);
 
   // begin draw
   gfx_begin(false, false);
@@ -518,7 +505,7 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
     lv_label_set_text(lbl, CHK_TEXT(share_failed));
   } else {
-    int size = qrcodegen_getSize(chk_qr_out);
+    int size = qrcodegen_getSize(chk_qr_symbol);
     int side = size * CHK_QR_PX;
 
     // keep the canvas once: a check may be shared more than once
@@ -548,12 +535,12 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
     for (int y = 0; y < size; y++) {
       int x = 0;
       while (x < size) {
-        if (!qrcodegen_getModule(chk_qr_out, x, y)) {
+        if (!qrcodegen_getModule(chk_qr_symbol, x, y)) {
           x++;
           continue;
         }
         int run = 0;
-        while (x + run < size && qrcodegen_getModule(chk_qr_out, x + run, y)) {
+        while (x + run < size && qrcodegen_getModule(chk_qr_symbol, x + run, y)) {
           run++;
         }
         lv_canvas_draw_rect(canvas, (lv_coord_t)(off + x * CHK_QR_PX), (lv_coord_t)(off + y * CHK_QR_PX),

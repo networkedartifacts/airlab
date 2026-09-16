@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <unity.h>
@@ -121,7 +122,74 @@ static void test_the_digits_are_only_digits() {
   TEST_ASSERT_NOT_EQUAL('0', digits[0]);
 }
 
+// Encodes the link the way the screen does, but with buffers of its own that
+// cannot alias, and returns the symbol. The firmware once handed the library
+// one array for both scratch and output, which the library forbids: the
+// symbol came out with half its modules wrong and every size test still
+// passed, so this is checked module by module.
+static int reference_symbol(char letter, const char* digits, uint8_t* out) {
+  static uint8_t temp[qrcodegen_BUFFER_LEN_FOR_VERSION(40)];
+  static uint8_t head_buf[64];
+  char head[64];
+  snprintf(head, sizeof(head), "%s%c", CHK_CODE_PREFIX, letter);
+  memcpy(head_buf, head, strlen(head));
+
+  static uint8_t num_buf[qrcodegen_BUFFER_LEN_FOR_VERSION(40)];
+  struct qrcodegen_Segment segs[2];
+  segs[0] = qrcodegen_makeBytes(head_buf, strlen(head), temp);
+  segs[1] = qrcodegen_makeNumeric(digits, num_buf);
+
+  static uint8_t scratch[qrcodegen_BUFFER_LEN_FOR_VERSION(40)];
+  if (!qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN, 40,
+                                        qrcodegen_Mask_AUTO, true, scratch, out)) {
+    return -1;
+  }
+  return (qrcodegen_getSize(out) - 17) / 4;
+}
+
+static void test_the_symbol_matches_an_independent_encoding() {
+  // the longest of the two payloads, so the symbol is at the panel's limit
+  static uint8_t got[CHK_CODE_QR_BUFFER_LEN];
+  static uint8_t want[qrcodegen_BUFFER_LEN_FOR_VERSION(40)];
+  TEST_ASSERT_TRUE(chk_code_symbol('E', STOVE_DIGITS, got));
+
+  int version = reference_symbol('E', STOVE_DIGITS, want);
+  TEST_ASSERT_TRUE(version > 0 && version <= CHK_CODE_QR_MAX_VERSION);
+
+  int size = qrcodegen_getSize(want);
+  TEST_ASSERT_EQUAL_INT(size, qrcodegen_getSize(got));
+  int wrong = 0;
+  for (int y = 0; y < size; y++) {
+    for (int x = 0; x < size; x++) {
+      if (qrcodegen_getModule(got, x, y) != qrcodegen_getModule(want, x, y)) {
+        wrong++;
+      }
+    }
+  }
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, wrong, "every module must match an encoding with separate buffers");
+}
+
+static void test_a_link_past_the_panel_is_refused() {
+  // 369 digits is the most a version 9 symbol takes behind the prefix; a
+  // longer payload must be refused rather than drawn as a symbol that does
+  // not fit
+  static char digits[512];
+  for (int i = 0; i < 420; i++) {
+    digits[i] = (char)('0' + (i * 7) % 10);
+  }
+  digits[420] = '\0';
+
+  static uint8_t out[CHK_CODE_QR_BUFFER_LEN];
+  TEST_ASSERT_FALSE(chk_code_symbol('A', digits, out));
+
+  // and something that is not digits at all
+  TEST_ASSERT_FALSE(chk_code_symbol('A', "12x4", out));
+  TEST_ASSERT_FALSE(chk_code_symbol('A', "", out));
+}
+
 void suite_chk_code() {
+  RUN_TEST(test_the_symbol_matches_an_independent_encoding);
+  RUN_TEST(test_a_link_past_the_panel_is_refused);
   RUN_TEST(test_a_ventilation_payload_matches_the_page);
   RUN_TEST(test_a_stove_payload_matches_the_page);
   RUN_TEST(test_a_long_check_loses_resolution_rather_than_failing);

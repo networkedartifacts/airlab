@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "chk_code.h"
@@ -287,4 +288,36 @@ bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields
   }
 
   return false;
+}
+
+/* Symbol */
+
+bool chk_code_symbol(char letter, const char *digits, uint8_t *qrcode) {
+  if (digits == NULL || qrcode == NULL) {
+    return false;
+  }
+
+  // the segments are built into the encoder's own scratch space, which the
+  // library allows to overlap with segment data but never with the output
+  static uint8_t temp[CHK_CODE_QR_BUFFER_LEN];
+
+  // the prefix and the letter in byte mode
+  char head[sizeof(CHK_CODE_PREFIX) + 1];
+  snprintf(head, sizeof(head), "%s%c", CHK_CODE_PREFIX, letter);
+
+  // the payload in numeric mode, which packs three digits into ten bits where
+  // byte mode would spend twenty-four: encoding the whole link as text would
+  // need a version 14 symbol, which the panel cannot show at this module size
+  size_t len = strlen(digits);
+  if (len == 0 || !qrcodegen_isNumeric(digits) ||
+      qrcodegen_calcSegmentBufferSize(qrcodegen_Mode_NUMERIC, len) > sizeof(temp) / 2) {
+    return false;
+  }
+
+  struct qrcodegen_Segment segs[2];
+  segs[0] = qrcodegen_makeBytes((const uint8_t *)head, strlen(head), temp);
+  segs[1] = qrcodegen_makeNumeric(digits, temp + sizeof(temp) / 2);
+
+  return qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN,
+                                          CHK_CODE_QR_MAX_VERSION, qrcodegen_Mask_AUTO, true, temp, qrcode);
 }
