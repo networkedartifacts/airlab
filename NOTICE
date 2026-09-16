@@ -9,3 +9,11 @@ Certain names, graphics, and logos included in this repository are
 trademarks or copyrighted materials of Networked Artifacts Inc.
 They are not covered by the Apache 2.0 license and may not be used
 in derivative products without prior written permission.
+
+Third-Party Components
+----------------------
+
+This firmware includes the QR Code generator library by Project Nayuki,
+licensed under the MIT License. Its source is kept unmodified in
+firmware/sdk/qrcodegen/ together with its license text.
+https://www.nayuki.io/page/qr-code-generator-library

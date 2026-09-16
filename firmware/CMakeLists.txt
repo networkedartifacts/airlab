@@ -106,6 +106,7 @@ add_subdirectory(naos)
 # include ULP libraries
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC
         sdk/bmv080
+        sdk/qrcodegen
         naos/tree/esp-idf/components/ulp/ulp_riscv/ulp_core/include
         naos/tree/build/esp-idf/lib/ulp_al
 )
