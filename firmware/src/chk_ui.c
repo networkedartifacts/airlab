@@ -543,14 +543,17 @@ static uint16_t chk_device_tag(void) {
   return tag;
 }
 
-chk_result_t chk_share(const chk_t *c, const char *title, char letter, const float *fields, size_t num_fields,
-                       al_sample_field_t signal, int32_t span_ms, const char *caption) {
+uint16_t chk_record(const chk_t *c, al_sample_field_t signal, int32_t span_ms) {
   static float samples[CHK_CODE_MAX_SAMPLES];
-  static char digits[CHK_CODE_MAX_DIGITS];
+
+  if (c == NULL) {
+    return 0;
+  }
 
   // read the window the check spanned back out of the device's own store,
-  // newest first, then reverse it: a check keeps accumulators rather than a
-  // sample stream, so this is where the curve comes from
+  // oldest first: a check keeps accumulators rather than a sample stream, so
+  // this is where the curve comes from. The store is a ring that will turn
+  // over, so this is the only chance to take a copy.
   int interval = al_store_get_interval();
   if (interval <= 0) {
     interval = 5;
@@ -572,44 +575,15 @@ chk_result_t chk_share(const chk_t *c, const char *title, char letter, const flo
     }
   }
 
-  // nothing to draw a curve from
+  // a curve needs at least two points
   if (have < 2) {
-    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
-    return chk_say(&sorry, 1);
+    return 0;
   }
 
-  // the cadence index the payload carries
-  uint8_t cadence = 2;  // 5 s, the device's usual
-  for (uint8_t i = 0; i < 8; i++) {
-    if (chk_code_cadences[i] == interval) {
-      cadence = i;
-      break;
-    }
-  }
-
-  chk_code_meta_t meta = {
-      .minute = (uint32_t)((al_clock_get_epoch() - 1735689600000LL) / 60000),
-      .device = chk_device_tag(),
-      .room = 0,  // the device has no way to know where it stands yet
-      .cadence = cadence,
-  };
-
-  // keep the check before showing it: the store window this came from is a
-  // ring that will turn over, so this is the only chance to take a copy
-  if (c != NULL) {
-    chk_store_write(c, (uint8_t)signal, (uint8_t)interval, samples, have);
-  }
-
-  if (!chk_code_pack(letter, &meta, fields, num_fields, samples, have, CHK_SHARE_MAX_BYTES, digits, sizeof(digits),
-                     NULL, NULL)) {
-    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
-    return chk_say(&sorry, 1);
-  }
-
-  return chk_qr(title, letter, digits, caption);
+  return chk_store_write(c, (uint8_t)signal, (uint8_t)interval, samples, have);
 }
 
-chk_result_t chk_reopen(uint16_t num) {
+chk_result_t chk_show_code(uint16_t num) {
   // find the stored check
   chk_store_file_t *file = NULL;
   for (size_t i = 0; i < chk_store_count(); i++) {
@@ -619,24 +593,15 @@ chk_result_t chk_reopen(uint16_t num) {
       break;
     }
   }
-  if (file == NULL) {
-    return CHK_EXIT;
-  }
 
-  // rebuild the result from the header alone, without reading the samples
   chk_view_t view;
-  if (!chk_describe(file->head.check, file->head.result, &view)) {
-    return CHK_EXIT;
+  if (file == NULL || !chk_describe(file->head.check, file->head.result, &view)) {
+    chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
+    return chk_say(&sorry, 1);
   }
 
-  // the stats as they were
-  chk_result_t result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
-  if (result != CHK_NEXT) {
-    return result;
-  }
-
-  // and the code, rebuilt from the samples on flash rather than from the
-  // device store, which turned over long ago
+  // the samples come off flash, not out of the device store, which may have
+  // turned over long ago
   static float samples[CHK_CODE_MAX_SAMPLES];
   size_t have = chk_store_samples(num, samples, CHK_CODE_MAX_SAMPLES);
   if (have < 2) {
@@ -655,7 +620,7 @@ chk_result_t chk_reopen(uint16_t num) {
   chk_code_meta_t meta = {
       .minute = (uint32_t)((file->head.start - 1735689600000LL) / 60000),
       .device = chk_device_tag(),
-      .room = 0,
+      .room = 0,  // the device has no way to know where it stands yet
       .cadence = cadence,
   };
 
@@ -667,4 +632,29 @@ chk_result_t chk_reopen(uint16_t num) {
   }
 
   return chk_qr(view.title, view.letter, digits, CHK_TEXT(share_scan));
+}
+
+chk_result_t chk_reopen(uint16_t num) {
+  // find the stored check
+  chk_store_file_t *file = NULL;
+  for (size_t i = 0; i < chk_store_count(); i++) {
+    chk_store_file_t *candidate = chk_store_get(i);
+    if (candidate != NULL && candidate->head.num == num) {
+      file = candidate;
+      break;
+    }
+  }
+
+  chk_view_t view;
+  if (file == NULL || !chk_describe(file->head.check, file->head.result, &view)) {
+    return CHK_EXIT;
+  }
+
+  // the stats as they were, rebuilt from the header without the samples
+  chk_result_t result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
+  if (result != CHK_NEXT) {
+    return result;
+  }
+
+  return chk_show_code(num);
 }

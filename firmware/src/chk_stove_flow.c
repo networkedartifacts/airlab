@@ -165,6 +165,9 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     return on_exit;
   }
 
+  // keep it before saying anything, as the ventilation check does
+  uint16_t stored = chk_record(c, AL_SAMPLE_CO2, CHK_STOVE_PASS_MAX_MS * 3);
+
   int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
   chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
   const char* advice = tier == CHK_STOVE_TIER_LOW    ? CHK_TEXT(stove__advice_low)
@@ -186,8 +189,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     return on_exit;
   }
   STOVE_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
-  STOVE_TRY(chk_share(c, view.title, view.letter, view.payload, view.num_payload, view.signal,
-                      CHK_STOVE_PASS_MAX_MS * 3, CHK_TEXT(share_scan)));
+  STOVE_TRY(chk_show_code(stored));
 
 #undef STOVE_TRY
 

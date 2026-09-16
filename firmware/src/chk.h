@@ -315,11 +315,16 @@ bool chk_describe(uint8_t id, const float *result, chk_view_t *out);
 // Packs a finished check and shows its code. `fields` are the format's own
 // values in its own order; the samples come from the device's own store, so
 // the check does not have to have kept them.
-chk_result_t chk_share(const chk_t *c, const char *title, char letter, const float *fields, size_t num_fields,
-                       al_sample_field_t signal, int32_t span_ms, const char *caption);
+// Writes a finished check to flash, taking the window it spanned out of the
+// device's own stores. Called as soon as the result is evaluated rather than
+// when it is shown, so that walking away from the verdict does not lose it.
+// Returns the file number, or zero when there was nothing worth keeping.
+uint16_t chk_record(const chk_t *c, al_sample_field_t signal, int32_t span_ms);
 
-// Shows a stored check again: its result from the header, its code rebuilt
-// from the samples on flash. Nothing is re-run.
+// Draws the code for a stored check, rebuilt from its header and samples.
+chk_result_t chk_show_code(uint16_t num);
+
+// Shows a stored check again: its stats, then its code. Nothing is re-run.
 chk_result_t chk_reopen(uint16_t num);
 
 // Converts a first-order decay rate in air changes per hour into the two

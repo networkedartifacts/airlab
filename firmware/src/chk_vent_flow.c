@@ -179,6 +179,10 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     return on_exit;
   }
 
+  // keep it before saying anything: walking away from the verdict should not
+  // lose the check, and the store window it comes from turns over
+  uint16_t stored = chk_record(c, AL_SAMPLE_CO2, run.elapsed);
+
   // the verdict: the one number, and the advice the tier earns
   int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);
   chk_vent_tier_t tier = chk_vent_tier(c->result[CHK_VENT_ACH]);
@@ -202,8 +206,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     return on_exit;
   }
   VENT_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
-  VENT_TRY(chk_share(c, view.title, view.letter, view.payload, view.num_payload, view.signal, run.elapsed,
-                     CHK_TEXT(share_scan)));
+  VENT_TRY(chk_show_code(stored));
 
 #undef VENT_TRY
 
