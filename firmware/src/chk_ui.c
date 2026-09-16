@@ -224,6 +224,65 @@ static float chk_read(al_sample_field_t field) {
   return al_sample_read(sample, field);
 }
 
+// Folds in every reading taken since the last one this check saw, and reports
+// how many there were and what the newest was.
+//
+// Awake this is normally a single sample; after a sleep it is everything the
+// ULP gathered while the device was off, which is the whole reason a check may
+// sleep at all. A measurement that only ever looked at the newest reading
+// would silently drop a sleep's worth of them.
+static int chk_catch_up(chk_t *c, const chk_screen_t *screen, int64_t began, chk_run_state_t *state, float *latest) {
+  al_sample_source_t src = al_store_source();
+  al_sample_info_t info = src.info(src.ctx);
+
+  int taken = 0;
+  for (size_t i = 0; i < info.count && *state == CHK_RUN_GO; i++) {
+    al_sample_t sample;
+    src.read(src.ctx, &sample, 1, i);
+
+    // skip anything this check has already folded in
+    int64_t at = info.start + sample.off;
+    if (at <= c->seen) {
+      continue;
+    }
+    c->seen = at;
+
+    // and anything from before the run began
+    int32_t elapsed = (int32_t)(at - began);
+    if (elapsed < 0) {
+      continue;
+    }
+
+    float value = al_sample_valid(sample) ? al_sample_read(sample, screen->field) : NAN;
+    bool valid = !isnan(value);
+    if (valid) {
+      *latest = value;
+    }
+
+    chk_step_t verdict = CHK_STEP_WAIT;
+    if (valid && screen->on_sample != NULL) {
+      verdict = screen->on_sample(c, value, elapsed);
+    }
+
+    // keep a bar for the slot this reading falls in
+    if (valid) {
+      int slot = elapsed / CHK_SLOT_MS;
+      if (slot >= CHK_SLOTS) {
+        slot = CHK_SLOTS - 1;
+      }
+      chk_bars[slot] = value;
+      if (slot >= chk_bar_count) {
+        chk_bar_count = slot + 1;
+      }
+    }
+
+    *state = chk_measure_step(&screen->cfg, &c->run, elapsed, valid, verdict);
+    taken++;
+  }
+
+  return taken;
+}
+
 // Below this cadence a deep sleep is not worth a reset cycle, so a check
 // simply stays awake. The trial's checks sample every five seconds and never
 // sleep; the long condition checks, which sample every minute or slower, spend
@@ -332,6 +391,12 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
   // a run is timed from the check's own start, not from when this screen was
   // drawn: a resumed measurement is drawn again but has not begun again
   int64_t began = al_clock_get_epoch() - run->elapsed;
+
+  // a fresh run ignores everything already in the store, which belongs to
+  // whatever came before it
+  if (run->attempts == 0) {
+    c->seen = al_clock_get_epoch();
+  }
   chk_run_state_t state = CHK_RUN_GO;
 
   while (state == CHK_RUN_GO) {
@@ -392,29 +457,8 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
     }
     elapsed = (int32_t)(al_clock_get_epoch() - began);
 
-    // take it
-    value = chk_read(screen->field);
-    bool valid = !isnan(value);
-
-    // let the check make of it what it will
-    chk_step_t verdict = CHK_STEP_WAIT;
-    if (valid) {
-      verdict = screen->on_sample != NULL ? screen->on_sample(c, value, elapsed) : CHK_STEP_WAIT;
-
-      // keep a bar for the slot this reading falls in, overwriting the slot
-      // when several land in one
-      int slot = elapsed / CHK_SLOT_MS;
-      if (slot >= CHK_SLOTS) {
-        slot = CHK_SLOTS - 1;
-      }
-      chk_bars[slot] = value;
-      if (slot >= chk_bar_count) {
-        chk_bar_count = slot + 1;
-      }
-    }
-
-    // and let the policy decide what happens next
-    state = chk_measure_step(&screen->cfg, run, elapsed, valid, verdict);
+    // fold in everything new, which after a sleep is more than one
+    chk_catch_up(c, screen, began, &state, &value);
   }
 
   // cleanup
@@ -539,8 +583,8 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
   return chk_outcome(event.type);
 }
 
-// The budget the 2 px symbol allows behind the prefix at level M, which the
-// research measured rather than derived.
+// The payload bytes a 2 px symbol carries behind the prefix at level M, which
+// is what the panel height allows rather than what the format could hold.
 #define CHK_SHARE_MAX_BYTES 153
 
 // The payload carries sixteen bits of device, shown on the page as a hex tag.

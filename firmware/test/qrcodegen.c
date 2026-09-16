@@ -11,7 +11,7 @@
 #define QR_PREFIX "https://airlab.today/ac/A"
 
 // What the 296x128 screen allows at a 2 px module size with a four-module
-// quiet zone, which the research settled: a version 9 symbol at level M.
+// quiet zone: a version 9 symbol at error correction level M.
 #define QR_VERSION 9
 #define QR_ECC qrcodegen_Ecc_MEDIUM
 
@@ -43,7 +43,7 @@ static void fill_digits(char *buf, int n) {
 }
 
 static void test_a_ventilation_payload_fits_the_screen() {
-  // 66 bytes packs into 159 digits, which the research measured
+  // 66 bytes of payload packs into 159 digits
   char digits[512];
   fill_digits(digits, 159);
 

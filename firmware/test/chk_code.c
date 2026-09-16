@@ -5,10 +5,11 @@
 
 #include "chk_code.h"
 
-// The reference vectors come from site/codec.mjs in the research repository,
-// which is the encoder the page that renders a result decodes with. Agreeing
-// with it byte for byte is the only thing that makes a scanned link readable,
-// so these are checked as exact strings rather than as properties.
+// The reference vectors are the exact bytes the page at
+// https://airlab.today/ac/ decodes. Agreeing with that page byte for byte is
+// the only thing that makes a scanned link readable, so these are checked as
+// exact strings rather than as properties: a change here that does not also
+// change the page breaks every code this firmware draws.
 
 static const char* VENT_DIGITS =
     "86679433062436804507003507328709065617309143222556475833378691113386767633300976971894703934399501674";
@@ -25,7 +26,7 @@ static void vent_samples(float* out, size_t n) {
   }
 }
 
-static void test_a_ventilation_payload_matches_the_page_encoder() {
+static void test_a_ventilation_payload_matches_the_page() {
   float samples[72];
   vent_samples(samples, 72);
 
@@ -43,7 +44,7 @@ static void test_a_ventilation_payload_matches_the_page_encoder() {
   TEST_ASSERT_EQUAL_size_t(42, bytes);
 }
 
-static void test_a_stove_payload_matches_the_page_encoder() {
+static void test_a_stove_payload_matches_the_page() {
   float samples[120];
   for (size_t i = 0; i < 120; i++) {
     samples[i] = (float)(600 + (int)floor(200 * sin(i / 10.0) + 0.5) + (int)i * 3);
@@ -121,8 +122,8 @@ static void test_the_digits_are_only_digits() {
 }
 
 void suite_chk_code() {
-  RUN_TEST(test_a_ventilation_payload_matches_the_page_encoder);
-  RUN_TEST(test_a_stove_payload_matches_the_page_encoder);
+  RUN_TEST(test_a_ventilation_payload_matches_the_page);
+  RUN_TEST(test_a_stove_payload_matches_the_page);
   RUN_TEST(test_a_long_check_loses_resolution_rather_than_failing);
   RUN_TEST(test_an_unknown_letter_is_refused);
   RUN_TEST(test_a_field_out_of_range_is_refused);
