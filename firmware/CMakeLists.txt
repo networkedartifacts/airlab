@@ -54,6 +54,8 @@ set(SOURCE_FILES
         lib/ulp.c
         src/chk.c
         src/chk.h
+        src/chk_code.c
+        src/chk_code.h
         src/chk_stove.c
         src/chk_stove.h
         src/chk_stove_flow.c
