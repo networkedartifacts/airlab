@@ -217,8 +217,11 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
     return on_exit;
   }
 
-  // keep it before saying anything, as the ventilation check does
-  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
+  // keep it before saying anything, as the ventilation check does, and once
+  if (c->file == 0) {
+    c->file = chk_record(c, AL_SAMPLE_CO2);
+  }
+  uint16_t stored = c->file;
 
   int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
   chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);

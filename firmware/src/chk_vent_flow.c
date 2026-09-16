@@ -232,8 +232,12 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   }
 
   // keep it before saying anything: walking away from the verdict should not
-  // lose the check, and the store window it comes from turns over
-  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
+  // lose the check, and the store window it comes from turns over. Once, no
+  // matter how often the result step is re-entered afterwards.
+  if (c->file == 0) {
+    c->file = chk_record(c, AL_SAMPLE_CO2);
+  }
+  uint16_t stored = c->file;
 
   // the verdict: the one number, and the advice the tier earns
   int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);

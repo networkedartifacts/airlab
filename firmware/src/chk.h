@@ -75,6 +75,7 @@ typedef struct {
   float result[CHK_RESULTS];    // evaluator outputs
   int64_t seen;                 // epoch of the last sample folded in
   chk_measure_run_t run;        // the run in progress
+  uint16_t file;                // the stored record, 0 until it is written
 } chk_t;
 
 // No check is in progress. A context holding this is free to be begun.
