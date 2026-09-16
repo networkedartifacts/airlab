@@ -71,7 +71,8 @@ al_sensor_hal_err_t fake_hal_read(al_sensor_hal_data_t *data) {
 
 /* Fake PM Sensor */
 
-static bool fake_pm_present;
+// not static: other suites drive per-device capability through the same fake
+bool fake_pm_present;
 static int fake_pm_init_calls;
 static bool fake_pm_init_reset;
 static int fake_pm_run_calls;

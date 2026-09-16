@@ -8,7 +8,6 @@
 #include <esp_err.h>
 #include <al/core.h>
 #include <al/storage.h>
-#include <al/sensor.h>
 
 #include "sig.h"
 
@@ -23,13 +22,6 @@ void *al_calloc(size_t count, size_t size) { return calloc(count, size); }
 /* Signals */
 
 void sig_dispatch(sig_event_t event) { (void)event; }
-
-/* Sensor */
-
-// set by tests that exercise per-device capability
-bool shim_pm_present = false;
-
-bool al_sensor_pm_present() { return shim_pm_present; }
 
 /* Storage */
 

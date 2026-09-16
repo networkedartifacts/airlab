@@ -6,7 +6,8 @@
 #include "chk.h"
 #include "chk_vent.h"
 
-extern bool shim_pm_present;
+// the PM sensor fake lives in the sensor suite, which owns that symbol
+extern bool fake_pm_present;
 
 // Feeds a synthetic first-order decay into the evaluator, the way an airing
 // looks: c0 falling towards cout at the given rate, sampled every step_s.
@@ -109,14 +110,14 @@ static void test_decay_quantities() {
 }
 
 static void test_a_pm_check_is_hidden_without_the_sensor() {
-  shim_pm_present = false;
+  fake_pm_present = false;
   TEST_ASSERT_TRUE(chk_available(CHK_NEEDS_CO2));
   TEST_ASSERT_FALSE(chk_available(CHK_NEEDS_CO2 | CHK_NEEDS_PM));
 
   // on Air Lab 2 the same check is offered
-  shim_pm_present = true;
+  fake_pm_present = true;
   TEST_ASSERT_TRUE(chk_available(CHK_NEEDS_CO2 | CHK_NEEDS_PM));
-  shim_pm_present = false;
+  fake_pm_present = false;
 }
 
 void suite_chk_vent() {
