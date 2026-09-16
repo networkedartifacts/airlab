@@ -11,6 +11,7 @@ static const chk_trans_t chk_trans_map[] = {
             .done = "Done",
             .check = "Check",
             .back = "Back",
+            .no_checks = "No checks for this device.",
             .sensor_errors = "Too many sensor errors. Try again.",
             .stage__baseline = "Baseline",
             .stage__measuring = "Measuring",

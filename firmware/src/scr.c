@@ -33,6 +33,7 @@
 #include "dev.h"
 #include "stm.h"
 #include "hmi.h"
+#include "chk.h"
 #include "dat.h"
 #include "pwr.h"
 #include "eng.h"
@@ -474,6 +475,8 @@ static void* scr_menu();
 static void* scr_settings();
 static void* scr_config();
 static void* scr_develop();
+static void* scr_checks();
+static void* scr_check_vent();
 
 static bool scr_time() {
   // begin draw
@@ -3349,7 +3352,7 @@ static void* scr_develop() {
 
 static void* scr_menu() {
   // prepare variables
-  static int8_t opt = 0;  // create, explore, settings, usb, ble, plugins, develop
+  static int8_t opt = 0;  // create, explore, checks, settings, usb, ble, plugins, develop
   static bool fan_alt = false;
 
   // get settings
@@ -3475,14 +3478,16 @@ static void* scr_menu() {
     } else if (opt == 1) {
       lv_img_set_src(icon, &img_folder);
     } else if (opt == 2) {
-      lv_img_set_src(icon, &img_cog);
+      lv_img_set_src(icon, &img_check);
     } else if (opt == 3) {
-      lv_img_set_src(icon, &img_usb);
+      lv_img_set_src(icon, &img_cog);
     } else if (opt == 4) {
-      lv_img_set_src(icon, &img_ble);
+      lv_img_set_src(icon, &img_usb);
     } else if (opt == 5) {
-      lv_img_set_src(icon, &img_engine);
+      lv_img_set_src(icon, &img_ble);
     } else if (opt == 6) {
+      lv_img_set_src(icon, &img_engine);
+    } else if (opt == 7) {
       lv_img_set_src(icon, &img_wrench);
     }
 
@@ -3664,12 +3669,12 @@ static void* scr_menu() {
     if (event.type == SIG_LEFT) {
       opt--;
       if (opt < 0) {
-        opt = developer ? 6 : 5;
+        opt = developer ? 7 : 6;
       }
       continue;
     } else if (event.type == SIG_RIGHT) {
       opt++;
-      if (opt > (developer ? 6 : 5)) {
+      if (opt > (developer ? 7 : 6)) {
         opt = 0;
       }
       continue;
@@ -3698,20 +3703,67 @@ static void* scr_menu() {
         case 1:
           return scr_explore;
         case 2:
-          return scr_settings;
+          return scr_checks;
         case 3:
-          return scr_usb;
+          return scr_settings;
         case 4:
-          return scr_ble;
+          return scr_usb;
         case 5:
-          return scr_engine;
+          return scr_ble;
         case 6:
+          return scr_engine;
+        case 7:
           return scr_develop;
         default:
           ESP_ERROR_CHECK(ESP_FAIL);
       }
     }
   }
+}
+
+/* Checks */
+
+// The checks menu. A check that needs a signal this device cannot measure is
+// not offered: the particulate sensor arrives with Air Lab 2, so a PM check
+// is absent on the first device rather than failing in its own precheck.
+static void* scr_checks() {
+  // prepare variables
+  static int selected = 0;
+  static int offset = 0;
+
+  // prepare labels, keeping the mapping back to the checks themselves
+  const char* labels[4] = {0};
+  void* screens[4] = {0};
+  int num = 0;
+  if (chk_available(CHK_NEEDS_CO2)) {
+    labels[num] = CHK_TEXT(vent__title);
+    screens[num] = scr_check_vent;
+    num++;
+  }
+  labels[num] = NULL;
+
+  // nothing to offer
+  if (num == 0) {
+    gui_message(CHK_TEXT(no_checks), SCR_MSG_TIMEOUT);
+    return scr_menu;
+  }
+
+  for (;;) {
+    // select a check
+    selected = gui_list_strings(selected, &offset, labels, scr_trans()->next, scr_trans()->back, GUI_INACTION);
+    if (selected < 0) {
+      return scr_menu;
+    }
+    if (selected < num) {
+      return screens[selected];
+    }
+  }
+}
+
+// Runs the ventilation check, telling it which screen each outcome lands on.
+static void* scr_check_vent() {
+  chk_init(scr_lang());
+  return chk_vent_run(scr_checks, scr_menu, scr_check_vent);
 }
 
 static void* scr_intro() {

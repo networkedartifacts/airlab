@@ -66,6 +66,7 @@ typedef struct {
   const char* check;
   const char* back;
   const char* sensor_errors;
+  const char* no_checks;
   const char* stage__baseline;
   const char* stage__measuring;
   const char* stage__results;
@@ -244,6 +245,10 @@ typedef struct {
 // feeds each reading to the check, and stops when the policy says so. The
 // run is filled in as it goes, so the caller can see what happened.
 chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, chk_measure_run_t *run);
+
+// Runs the ventilation check. The three arguments are the screens each
+// outcome lands on: leaving, timing out, and starting over.
+void *chk_vent_run(void *on_exit, void *on_idle, void *self);
 
 // Converts a first-order decay rate in air changes per hour into the two
 // figures Persily 1997 defines: the half-life of the stale air, and the time
