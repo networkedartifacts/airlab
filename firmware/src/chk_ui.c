@@ -452,7 +452,6 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
     // The call returns only when the device has to stay awake after all, in
     // which case the wait happens here instead.
     if (interval >= CHK_SLEEP_MIN_S) {
-      gfx_end(false, false);
       scr_park(interval, interval * 1000, resume);
     }
 
