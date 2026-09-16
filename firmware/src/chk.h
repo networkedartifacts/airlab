@@ -203,6 +203,35 @@ void chk_measure_reset(chk_measure_run_t *r);
 chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t *r, int32_t elapsed, bool valid,
                                  chk_step_t verdict);
 
+// How a run shows itself: a baseline counts samples towards a target, a
+// measurement draws the signal falling or rising over time.
+typedef enum {
+  CHK_SHOW_PROGRESS,
+  CHK_SHOW_CHART,
+} chk_show_t;
+
+// What a check makes of each reading.
+typedef chk_step_t (*chk_sample_fn)(chk_t *c, float value, int32_t t_ms);
+
+typedef struct {
+  const char *title;
+  const char *stage;
+  const char *hint;   // under the value, or NULL
+  const char *nudge;  // shown instead once the run is prompting, or NULL
+  const char *unit;   // "ppm", "ug/m3"
+  chk_show_t show;
+  al_sample_field_t field;  // which signal to read
+  chk_measure_cfg_t cfg;
+  chk_sample_fn on_sample;
+  float floor;  // the value a zero-height bar stands for
+  float range;  // the span the chart covers above the floor, 0 to size it
+} chk_screen_t;
+
+// Runs a measurement: draws the screen, samples at the device's cadence,
+// feeds each reading to the check, and stops when the policy says so. The
+// run is filled in as it goes, so the caller can see what happened.
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, chk_measure_run_t *run);
+
 // Converts a first-order decay rate in air changes per hour into the two
 // figures Persily 1997 defines: the half-life of the stale air, and the time
 // to 95 per cent fresh, which is three time constants. Both in minutes, and
