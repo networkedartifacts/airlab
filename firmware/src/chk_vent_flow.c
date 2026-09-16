@@ -254,7 +254,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   // exactly the record a reopened check will be built from later
   chk_view_t view;
   if (!chk_view_of(stored, &view) &&
-      !chk_describe(CHK_VENT, c->result, c->marks, CHK_MARKS, (uint8_t)al_store_get_interval(), &view)) {
+      !chk_describe(CHK_VENT, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), &view)) {
     return on_exit;
   }
   VENT_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));

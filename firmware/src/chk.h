@@ -315,6 +315,10 @@ typedef struct {
   float range;  // the span the chart covers above the floor, 0 to size it
 } chk_screen_t;
 
+// Seconds between the samples a check reads, which is the sensor's own
+// cadence rather than anything the stores are configured to.
+int chk_cadence(void);
+
 // Runs a measurement: draws the screen, samples at the device's cadence,
 // feeds each reading to the check, and stops when the policy says so. The
 // run is filled in as it goes, so the caller can see what happened. At a

@@ -12,6 +12,7 @@
 #include <al/core.h>
 #include <al/utils.h>
 #include <al/clock.h>
+#include <al/sensor.h>
 #include <al/store.h>
 
 #include <stdio.h>
@@ -289,6 +290,13 @@ static int chk_catch_up(chk_t *c, const chk_screen_t *screen, int64_t began, chk
 // nearly all their time asleep.
 #define CHK_SLEEP_MIN_S 30
 
+int chk_cadence(void) {
+  // the sensor's own cadence, not the interval the stores migrate at: the
+  // latter is never below thirty seconds, whatever the sensor is doing
+  int interval = (int)al_sensor_get_interval();
+  return interval > 0 ? interval : 5;
+}
+
 // awaits the next reading, or the user giving up
 static chk_result_t chk_await(void) {
   for (;;) {
@@ -383,10 +391,7 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
 
   // the cadence the device is sampling at, which decides whether waiting for
   // the next reading is worth a sleep
-  int interval = al_store_get_interval();
-  if (interval <= 0) {
-    interval = 5;
-  }
+  int interval = chk_cadence();
 
   // a run is timed from the check's own start, not from when this screen was
   // drawn: a resumed measurement is drawn again but has not begun again
@@ -646,10 +651,8 @@ uint16_t chk_record(const chk_t *c, al_sample_field_t signal) {
   // oldest first: a check keeps accumulators rather than a sample stream, so
   // this is where the curve comes from. The store is a ring that will turn
   // over, so this is the only chance to take a copy.
-  int interval = al_store_get_interval();
-  if (interval <= 0) {
-    interval = 5;
-  }
+  int interval = chk_cadence();
+
   // the whole check, from its own start: the phases are not contiguous, so a
   // span counted back from now would miss the prompts between them
   size_t want = (size_t)(chk_elapsed(c) / 1000 / interval) + 1;
