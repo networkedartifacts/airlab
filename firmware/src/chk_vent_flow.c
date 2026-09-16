@@ -205,8 +205,11 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
   // the same view a stored check is reopened through, so a result shown now
   // and the same result shown next week cannot say different things
+  // read back what was just written, so the result shown now is built from
+  // exactly the record a reopened check will be built from later
   chk_view_t view;
-  if (!chk_describe(CHK_VENT, c->result, c->marks, CHK_MARKS, (uint8_t)al_store_get_interval(), &view)) {
+  if (!chk_view_of(stored, &view) &&
+      !chk_describe(CHK_VENT, c->result, c->marks, CHK_MARKS, (uint8_t)al_store_get_interval(), &view)) {
     return on_exit;
   }
   VENT_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));

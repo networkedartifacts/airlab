@@ -543,6 +543,25 @@ static uint16_t chk_device_tag(void) {
   return tag;
 }
 
+// the stored check with this number, or NULL
+static chk_store_file_t *chk_find(uint16_t num) {
+  for (size_t i = 0; i < chk_store_count(); i++) {
+    chk_store_file_t *candidate = chk_store_get(i);
+    if (candidate != NULL && candidate->head.num == num) {
+      return candidate;
+    }
+  }
+  return NULL;
+}
+
+bool chk_view_of(uint16_t num, chk_view_t *out) {
+  chk_store_file_t *file = chk_find(num);
+  if (file == NULL) {
+    return false;
+  }
+  return chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS, file->head.cadence, out);
+}
+
 uint16_t chk_record(const chk_t *c, al_sample_field_t signal) {
   static float samples[CHK_CODE_MAX_SAMPLES];
 
@@ -586,19 +605,10 @@ uint16_t chk_record(const chk_t *c, al_sample_field_t signal) {
 }
 
 chk_result_t chk_show_code(uint16_t num) {
-  // find the stored check
-  chk_store_file_t *file = NULL;
-  for (size_t i = 0; i < chk_store_count(); i++) {
-    chk_store_file_t *candidate = chk_store_get(i);
-    if (candidate != NULL && candidate->head.num == num) {
-      file = candidate;
-      break;
-    }
-  }
+  chk_store_file_t *file = chk_find(num);
 
   chk_view_t view;
-  if (file == NULL || !chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS,
-                                    file->head.cadence, &view)) {
+  if (file == NULL || !chk_view_of(num, &view)) {
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(share_failed), .action = CHK_TEXT(ok)};
     return chk_say(&sorry, 1);
   }
@@ -638,19 +648,8 @@ chk_result_t chk_show_code(uint16_t num) {
 }
 
 chk_result_t chk_reopen(uint16_t num) {
-  // find the stored check
-  chk_store_file_t *file = NULL;
-  for (size_t i = 0; i < chk_store_count(); i++) {
-    chk_store_file_t *candidate = chk_store_get(i);
-    if (candidate != NULL && candidate->head.num == num) {
-      file = candidate;
-      break;
-    }
-  }
-
   chk_view_t view;
-  if (file == NULL || !chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS,
-                                    file->head.cadence, &view)) {
+  if (!chk_view_of(num, &view)) {
     return CHK_EXIT;
   }
 

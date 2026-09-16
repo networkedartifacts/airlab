@@ -335,6 +335,12 @@ bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t
 // Returns the file number, or zero when there was nothing worth keeping.
 uint16_t chk_record(const chk_t *c, al_sample_field_t signal);
 
+// Fills a view from a stored check, using the cadence it was recorded at
+// rather than whatever the device is set to now. A live flow describes its
+// result this way too: having just written the check, it reads it back, so
+// the result shown now and the same result reopened later cannot differ.
+bool chk_view_of(uint16_t num, chk_view_t *out);
+
 // Draws the code for a stored check, rebuilt from its header and samples.
 chk_result_t chk_show_code(uint16_t num);
 
