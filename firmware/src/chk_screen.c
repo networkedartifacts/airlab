@@ -41,7 +41,7 @@
         back = true;                                                           \
         continue;                                                              \
       }                                                                        \
-      if (_b == CHK_STAYED || ((_b == CHK_ASK || chk_underway(c)) && !chk_confirm_stop())) { \
+      if (_b == CHK_STAYED || (chk_underway(c) && !chk_confirm_stop())) {      \
         back = false;                                                          \
         continue;                                                              \
       }                                                                        \
@@ -54,25 +54,23 @@
     back = false;                                                              \
   }
 
-// what the B key did: went somewhere, stayed after a question, has nowhere
-// to go, or has nowhere to go and should ask before leaving regardless
+// what the B key did: went somewhere, stayed after a question, or has
+// nowhere to go
 enum {
   CHK_NOWHERE,
   CHK_WENT,
   CHK_STAYED,
-  CHK_ASK,
 };
 
 // where the B key goes: a step, a step with the check started over once the
 // user has agreed to lose the baseline (out of one, or back into one), a
-// phase of the result, out, or out after asking
+// phase of the result, or out
 #define CHK_STEP(s) (c->step = (s), CHK_WENT)
 #define CHK_REDO(s)                                                                                        \
   (chk_confirm_discard() ? (naos_log("chk: redo from step %u", c->step), chk_restart(c), c->step = (s), CHK_WENT) \
                          : CHK_STAYED)
 #define CHK_PHASE(p) (c->phase = (p), CHK_WENT)
 #define CHK_LEAVE CHK_NOWHERE
-#define CHK_LEAVE_ASKING CHK_ASK
 
 // Releases the check after a closing bubble and picks where to land: a
 // timeout goes idle, "again" restarts when the caller offers a screen for it,
@@ -103,51 +101,37 @@ enum {
   RESULT_PHASE_SHARE,
 };
 
-// the bubbles a verdict has
-#define CHK_VERDICT_MAX 2
+// The view of a result just made: read back from the record, so the result
+// shown now is built from exactly what a reopened check will be built from
+// later, or from the live block when the record could not be kept.
+static bool chk_finish_view(const chk_t *c, uint8_t id, uint16_t stored, chk_view_t *view) {
+  return chk_view_of(stored, view) ||
+         chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), view);
+}
 
-// The end every solid result shares: the verdict, the stats, then the code.
-// The record was just written, so reading it back means the result shown now
-// is built from exactly what a reopened check will be built from later; the
-// live block is the fallback for a record that could not be kept.
-static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, const chk_bubble_t *verdict, size_t count,
-                        void *on_exit, void *on_idle, void *self) {
-  // the verdict's copy is kept here: the formatter's buffers turn over under
-  // the screens after it, and the key comes back to it
-  static char texts[CHK_VERDICT_MAX][LVX_FMT_SIZE];
-  chk_bubble_t said[CHK_VERDICT_MAX];
-  if (count > CHK_VERDICT_MAX) {
-    count = CHK_VERDICT_MAX;
-  }
-  for (size_t i = 0; i < count; i++) {
-    said[i] = verdict[i];
-    strncpy(texts[i], verdict[i].text, sizeof(texts[i]) - 1);
-    texts[i][sizeof(texts[i]) - 1] = 0;
-    said[i].text = texts[i];
-  }
-
+// The end every solid result shares: the verdict, the stats, then the code,
+// the same screens a reopened check shows. The view is built afresh for
+// each, as the formatter's buffers turn over under the screens between.
+static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, void *on_exit, void *on_idle, void *self) {
   bool back = false;
   for (;;) {
-    // the verdict is the one part of the result a reopened check does not
-    // show again, so leaving from it is put as a question even though the
-    // record is safe
+    chk_view_t view;
+    if (!chk_finish_view(c, id, stored, &view)) {
+      chk_release(c);
+      return on_exit;
+    }
+
     if (c->phase == RESULT_PHASE_VERDICT) {
-      CHK_TRY(chk_say_from(said, count, back ? count - 1 : 0), CHK_LEAVE_ASKING);
+      CHK_TRY(chk_say_from(view.verdict, view.num_verdict, back ? view.num_verdict - 1 : 0), CHK_LEAVE);
       c->phase = RESULT_PHASE_STATS;
+      continue;
     }
 
     if (c->phase == RESULT_PHASE_STATS) {
-      // built each time it is shown, as the code screen's own view turns the
-      // formatter's buffers over
-      chk_view_t view;
-      if (!chk_view_of(stored, &view) &&
-          !chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), &view)) {
-        chk_release(c);
-        return on_exit;
-      }
       CHK_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note),
               CHK_PHASE(RESULT_PHASE_VERDICT));
       c->phase = RESULT_PHASE_SHARE;
+      continue;
     }
 
     CHK_TRY(chk_show_code(stored), CHK_PHASE(RESULT_PHASE_STATS));
@@ -244,7 +228,15 @@ static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence,
   v->num_payload = 7;
 
   // the one number the verdict is about
-  v->headline = lvx_fmt(CHK_TEXT(vent__verdict_half_life), half);
+  // the verdict: the one number, and the advice the tier earns
+  chk_vent_tier_t tier = chk_vent_tier(r[CHK_VENT_ACH]);
+  const char *advice = tier == CHK_VENT_TIER_LOW   ? CHK_TEXT(vent__advice_low)
+                       : tier == CHK_VENT_TIER_MID ? CHK_TEXT(vent__advice_mid)
+                                                   : CHK_TEXT(vent__advice_high);
+  v->verdict[0] = (chk_bubble_t){tier == CHK_VENT_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
+                                 lvx_fmt(CHK_TEXT(vent__verdict_half_life), half), CHK_TEXT(next)};
+  v->verdict[1] = (chk_bubble_t){&img_robin_pointing, advice, CHK_TEXT(next)};
+  v->num_verdict = 2;
 }
 
 void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
@@ -400,21 +392,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     // record.
     uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
 
-    // the verdict: the one number, and the advice the tier earns
-    int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);
-    chk_vent_tier_t tier = chk_vent_tier(c->result[CHK_VENT_ACH]);
-    const char *advice = tier == CHK_VENT_TIER_LOW   ? CHK_TEXT(vent__advice_low)
-                         : tier == CHK_VENT_TIER_MID ? CHK_TEXT(vent__advice_mid)
-                                                     : CHK_TEXT(vent__advice_high);
-    const chk_bubble_t verdict[] = {
-        {tier == CHK_VENT_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
-         lvx_fmt(CHK_TEXT(vent__verdict_half_life), half), CHK_TEXT(next)},
-        {&img_robin_pointing, advice, CHK_TEXT(next)},
-    };
-
     /* Verdict, stats and share */
 
-    return chk_finish(c, CHK_VENT, stored, verdict, 2, on_exit, on_idle, self);
+    return chk_finish(c, CHK_VENT, stored, on_exit, on_idle, self);
   }
 }
 
@@ -498,7 +478,15 @@ static void chk_view_stove(const float *r, const int32_t *marks, uint8_t cadence
   v->payload[9] = chk_view_span(marks[2], marks[3], cadence);
   v->num_payload = 10;
 
-  v->headline = lvx_fmt(CHK_TEXT(stove__verdict), percent);
+  // the verdict: the share caught, and the advice the tier earns
+  chk_stove_tier_t tier = chk_stove_tier(r[CHK_STOVE_CAPTURE]);
+  const char *advice = tier == CHK_STOVE_TIER_LOW   ? CHK_TEXT(stove__advice_low)
+                       : tier == CHK_STOVE_TIER_MID ? CHK_TEXT(stove__advice_mid)
+                                                    : CHK_TEXT(stove__advice_high);
+  v->verdict[0] = (chk_bubble_t){tier == CHK_STOVE_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
+                                 lvx_fmt(CHK_TEXT(stove__verdict), percent), CHK_TEXT(next)};
+  v->verdict[1] = (chk_bubble_t){&img_robin_pointing, advice, CHK_TEXT(next)};
+  v->num_verdict = 2;
 }
 
 void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
@@ -646,21 +634,9 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
     // seal it before saying anything, as the ventilation check does
     uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
 
-    int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
-    chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
-    const char *advice = tier == CHK_STOVE_TIER_LOW   ? CHK_TEXT(stove__advice_low)
-                         : tier == CHK_STOVE_TIER_MID ? CHK_TEXT(stove__advice_mid)
-                                                      : CHK_TEXT(stove__advice_high);
-
-    const chk_bubble_t verdict[] = {
-        {tier == CHK_STOVE_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
-         lvx_fmt(CHK_TEXT(stove__verdict), percent), CHK_TEXT(next)},
-        {&img_robin_pointing, advice, CHK_TEXT(next)},
-    };
-
     /* Verdict, stats and share */
 
-    return chk_finish(c, CHK_STOVE, stored, verdict, 2, on_exit, on_idle, self);
+    return chk_finish(c, CHK_STOVE, stored, on_exit, on_idle, self);
   }
 }
 

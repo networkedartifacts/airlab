@@ -934,26 +934,42 @@ chk_result_t chk_show_code(uint16_t num) {
 }
 
 chk_result_t chk_reopen(uint16_t num) {
-  chk_view_t view;
-  if (!chk_view_of(num, &view)) {
-    return CHK_EXIT;
-  }
-
-  // the stats as they were, rebuilt from the header without the samples,
-  // then the code, and back to the stats from it
+  // the verdict, the stats and the code, the screens the live flow ends on,
+  // and the B key walks them backwards. The view is rebuilt for each screen,
+  // as the code screen's own view turns the formatter's buffers over.
+  int phase = 0;
+  bool back = false;
   for (;;) {
-    chk_result_t result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
-    if (result != CHK_NEXT) {
-      return result;
-    }
-    result = chk_show_code(num);
-    if (result != CHK_BACK) {
-      return result;
-    }
-
-    // the code screen's own view turned the formatter's buffers over
+    chk_view_t view;
     if (!chk_view_of(num, &view)) {
       return CHK_EXIT;
+    }
+
+    chk_result_t result;
+    if (phase == 0) {
+      result = chk_say_from(view.verdict, view.num_verdict, back ? view.num_verdict - 1 : 0);
+      if (result != CHK_NEXT) {
+        return result;
+      }
+      phase = 1;
+      back = false;
+    } else if (phase == 1) {
+      result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
+      if (result == CHK_BACK) {
+        phase = 0;
+        back = true;
+        continue;
+      }
+      if (result != CHK_NEXT) {
+        return result;
+      }
+      phase = 2;
+    } else {
+      result = chk_show_code(num);
+      if (result != CHK_BACK) {
+        return result;
+      }
+      phase = 1;
     }
   }
 }

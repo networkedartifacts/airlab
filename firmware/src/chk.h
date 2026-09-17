@@ -398,6 +398,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self);
 // Runs the gas stove check, the same way.
 void *chk_stove_run(void *on_exit, void *on_idle, void *self);
 
+// the bubbles a verdict has
+#define CHK_VERDICT_MAX 2
+
 // A finished check, rebuilt from its result block. The same view serves the
 // live flow and a reopened one, so the two cannot drift apart. Note the
 // ceiling: lvx_fmt rotates eight buffers, so a view may not hold more strings
@@ -406,7 +409,8 @@ typedef struct {
   const char *title;
   uint8_t check;  // the payload's check id, a chk_code_check_t
   al_sample_field_t signal;
-  const char *headline;  // the one number the verdict is about
+  chk_bubble_t verdict[CHK_VERDICT_MAX];  // what Robin says about the result, then the advice
+  size_t num_verdict;
   const char *lines[6];
   size_t num_lines;
   const char *note;
@@ -441,7 +445,8 @@ bool chk_view_of(uint16_t num, chk_view_t *out);
 // Draws the code for a stored check, rebuilt from its header and samples.
 chk_result_t chk_show_code(uint16_t num);
 
-// Shows a stored check again: its stats, then its code. Nothing is re-run.
+// Shows a stored check again: its verdict, its stats, then its code, the
+// screens the live flow ends on. Nothing is re-run.
 chk_result_t chk_reopen(uint16_t num);
 
 // Converts a first-order decay rate in air changes per hour into the two
