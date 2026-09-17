@@ -483,6 +483,8 @@ static void* scr_checks();
 static void* scr_check_start();
 static void* scr_check_vent();
 static void* scr_check_stove();
+static void* scr_check_bedroom();
+static void* scr_check_bath();
 
 static bool scr_time() {
   // begin draw
@@ -3800,8 +3802,8 @@ static void* scr_check_start() {
   static int offset = 0;
 
   // prepare labels, keeping the mapping back to the checks themselves
-  const char* labels[3] = {0};
-  void* screens[2] = {0};
+  const char* labels[5] = {0};
+  void* screens[4] = {0};
   int num = 0;
   if (chk_available(CHK_NEEDS_CO2)) {
     labels[num] = CHK_TEXT(vent__name);
@@ -3809,6 +3811,12 @@ static void* scr_check_start() {
     num++;
     labels[num] = CHK_TEXT(stove__name);
     screens[num] = scr_check_stove;
+    num++;
+    labels[num] = CHK_TEXT(bedroom__name);
+    screens[num] = scr_check_bedroom;
+    num++;
+    labels[num] = CHK_TEXT(bath__name);
+    screens[num] = scr_check_bath;
     num++;
   }
 
@@ -3840,6 +3848,20 @@ static void* scr_check_vent() {
 static void* scr_check_stove() {
   chk_init(scr_lang());
   return chk_stove_run(scr_checks, scr_idle, scr_check_stove);
+}
+
+// Runs the bedroom night check, the same way. It is the first check that
+// sleeps on its own measurement rather than only on its prompts, which is the
+// same handover: its own screen goes to scr_park.
+static void* scr_check_bedroom() {
+  chk_init(scr_lang());
+  return chk_bedroom_run(scr_checks, scr_idle, scr_check_bedroom);
+}
+
+// Runs the bathroom humidity check, the same way.
+static void* scr_check_bath() {
+  chk_init(scr_lang());
+  return chk_bath_run(scr_checks, scr_idle, scr_check_bath);
 }
 
 static void* scr_intro() {

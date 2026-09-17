@@ -54,6 +54,10 @@ set(SOURCE_FILES
         lib/ulp.c
         src/chk.c
         src/chk.h
+        src/chk_bath.c
+        src/chk_bath.h
+        src/chk_bedroom.c
+        src/chk_bedroom.h
         src/chk_code.c
         src/chk_code.h
         src/chk_screen.c

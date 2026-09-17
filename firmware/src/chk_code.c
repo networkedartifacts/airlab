@@ -47,6 +47,18 @@ static const chk_code_field_t chk_code_fields_e[] = {
     {10, 10}, {12, 100}, {12, 10}, {12, 10}, {13, 1}, {9, 1},
 };
 
+// c0, cMax, cMean, c1, hoursOver1150, hoursOver2600, tMin, tMax, rhMin,
+// rhMax, sleepers, setup, flow, plateau
+static const chk_code_field_t chk_code_fields_bedroom[] = {
+    {13, 1}, {13, 1},  {13, 1},  {13, 1}, {8, 10}, {8, 10}, {9, 10},
+    {9, 10}, {10, 10}, {10, 10}, {2, 1},  {3, 1},  {8, 10}, {1, 1},
+};
+
+// k, kSe, r2, rh0, rhPeak, rh1, t0, t1, outHow, tout20, rhOut, outAge
+static const chk_code_field_t chk_code_fields_bath[] = {
+    {12, 100}, {8, 100}, {7, 100}, {10, 10}, {10, 10}, {10, 10}, {9, 10}, {9, 10}, {2, 1}, {10, 10}, {10, 10}, {8, 1},
+};
+
 // the phase marks ride behind the first sample: a four-bit count, then each
 // as a ten-bit sample index
 #define CHK_CODE_MARK_BITS 4
@@ -63,9 +75,14 @@ typedef struct {
 
 static const int chk_code_steps_co2[] = {1, 2, 5, 10, 20, 25, 50, 100};
 
+// the humidity series rides in tenths of a per cent, so its steps are tenths
+static const int chk_code_steps_rh[] = {1, 2, 5, 10, 20, 50};
+
 static const chk_code_format_t chk_code_formats[] = {
     {CHK_CODE_VENT, chk_code_fields_a, 8, 1, chk_code_steps_co2, 8},
     {CHK_CODE_STOVE, chk_code_fields_e, 6, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_BEDROOM, chk_code_fields_bedroom, 14, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_BATHROOM, chk_code_fields_bath, 12, 10, chk_code_steps_rh, 6},
 };
 
 /* Bit writer */

@@ -38,13 +38,15 @@ typedef enum {
   CHK_CODE_VENT = 1,
   CHK_CODE_PURIFIER = 2,
   CHK_CODE_STOVE = 3,
+  CHK_CODE_BEDROOM = 4,
+  CHK_CODE_BATHROOM = 5,
 } chk_code_check_t;
 
 // The most a payload may be, which the QR budget rather than this code sets.
 #define CHK_CODE_MAX_BYTES 192
 #define CHK_CODE_MAX_DIGITS 480
 #define CHK_CODE_MAX_SAMPLES 512
-#define CHK_CODE_MAX_FIELDS 12
+#define CHK_CODE_MAX_FIELDS 14
 #define CHK_CODE_MAX_MARKS 15  // the four-bit count of phase marks
 
 // Seconds between samples, indexed by the header's cadence field. The first

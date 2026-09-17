@@ -21,6 +21,17 @@ static const char* STOVE_DIGITS =
     "74899518070874548037124377030200039984833040895295783837727201118333862330967525151282365400481322063263"
     "5214019804985755941852276246064378732642444419302908923575820110351552819715397749668462632";
 
+static const char* BEDROOM_DIGITS =
+    "1630320365500424955543129327482092474961347555869911725013733410682352458904891702705484837234468566"
+    "4581944908890801270777249134898467421914624835001866515627613289346677357735193274634076801238623335"
+    "1622791485220082759241777103292433054663536401700438701530304455139815790756248077368635099543860258"
+    "115786365086386607787994429700532809090615252041398259570250387914817";
+
+static const char* BATH_DIGITS =
+    "3368950922908459744236745453487356638889134564059353134224335587715653802475215432031934486541592395"
+    "7523483887315592653718737184790793395716389756460623820049755661192364547550686371404623512669870315"
+    "1853843259226915930191630695059781745671403533138329882441952090673312791867647188";
+
 // the same header the reference was given: minute 1000000 with the room two
 // hours east of UTC, which the field carries as 56 quarter hours from -12:00,
 // on the device named AL5AB12C
@@ -32,6 +43,12 @@ static const char* STOVE_DIGITS =
 // then each pass's prompt answered and run ended
 static const uint16_t VENT_MARKS[] = {6, 8, 70};
 static const uint16_t STOVE_MARKS[] = {12, 14, 38, 40, 80, 82, 106};
+
+// the night's baseline held, the sleepers lay down, and the key came in the
+// morning; and for the bathroom the baseline, the shower on and done, the
+// window open and the recovery stopped
+static const uint16_t BEDROOM_MARKS[] = {2, 4, 299};
+static const uint16_t BATH_MARKS[] = {6, 8, 50, 55, 148};
 
 static void vent_samples(float* out, size_t n) {
   for (size_t i = 0; i < n; i++) {
@@ -77,6 +94,60 @@ static void test_a_stove_payload_matches_the_page() {
 
   TEST_ASSERT_EQUAL_STRING(STOVE_DIGITS, digits);
   TEST_ASSERT_EQUAL_size_t(124, bytes);
+}
+
+static void test_a_bedroom_payload_matches_the_page() {
+  // a night at the record's two-minute cadence: ten hours of rise into a
+  // plateau, with the wobble a sensor gives. Integer arithmetic throughout,
+  // so the reference and this cannot part over a rounding difference
+  float samples[300];
+  for (size_t i = 0; i < 300; i++) {
+    int rise = i < 180 ? (int)i * 7 : 180 * 7;
+    samples[i] = (float)(620 + rise + (int)((i * 13) % 11) - 5);
+  }
+
+  // c0, cMax, cMean, c1, hoursOver1150, hoursOver2600, tMin, tMax, rhMin,
+  // rhMax, sleepers, setup, flow, plateau
+  const float fields[] = {620, 1880, 1320, 1875, 5.4f, 0, 17.8f, 19.6f, 41.5f, 52.3f, 2, 2, 4.7f, 1};
+  chk_code_meta_t meta = TEST_META(CHK_CODE_BEDROOM);
+  meta.room = CHK_CODE_ROOM_BEDROOM;
+  meta.cadence = 8;  // 120 s
+
+  char digits[CHK_CODE_MAX_DIGITS];
+  int step = 0;
+  size_t bytes = 0;
+  TEST_ASSERT_TRUE(
+      chk_code_pack(&meta, fields, 14, BEDROOM_MARKS, 3, samples, 300, 153, digits, sizeof(digits), &step, &bytes));
+
+  TEST_ASSERT_EQUAL_STRING(BEDROOM_DIGITS, digits);
+  TEST_ASSERT_EQUAL_INT_MESSAGE(5, step, "a whole night is coarsened to fit the budget");
+  TEST_ASSERT_EQUAL_size_t(153, bytes);
+}
+
+static void test_a_bathroom_payload_matches_the_page() {
+  // the humidity series rides in tenths of a per cent: a shower rising, then
+  // the window open and the moisture leaving
+  float samples[150];
+  for (size_t i = 0; i < 150; i++) {
+    int tenths = i < 60 ? 480 + (int)i * 6 : 840 - ((int)i - 60) * 3 + (int)((i * 7) % 5);
+    samples[i] = (float)tenths / 10.0f;
+  }
+
+  // k, kSe, r2, rh0, rhPeak, rh1, t0, t1, outHow, tout20, rhOut, outAge
+  const float fields[] = {4.2f, 0.31f, 0.97f, 48, 84.6f, 55.2f, 22.4f, 21.8f, 1, 28, 62, 2};
+  chk_code_meta_t meta = TEST_META(CHK_CODE_BATHROOM);
+  meta.room = CHK_CODE_ROOM_BATHROOM;
+  meta.cadence = 3;  // 10 s
+
+  char digits[CHK_CODE_MAX_DIGITS];
+  int step = 0;
+  size_t bytes = 0;
+  TEST_ASSERT_TRUE(
+      chk_code_pack(&meta, fields, 12, BATH_MARKS, 5, samples, 150, 153, digits, sizeof(digits), &step, &bytes));
+
+  TEST_ASSERT_EQUAL_STRING(BATH_DIGITS, digits);
+  TEST_ASSERT_EQUAL_INT_MESSAGE(1, step, "a recovery of this length keeps the finest step");
+  TEST_ASSERT_EQUAL_size_t(117, bytes);
 }
 
 static void test_a_long_check_loses_resolution_rather_than_failing() {
@@ -341,6 +412,8 @@ void suite_chk_code() {
   RUN_TEST(test_a_link_past_the_panel_is_refused);
   RUN_TEST(test_a_ventilation_payload_matches_the_page);
   RUN_TEST(test_a_stove_payload_matches_the_page);
+  RUN_TEST(test_a_bedroom_payload_matches_the_page);
+  RUN_TEST(test_a_bathroom_payload_matches_the_page);
   RUN_TEST(test_a_long_check_loses_resolution_rather_than_failing);
   RUN_TEST(test_an_unknown_check_is_refused);
   RUN_TEST(test_the_offset_is_carried_or_declared_unknown);

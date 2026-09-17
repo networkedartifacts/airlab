@@ -7,6 +7,8 @@ void suite_chk();
 void suite_chk_vent();
 void suite_chk_measure();
 void suite_chk_stove();
+void suite_chk_bedroom();
+void suite_chk_bath();
 void suite_qrcodegen();
 void suite_chk_code();
 void suite_pwr();
@@ -31,6 +33,8 @@ int main() {
   suite_chk_vent();
   suite_chk_measure();
   suite_chk_stove();
+  suite_chk_bedroom();
+  suite_chk_bath();
   suite_qrcodegen();
   suite_chk_code();
   suite_pwr();

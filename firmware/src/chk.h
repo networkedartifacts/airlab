@@ -110,6 +110,7 @@ typedef struct {
   int64_t kept;               // epoch of the last sample copied onto the record
   chk_measure_run_t run;      // the run in progress
   uint16_t file;              // the record on flash, 0 until one is opened
+  uint16_t record;            // seconds between the readings kept on the record, 0 for the device's own cadence
 } chk_t;
 
 // No check is in progress. A context holding this is free to be begun.
@@ -253,12 +254,90 @@ typedef struct {
   const char* stove__stat_hood_none;
   const char* stove__stat_peak;
   const char* stove__stat_note;
+
+  // bedroom night
+  const char* bedroom__title;
+  const char* bedroom__name;
+  const char* bedroom__intro_1;
+  const char* bedroom__intro_2;
+  const char* bedroom__intro_3;
+  const char* bedroom__intro_4;
+  const char* bedroom__setup_ask;
+  const char* bedroom__setup_closed;
+  const char* bedroom__setup_tilted;
+  const char* bedroom__setup_open;
+  const char* bedroom__setup_door;
+  const char* bedroom__sleepers_ask;
+  const char* bedroom__sleepers_one;
+  const char* bedroom__sleepers_two;
+  const char* bedroom__sleepers_more;
+  const char* bedroom__list_window;
+  const char* bedroom__list_door;
+  const char* bedroom__list_place;
+  const char* bedroom__baseline_hint;
+  const char* bedroom__lie_down;
+  const char* bedroom__lying_down;
+  const char* bedroom__stage_night;
+  const char* bedroom__good_morning;
+  const char* bedroom__verdict;
+  const char* bedroom__advice_low;
+  const char* bedroom__advice_mid;
+  const char* bedroom__advice_high;
+  const char* bedroom__stat_peak;
+  const char* bedroom__stat_mean;
+  const char* bedroom__stat_over;
+  const char* bedroom__stat_temp;
+  const char* bedroom__stat_hum;
+  const char* bedroom__stat_flow;
+  const char* bedroom__stat_flow_none;
+  const char* bedroom__stat_note;
+
+  // bathroom humidity
+  const char* bath__title;
+  const char* bath__name;
+  const char* bath__intro_1;
+  const char* bath__intro_2;
+  const char* bath__intro_3;
+  const char* bath__outdoor_ask;
+  const char* bath__outdoor_remembered;
+  const char* bath__outdoor_measure;
+  const char* bath__outdoor_skip;
+  const char* bath__go_outside;
+  const char* bath__outside_hint;
+  const char* bath__outdoor_got;
+  const char* bath__list_window;
+  const char* bath__list_door;
+  const char* bath__list_place;
+  const char* bath__baseline_hint;
+  const char* bath__shower_ask;
+  const char* bath__shower_is_on;
+  const char* bath__stage_shower;
+  const char* bath__shower_done;
+  const char* bath__shower_nudge;
+  const char* bath__open_window;
+  const char* bath__window_is_open;
+  const char* bath__stage_airing;
+  const char* bath__verdict;
+  const char* bath__unclear;
+  const char* bath__advice_low;
+  const char* bath__advice_mid;
+  const char* bath__advice_high;
+  const char* bath__stat_baseline;
+  const char* bath__stat_peak;
+  const char* bath__stat_end;
+  const char* bath__stat_half;
+  const char* bath__stat_temp;
+  const char* bath__stat_out;
+  const char* bath__stat_out_none;
+  const char* bath__stat_note;
 } chk_trans_t;
 
 // The checks themselves.
 typedef enum {
   CHK_VENT,
   CHK_STOVE,
+  CHK_BEDROOM,
+  CHK_BATH,
 } chk_id_t;
 
 // How long a prompt waits for its key before deciding nobody is there. A
@@ -476,11 +555,24 @@ typedef struct {
   chk_remaining_fn on_remaining;  // the check's own estimate, or NULL for the classifier's
   float floor;                    // the value a zero-height bar stands for
   float range;                    // the span the chart covers above the floor, 0 to size it
+  // A run the signal itself never ends is ended by the user, and the B key's
+  // label says so. Past the floor the key stands for the run being over;
+  // before it the run is handed back to the flow, which asks whether to stop
+  // the check at all, since a run that short is more likely a slip.
+  bool ends_on_key;
+  int32_t slot_ms;    // the time one chart slot covers, 0 for CHK_SLOT_MS
+  int32_t redraw_ms;  // the least time between panel redraws, 0 to redraw on every reading
 } chk_screen_t;
 
 // Seconds between the samples a check reads, which is the sensor's own
 // cadence rather than anything the stores are configured to.
 int chk_cadence(void);
+
+// Seconds between the readings a check keeps on its record, which is the
+// device's cadence unless the check asked for a slower one: a night at five
+// seconds is a hundred times the sample cap, so a long check thins its
+// readings onto the record while every one of them still feeds the evaluator.
+int chk_record_cadence(const chk_t* c);
 
 // The clock's UTC offset in minutes east at a moment, from the zone the
 // device's time is set to. Whether a zone was set at all is the caller's to
@@ -504,6 +596,12 @@ void* chk_vent_run(void* on_exit, void* on_idle, void* self);
 
 // Runs the gas stove check, the same way.
 void* chk_stove_run(void* on_exit, void* on_idle, void* self);
+
+// Runs the bedroom night check, the same way.
+void* chk_bedroom_run(void* on_exit, void* on_idle, void* self);
+
+// Runs the bathroom humidity check, the same way.
+void* chk_bath_run(void* on_exit, void* on_idle, void* self);
 
 // the bubbles a verdict has
 #define CHK_VERDICT_MAX 2

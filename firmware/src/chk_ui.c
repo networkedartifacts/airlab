@@ -41,6 +41,12 @@ static uint32_t chk_device_tag(void);
 // the timer wake is only there to keep the stores moving.
 #define CHK_PARK_MS (30 * 60 * 1000)
 
+// How often a run copies what it has onto its record. The short store is a
+// ring of fifteen minutes at the trial cadence, so anything longer than that
+// has to be taken out of it while it is still there; ten minutes leaves the
+// margin a check that slept through a stretch of it needs.
+#define CHK_KEEP_EVERY_MS (10 * 60 * 1000)
+
 // the screen the running flow is on, or NULL when no flow runs
 static void *chk_park_screen = NULL;
 
@@ -297,6 +303,11 @@ chk_result_t chk_stats(const char *title, const char *stage, const char *const *
 // time slot at the resolution the view screen uses, is lossy on purpose, and
 // is discarded when the screen goes. What a check keeps lives in its
 // accumulators, which is what lets the context survive deep sleep.
+//
+// The slot is five seconds by default, which is one reading of the trial's
+// own cadence and six minutes across the seventy slots. A run measured in
+// hours says so on its screen: ten-minute slots draw a night as a curve
+// rather than as its last six minutes.
 #define CHK_SLOT_MS 5000
 #define CHK_SLOTS 70
 
@@ -365,7 +376,7 @@ static int chk_catch_up(chk_t *c, const chk_screen_t *screen, int64_t began, chk
 
     // keep a bar for the slot this reading falls in
     if (valid) {
-      int slot = elapsed / CHK_SLOT_MS;
+      int slot = elapsed / (screen->slot_ms > 0 ? screen->slot_ms : CHK_SLOT_MS);
       if (slot >= CHK_SLOTS) {
         slot = CHK_SLOTS - 1;
       }
@@ -387,6 +398,14 @@ int chk_cadence(void) {
   // latter is never below thirty seconds, whatever the sensor is doing
   int interval = (int)al_sensor_get_interval();
   return interval > 0 ? interval : 5;
+}
+
+int chk_record_cadence(const chk_t *c) {
+  // a check that asked for a slower record gets it; one that asked for a
+  // faster one than the device samples at cannot have it, since the record is
+  // built from the readings the device took
+  int cadence = chk_cadence();
+  return c->record > cadence ? c->record : cadence;
 }
 
 // the samples a record is built from, on their way between the store and flash
@@ -421,6 +440,11 @@ static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
     first = long_count;
   }
 
+  // the record's own cadence, which a long check sets slower than the
+  // device's: half a sample of slack, so a reading that came a moment early
+  // still fills its slot rather than pushing the whole series along
+  int64_t span = (int64_t)chk_record_cadence(c) * 1000 - chk_cadence() * 500;
+
   size_t have = 0;
   for (size_t i = (size_t)first; i < info.count && have < CHK_CODE_MAX_SAMPLES; i++) {
     al_sample_t sample;
@@ -429,7 +453,6 @@ static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
     if (at <= since) {
       continue;
     }
-    c->kept = at;
 
     // a reading the sensor could not give is left out, as it always was
     if (!al_sample_valid(sample)) {
@@ -439,6 +462,17 @@ static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
     if (isnan(value)) {
       continue;
     }
+
+    // and one that falls between the record's samples is left out too: every
+    // reading feeds the evaluator, but a night at the trial's five seconds is
+    // a hundred times what a record holds, so the curve is thinned onto the
+    // cadence the record and the payload are written at. The moment of the
+    // last reading actually kept is where the next copy picks up.
+    if (c->kept != 0 && at - c->kept < span) {
+      continue;
+    }
+    c->kept = at;
+
     chk_samples[have++] = value;
   }
   if (have == 0) {
@@ -448,7 +482,7 @@ static size_t chk_keep(chk_t *c, al_sample_field_t signal) {
 
   // open the record on the first samples worth keeping
   if (c->file == 0) {
-    c->file = chk_store_open(c, (uint8_t)signal, (uint8_t)chk_cadence());
+    c->file = chk_store_open(c, (uint8_t)signal, (uint8_t)chk_record_cadence(c));
     if (c->file == 0) {
       naos_log("chk: could not open a record");
       return 0;
@@ -603,62 +637,85 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
   int interval = chk_cadence();
   chk_run_state_t state = CHK_RUN_GO;
 
+  // when the panel was last redrawn, for a run that says how often it wants
+  // to be: a night of readings is ten thousand refreshes of a panel that
+  // takes the better part of a second over each one
+  int64_t drawn = 0;
+
   for (;;) {
     // fold in everything new before drawing: awake that is the reading just
     // taken, and on re-entry after a sleep it is everything the ULP gathered
     // while the device was off
     chk_catch_up(c, screen, began, &state, &value);
-    int32_t elapsed = (int32_t)(al_clock_get_epoch() - began);
+    int64_t now = al_clock_get_epoch();
+    int32_t elapsed = (int32_t)(now - began);
 
-    // begin draw
-    gfx_begin(false, false);
-
-    // update the value and the clock
-    lv_label_set_text(val, !isnan(value) ? lvx_fmt("%.0f %s", value, screen->unit) : "");
-    if (clock != NULL) {
-      lv_label_set_text(clock, lvx_fmt("%d:%02d", elapsed / 60000, elapsed / 1000 % 60));
+    // A run longer than the short store's ring cannot wait for its end to
+    // copy what it has: the ring holds fifteen minutes at the trial cadence,
+    // and what it lets go is gone. So the record is kept as the run goes,
+    // which also means an interrupted long check keeps what it measured.
+    int64_t since = c->kept != 0 ? c->kept : c->start;
+    if (now - since >= CHK_KEEP_EVERY_MS) {
+      chk_keep(c, screen->field);
     }
 
-    // update the progress or the chart
-    if (bar != NULL) {
-      int32_t left = chk_remaining(c, screen, elapsed);
-      if (left < 0) {
-        lv_bar_set_value(bar, run->count, LV_ANIM_OFF);
-      } else {
-        lv_bar_set_value(bar, (int32_t)((int64_t)elapsed * CHK_BAR_SPAN / (elapsed + left)), LV_ANIM_OFF);
-        lv_label_set_text(hint, chk_settle_text(left));
-      }
-    } else {
-      lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
-      lv_draw_line_dsc_t dsc;
-      lv_draw_line_dsc_init(&dsc);
-      dsc.width = 2;
-      for (int i = 0; i < chk_bar_count; i++) {
-        float above = chk_bars[i] - screen->floor;
-        if (above < 0) {
-          above = 0;
-        }
-        lv_coord_t h = (lv_coord_t)(2 + al_safe_map(above, 0, range, 0, 46));
-        lv_point_t points[2] = {
-            {.x = (lv_coord_t)(1 + i * 4), .y = 48},
-            {.x = (lv_coord_t)(1 + i * 4), .y = (lv_coord_t)(48 - h)},
-        };
-        lv_canvas_draw_line(canvas, points, 2, &dsc);
+    // A slow run redraws on its own schedule rather than on every reading:
+    // the panel takes the better part of a second over a refresh, and a night
+    // of five-second readings is ten thousand of them. The first draw and the
+    // one the run ends on always happen.
+    if (screen->redraw_ms <= 0 || drawn == 0 || state != CHK_RUN_GO || now - drawn >= screen->redraw_ms) {
+      drawn = now;
+
+      // begin draw
+      gfx_begin(false, false);
+
+      // update the value and the clock
+      lv_label_set_text(val, !isnan(value) ? lvx_fmt("%.0f %s", value, screen->unit) : "");
+      if (clock != NULL) {
+        lv_label_set_text(clock, lvx_fmt("%d:%02d", elapsed / 60000, elapsed / 1000 % 60));
       }
 
-      if (remain != NULL) {
+      // update the progress or the chart
+      if (bar != NULL) {
         int32_t left = chk_remaining(c, screen, elapsed);
-        lv_label_set_text(remain, left < 0 ? "" : chk_settle_text(left));
+        if (left < 0) {
+          lv_bar_set_value(bar, run->count, LV_ANIM_OFF);
+        } else {
+          lv_bar_set_value(bar, (int32_t)((int64_t)elapsed * CHK_BAR_SPAN / (elapsed + left)), LV_ANIM_OFF);
+          lv_label_set_text(hint, chk_settle_text(left));
+        }
+      } else {
+        lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
+        lv_draw_line_dsc_t dsc;
+        lv_draw_line_dsc_init(&dsc);
+        dsc.width = 2;
+        for (int i = 0; i < chk_bar_count; i++) {
+          float above = chk_bars[i] - screen->floor;
+          if (above < 0) {
+            above = 0;
+          }
+          lv_coord_t h = (lv_coord_t)(2 + al_safe_map(above, 0, range, 0, 46));
+          lv_point_t points[2] = {
+              {.x = (lv_coord_t)(1 + i * 4), .y = 48},
+              {.x = (lv_coord_t)(1 + i * 4), .y = (lv_coord_t)(48 - h)},
+          };
+          lv_canvas_draw_line(canvas, points, 2, &dsc);
+        }
+
+        if (remain != NULL) {
+          int32_t left = chk_remaining(c, screen, elapsed);
+          lv_label_set_text(remain, left < 0 ? "" : chk_settle_text(left));
+        }
       }
-    }
 
-    // say something only while nothing is happening
-    if (status != NULL) {
-      lv_label_set_text(status, run->nudging && screen->nudge != NULL ? screen->nudge : "");
-    }
+      // say something only while nothing is happening
+      if (status != NULL) {
+        lv_label_set_text(status, run->nudging && screen->nudge != NULL ? screen->nudge : "");
+      }
 
-    // end draw
-    gfx_end(false, false);
+      // end draw
+      gfx_end(false, false);
+    }
 
     // the run has ended, and what ended it is on the screen
     if (state != CHK_RUN_GO) {
@@ -674,11 +731,18 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
       scr_park(interval, interval * 1000, chk_park_screen);
     }
 
-    // the key hands the run back to the flow as it stands, so that a run
-    // come back to after a question carries on where it was
+    // The key hands the run back to the flow as it stands, so that a run come
+    // back to after a question carries on where it was. A run the signal
+    // itself never ends is ended by the key instead, once it has run past its
+    // floor: before that the flow is asked, since a night three minutes old
+    // is more likely a slip than a morning.
     if (chk_await() != CHK_NEXT) {
-      gui_cleanup(false);
-      return CHK_BACK;
+      if (!screen->ends_on_key || elapsed < screen->cfg.min_ms) {
+        gui_cleanup(false);
+        return CHK_BACK;
+      }
+      state = CHK_RUN_DONE;
+      break;
     }
   }
 
@@ -919,15 +983,18 @@ void chk_restart(chk_t *c) {
     chk_store_discard(c->file);
   }
 
-  // begin afresh, keeping where the flow is and what the user has entered
+  // begin afresh, keeping where the flow is, what the user has entered, and
+  // the cadence the check records at, none of which the run being redone owns
   uint8_t id = c->id;
   uint8_t step = c->step;
   uint8_t room = c->room;
+  uint16_t record = c->record;
   float result[CHK_RESULTS];
   memcpy(result, c->result, sizeof(result));
   chk_begin(c, id);
   c->step = step;
   c->room = room;
+  c->record = record;
   memcpy(c->result, result, sizeof(result));
 }
 

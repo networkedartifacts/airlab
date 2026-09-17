@@ -11,8 +11,11 @@
 
 #include <al/buzzer.h>
 #include <al/clock.h>
+#include <al/store.h>
 
 #include "chk.h"
+#include "chk_bath.h"
+#include "chk_bedroom.h"
 #include "chk_stove.h"
 #include "chk_vent.h"
 #include "gui.h"
@@ -107,7 +110,8 @@ enum {
 // shown now is built from exactly what a reopened check will be built from
 // later, or from the live block when the record could not be kept.
 static bool chk_finish_view(const chk_t *c, uint8_t id, uint16_t stored, chk_view_t *view) {
-  return chk_view_of(stored, view) || chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), view);
+  return chk_view_of(stored, view) ||
+         chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_record_cadence(c), view);
 }
 
 // The end every solid result shares: the verdict, the stats, then the code,
@@ -812,6 +816,711 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
   }
 }
 
+/* Bedroom night */
+
+// One night, from a baseline before lying down to a key in the morning. The
+// structural difference from the checks above is the length: the run has no
+// natural end, so the user ends it, and at ten hours neither the short store
+// nor the panel can be treated the way a five-minute run treats them.
+
+// The record and the payload run at two minutes, so a ten-hour night is 300
+// samples, well under the 512 the format holds. The device keeps sampling at
+// its own cadence and every reading is folded into the statistics; only the
+// curve is thinned.
+#define CHK_BEDROOM_RECORD_S 120
+
+// the baseline waits for the reading to hold, as the ventilation check's does
+#define CHK_BEDROOM_SETTLE_MIN_MS 120000
+#define CHK_BEDROOM_SETTLE_MAX_MS 300000
+
+// The night: no signal ends it, so the key does. Under half an hour the key
+// is taken as a slip and the flow asks; at fourteen hours the run stops on
+// its own, which is longer than a night and shorter than a forgotten device.
+#define CHK_BEDROOM_MIN_MS (30 * 60 * 1000)
+#define CHK_BEDROOM_MAX_MS (14 * 60 * 60 * 1000)
+
+// Ten-minute slots draw eleven hours across the seventy the chart has, and
+// the panel is redrawn every five minutes rather than every reading.
+#define CHK_BEDROOM_SLOT_MS (10 * 60 * 1000)
+#define CHK_BEDROOM_REDRAW_MS (5 * 60 * 1000)
+
+// Where the flow can be resumed from after a deep sleep.
+enum {
+  BEDROOM_STEP_INTRO,
+  BEDROOM_STEP_SETUP,
+  BEDROOM_STEP_SLEEPERS,
+  BEDROOM_STEP_PRECHECK,
+  BEDROOM_STEP_BASELINE,
+  BEDROOM_STEP_TRIGGER,
+  BEDROOM_STEP_NIGHT,
+  BEDROOM_STEP_RESULT,
+};
+
+static chk_step_t bedroom_night_sample(chk_t *c, float value, int32_t t_ms) {
+  // the temperature and the humidity ride in the same sample as the CO2 and
+  // are folded in as the bands the night stayed in, not as series of their
+  // own: the payload carries one series, and a night has no room for three
+  al_sample_t sample = al_store_last();
+  float tmp = NAN, rh = NAN;
+  if (al_sample_valid(sample)) {
+    tmp = al_sample_read(sample, AL_SAMPLE_TMP);
+    rh = al_sample_read(sample, AL_SAMPLE_HUM);
+  }
+  chk_bedroom_observe(c, value, tmp, rh, t_ms);
+
+  // nothing the air does ends the night; the morning does
+  return CHK_STEP_WAIT;
+}
+
+static void chk_view_bedroom(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
+  v->title = CHK_TEXT(bedroom__title);
+  v->check = CHK_CODE_BEDROOM;
+  v->signal = AL_SAMPLE_CO2;
+  v->note = CHK_TEXT(bedroom__stat_note);
+
+  v->lines[0] = lvx_fmt(CHK_TEXT(bedroom__stat_peak), r[CHK_BEDROOM_CMAX]);
+  v->lines[1] = lvx_fmt(CHK_TEXT(bedroom__stat_mean), r[CHK_BEDROOM_CMEAN]);
+  v->lines[2] = lvx_fmt(CHK_TEXT(bedroom__stat_over), r[CHK_BEDROOM_OVER_LOW]);
+  v->lines[3] = lvx_fmt(CHK_TEXT(bedroom__stat_temp), r[CHK_BEDROOM_TMIN], r[CHK_BEDROOM_TMAX]);
+  v->lines[4] = lvx_fmt(CHK_TEXT(bedroom__stat_hum), r[CHK_BEDROOM_RHMIN], r[CHK_BEDROOM_RHMAX]);
+  // a night too short to have settled reports no flow rather than a number
+  // the room never reached
+  v->lines[5] = r[CHK_BEDROOM_FLOW] > 0 ? lvx_fmt(CHK_TEXT(bedroom__stat_flow), r[CHK_BEDROOM_FLOW])
+                                        : CHK_TEXT(bedroom__stat_flow_none);
+  v->num_lines = 6;
+
+  // c0, cMax, cMean, c1, hoursOver1150, hoursOver2600, tMin, tMax, rhMin,
+  // rhMax, sleepers, setup, flow, plateau
+  v->payload[0] = r[CHK_BEDROOM_C0];
+  v->payload[1] = r[CHK_BEDROOM_CMAX];
+  v->payload[2] = r[CHK_BEDROOM_CMEAN];
+  v->payload[3] = r[CHK_BEDROOM_C1];
+  v->payload[4] = r[CHK_BEDROOM_OVER_LOW];
+  v->payload[5] = r[CHK_BEDROOM_OVER_HIGH];
+  v->payload[6] = r[CHK_BEDROOM_TMIN];
+  v->payload[7] = r[CHK_BEDROOM_TMAX];
+  v->payload[8] = r[CHK_BEDROOM_RHMIN];
+  v->payload[9] = r[CHK_BEDROOM_RHMAX];
+  v->payload[10] = r[CHK_BEDROOM_SLEEPERS];
+  v->payload[11] = r[CHK_BEDROOM_SETUP];
+  // the flow, and whether the room had settled by morning: without the
+  // plateau it is a lower bound, and the page says so
+  v->payload[12] = r[CHK_BEDROOM_FLOW];
+  v->payload[13] = r[CHK_BEDROOM_PLATEAU];
+  v->num_payload = 14;
+  // where the baseline held, the sleepers lay down and the morning came
+  chk_view_marks(marks, CHK_BEDROOM_MARKS, cadence, v);
+
+  // the verdict: the night's mean with the peak beside it, then the advice
+  // the tier earns. The scale is graded on the mean, which is what the sleep
+  // studies state their bands on; the peak is a statistic next to it
+  chk_bedroom_tier_t tier = chk_bedroom_tier(r[CHK_BEDROOM_CMEAN]);
+  const char *advice = tier == CHK_BEDROOM_TIER_LOW   ? CHK_TEXT(bedroom__advice_low)
+                       : tier == CHK_BEDROOM_TIER_MID ? CHK_TEXT(bedroom__advice_mid)
+                                                      : CHK_TEXT(bedroom__advice_high);
+  const char *said = lvx_fmt(CHK_TEXT(bedroom__verdict), r[CHK_BEDROOM_CMEAN], r[CHK_BEDROOM_CMAX]);
+  v->verdict[0] =
+      (chk_bubble_t){tier == CHK_BEDROOM_TIER_HIGH ? &img_robin_happy : &img_robin_standing, said, CHK_TEXT(next)};
+  v->verdict[1] = (chk_bubble_t){&img_robin_pointing, advice, CHK_TEXT(next)};
+  v->num_verdict = 2;
+}
+
+void *chk_bedroom_run(void *on_exit, void *on_idle, void *self) {
+  // pick the check up where it stopped, or start it
+  chk_t *c = chk_context();
+  if (!chk_resuming(c, CHK_BEDROOM)) {
+    chk_begin(c, CHK_BEDROOM);
+    // a bedroom check runs in the bedroom by definition, so it is not asked
+    c->room = CHK_CODE_ROOM_BEDROOM;
+  }
+  // the record runs slower than the sensor, which is what keeps a night
+  // inside the sample cap
+  c->record = CHK_BEDROOM_RECORD_S;
+  chk_park_into(self);
+
+  const char *title = CHK_TEXT(bedroom__title);
+
+  // the step loop, as the checks above have it
+  bool back = false;
+  for (;;) {
+    /* Introduction */
+
+    if (c->step == BEDROOM_STEP_INTRO) {
+      const chk_bubble_t intro[] = {
+          {&img_robin_happy, CHK_TEXT(bedroom__intro_1), CHK_TEXT(next)},
+          {&img_robin_pointing, CHK_TEXT(bedroom__intro_2), CHK_TEXT(next)},
+          {&img_robin_pointing, CHK_TEXT(bedroom__intro_3), CHK_TEXT(next)},
+          {&img_robin_standing, CHK_TEXT(bedroom__intro_4), CHK_TEXT(start)},
+      };
+      size_t n = sizeof(intro) / sizeof(intro[0]);
+      CHK_TRY(chk_say_from(intro, n, back ? n - 1 : 0), CHK_LEAVE);
+      c->step = BEDROOM_STEP_SETUP;
+    }
+
+    /* Setup */
+
+    // how the room is set up tonight, which is the thing the night is about:
+    // the same room on two nights is two results the page can compare
+    if (c->step == BEDROOM_STEP_SETUP) {
+      const chk_bubble_t ask = {&img_robin_pointing, CHK_TEXT(bedroom__setup_ask), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&ask, 1), CHK_STEP(BEDROOM_STEP_INTRO));
+
+      // row i is setup i + 1
+      const char *rows[] = {
+          CHK_TEXT(bedroom__setup_closed),
+          CHK_TEXT(bedroom__setup_tilted),
+          CHK_TEXT(bedroom__setup_open),
+          CHK_TEXT(bedroom__setup_door),
+          NULL,
+      };
+
+      // as with the room picker, leaving and timing out both go back to the
+      // bubble, which times out on its own if nobody is there
+      int offset = 0;
+      int chosen = gui_list_strings((int)c->result[CHK_BEDROOM_SETUP] - 1, &offset, rows, CHK_TEXT(next),
+                                    CHK_TEXT(back), GUI_INACTION);
+      if (chosen < 0) {
+        continue;
+      }
+      c->result[CHK_BEDROOM_SETUP] = (float)(chosen + 1);
+      c->step = BEDROOM_STEP_SLEEPERS;
+    }
+
+    /* Sleepers */
+
+    // the flow is per sleeper whatever the count, but the count is what makes
+    // it a room's worth of air on the page
+    if (c->step == BEDROOM_STEP_SLEEPERS) {
+      const chk_bubble_t ask = {&img_robin_pointing, CHK_TEXT(bedroom__sleepers_ask), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&ask, 1), CHK_STEP(BEDROOM_STEP_SETUP));
+
+      const char *rows[] = {
+          CHK_TEXT(bedroom__sleepers_one),
+          CHK_TEXT(bedroom__sleepers_two),
+          CHK_TEXT(bedroom__sleepers_more),
+          NULL,
+      };
+
+      int offset = 0;
+      int chosen = gui_list_strings((int)c->result[CHK_BEDROOM_SLEEPERS] - 1, &offset, rows, CHK_TEXT(next),
+                                    CHK_TEXT(back), GUI_INACTION);
+      if (chosen < 0) {
+        continue;
+      }
+      c->result[CHK_BEDROOM_SLEEPERS] = (float)(chosen + 1);
+      c->step = BEDROOM_STEP_PRECHECK;
+    }
+
+    /* Precheck */
+
+    if (c->step == BEDROOM_STEP_PRECHECK) {
+      const char *const items[] = {
+          CHK_TEXT(bedroom__list_window),
+          CHK_TEXT(bedroom__list_door),
+          CHK_TEXT(bedroom__list_place),
+      };
+      CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3, back), CHK_STEP(BEDROOM_STEP_SLEEPERS));
+      c->step = BEDROOM_STEP_BASELINE;
+    }
+
+    /* Baseline */
+
+    // the room before anyone lies down, taken once the reading holds
+    if (c->step == BEDROOM_STEP_BASELINE) {
+      // the series starts here: the intro and the pickers are not part of the
+      // record, so the clock and the record start afresh
+      if (c->run.began == 0) {
+        chk_restart(c);
+      }
+      const chk_screen_t baseline = {
+          .title = title,
+          .stage = CHK_TEXT(stage__baseline),
+          .hint = CHK_TEXT(bedroom__baseline_hint),
+          .unit = "ppm",
+          .show = CHK_SHOW_PROGRESS,
+          .back = CHK_TEXT(back),
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.min_ms = CHK_BEDROOM_SETTLE_MIN_MS, .max_ms = CHK_BEDROOM_SETTLE_MAX_MS, .settle = true},
+      };
+      CHK_TRY(chk_measure(c, &baseline), CHK_REDO(BEDROOM_STEP_PRECHECK));
+      chk_mark(c, CHK_BEDROOM_MARK_SETTLED);
+
+      // the baseline is the newest settled window, or what the store holds
+      // when the run ended before one
+      c->result[CHK_BEDROOM_C0] = chk_settle_value(&c->run);
+      if (isnan(c->result[CHK_BEDROOM_C0])) {
+        c->result[CHK_BEDROOM_C0] = chk_vent_baseline_median(CHK_SETTLE_WINDOW);
+      }
+
+      // the night is a run of its own
+      chk_measure_reset(&c->run);
+      c->step = BEDROOM_STEP_TRIGGER;
+    }
+
+    /* Trigger */
+
+    if (c->step == BEDROOM_STEP_TRIGGER) {
+      // cue the user, unless this is a timer wake re-entering the prompt they
+      // left on the nightstand
+      if (scr_awake()) {
+        al_buzzer_beep(1047, 80, false);
+      }
+      const chk_bubble_t down = {
+          &img_robin_pointing,
+          lvx_fmt(CHK_TEXT(bedroom__lie_down), c->result[CHK_BEDROOM_C0]),
+          CHK_TEXT(bedroom__lying_down),
+      };
+      CHK_TRY(chk_say(&down, 1), CHK_REDO(BEDROOM_STEP_BASELINE));
+
+      // the night starts here, and the stretch since the baseline held was
+      // the user at the device
+      chk_mark(c, CHK_BEDROOM_MARK_ASLEEP);
+      chk_bedroom_reset(c);
+      c->step = BEDROOM_STEP_NIGHT;
+    }
+
+    /* Night */
+
+    // everyone is asleep, so there is nothing to go back to: the key in the
+    // morning ends the run, and one pressed too early asks whether to stop
+    if (c->step == BEDROOM_STEP_NIGHT) {
+      const chk_screen_t night = {
+          .title = title,
+          .stage = CHK_TEXT(bedroom__stage_night),
+          .unit = "ppm",
+          .show = CHK_SHOW_CHART,
+          .back = CHK_TEXT(bedroom__good_morning),
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.min_ms = CHK_BEDROOM_MIN_MS, .max_ms = CHK_BEDROOM_MAX_MS},
+          .on_sample = bedroom_night_sample,
+          .floor = CHK_BEDROOM_OUTDOOR,
+          .ends_on_key = true,
+          .slot_ms = CHK_BEDROOM_SLOT_MS,
+          .redraw_ms = CHK_BEDROOM_REDRAW_MS,
+      };
+      CHK_TRY(chk_measure(c, &night), CHK_LEAVE);
+      chk_mark(c, CHK_BEDROOM_MARK_WOKE);
+      c->step = BEDROOM_STEP_RESULT;
+      c->phase = RESULT_PHASE_VERDICT;
+    }
+
+    /* Result */
+
+    // a night always has a result: what the air did is the answer, and there
+    // is no fit to fail
+    chk_bedroom_evaluate(c, c->run.elapsed);
+
+    // seal it before saying anything, as the checks above do
+    uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
+
+    /* Verdict, stats and share */
+
+    return chk_finish(c, CHK_BEDROOM, stored, on_exit, on_idle, self);
+  }
+}
+
+/* Bathroom humidity */
+
+// A baseline, a shower and an airing. The outdoor step is the ventilation
+// check's, in temperature and humidity rather than CO2, and the recovery is
+// its decay fit with the baseline humidity as the floor.
+
+// The record and the payload run at ten seconds: a shower of up to fifteen
+// minutes and a recovery of up to thirty outrun both the sample cap and the
+// short store's ring at the trial's five.
+#define CHK_BATH_RECORD_S 10
+
+// the readings a counted run takes, and the tail of them a median is taken
+// over: two minutes outside, one minute of baseline, six readings either way
+#define CHK_BATH_OUTSIDE_MS 120000
+#define CHK_BATH_OUTSIDE_N 24
+#define CHK_BATH_BASELINE_N 12
+#define CHK_BATH_MEDIAN_N 6
+
+// The shower: the key ends it, a minute is the floor under which the key is
+// taken as a slip, six minutes is where the device asks, and fifteen is where
+// it stops waiting.
+#define CHK_BATH_SHOWER_MIN_MS 60000
+#define CHK_BATH_SHOWER_NUDGE_MS 360000
+#define CHK_BATH_SHOWER_MAX_MS 900000
+
+// The recovery: five minutes at least, so the fit has a span, and thirty at
+// most, by which point a bathroom that has not dried is the result.
+#define CHK_BATH_RECOVERY_MIN_MS 300000
+#define CHK_BATH_RECOVERY_MAX_MS 1800000
+
+// fifteen-second slots draw the shower across the chart, thirty the recovery,
+// and neither needs the panel redrawn on every reading
+#define CHK_BATH_SHOWER_SLOT_MS 15000
+#define CHK_BATH_RECOVERY_SLOT_MS 30000
+#define CHK_BATH_REDRAW_MS 20000
+
+// Where the flow can be resumed from after a deep sleep.
+enum {
+  BATH_STEP_INTRO,
+  BATH_STEP_OUTDOOR,
+  BATH_STEP_OUTSIDE,
+  BATH_STEP_PRECHECK,
+  BATH_STEP_BASELINE,
+  BATH_STEP_TRIGGER,
+  BATH_STEP_SHOWER,
+  BATH_STEP_OPEN,
+  BATH_STEP_RECOVERY,
+  BATH_STEP_RESULT,
+};
+
+static chk_step_t bath_shower_sample(chk_t *c, float value, int32_t t_ms) {
+  (void)t_ms;
+
+  // the shower ends on the key, not on the humidity: how high it goes is the
+  // shower's, not the bathroom's
+  chk_bath_peak(c, value);
+
+  return CHK_STEP_WAIT;
+}
+
+static chk_step_t bath_recovery_sample(chk_t *c, float value, int32_t t_ms) {
+  // feed the fit, which keeps watching the peak: humidity often climbs for a
+  // minute after the water stops
+  chk_bath_observe(c, value, t_ms);
+
+  // enough of the excess gone to call it measured
+  float excess0 = c->result[CHK_BATH_PEAK] - c->result[CHK_BATH_RH0];
+  float gone = c->result[CHK_BATH_PEAK] - value;
+  if (excess0 > 0 && gone >= CHK_BATH_RECOVERY_SHARE * excess0) {
+    return CHK_STEP_DONE;
+  }
+
+  return gone >= 1.0f ? CHK_STEP_GO : CHK_STEP_WAIT;
+}
+
+// the run ends on the share above, so the screen counts down to the same one
+static int32_t bath_recovery_remaining(chk_t *c) {
+  return chk_bath_remaining(c, CHK_BATH_RECOVERY_SHARE);
+}
+
+static void chk_view_bath(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
+  v->title = CHK_TEXT(bath__title);
+  v->check = CHK_CODE_BATHROOM;
+  v->signal = AL_SAMPLE_HUM;
+  v->note = CHK_TEXT(bath__stat_note);
+
+  // the half-life follows from the rate, and carries the rate's own band
+  int half = chk_round_minutes(chk_half_life(r[CHK_BATH_K]));
+  int band = chk_round_minutes(chk_half_life_band(r[CHK_BATH_K], r[CHK_BATH_K_BAND]));
+  v->lines[0] = lvx_fmt(CHK_TEXT(bath__stat_baseline), r[CHK_BATH_RH0]);
+  v->lines[1] = lvx_fmt(CHK_TEXT(bath__stat_peak), r[CHK_BATH_PEAK]);
+  v->lines[2] = lvx_fmt(CHK_TEXT(bath__stat_end), r[CHK_BATH_RH1]);
+  v->lines[3] = lvx_fmt(CHK_TEXT(bath__stat_half), half, band);
+  v->lines[4] = lvx_fmt(CHK_TEXT(bath__stat_temp), r[CHK_BATH_T0], r[CHK_BATH_T1]);
+  v->lines[5] = r[CHK_BATH_OUT_HOW] == CHK_BATH_OUT_MEASURED
+                    ? lvx_fmt(CHK_TEXT(bath__stat_out), r[CHK_BATH_TOUT], r[CHK_BATH_RHOUT])
+                    : CHK_TEXT(bath__stat_out_none);
+  v->num_lines = 6;
+
+  // k, kSe, r2, rh0, rhPeak, rh1, t0, t1, outHow, tout20, rhOut, outAge
+  v->payload[0] = r[CHK_BATH_K];
+  v->payload[1] = r[CHK_BATH_K_BAND];
+  v->payload[2] = r[CHK_BATH_R2];
+  v->payload[3] = r[CHK_BATH_RH0];
+  v->payload[4] = r[CHK_BATH_PEAK];
+  v->payload[5] = r[CHK_BATH_RH1];
+  v->payload[6] = r[CHK_BATH_T0];
+  v->payload[7] = r[CHK_BATH_T1];
+  v->payload[8] = r[CHK_BATH_OUT_HOW];
+  // the outdoor temperature rides twenty degrees up, so the field carries a
+  // frosty morning without a sign bit; nothing measured rides as zero
+  v->payload[9] = r[CHK_BATH_OUT_HOW] == CHK_BATH_OUT_MEASURED ? r[CHK_BATH_TOUT] + 20.0f : 0;
+  v->payload[10] = r[CHK_BATH_RHOUT];
+  v->payload[11] = r[CHK_BATH_OUT_AGE];
+  v->num_payload = 12;
+  // the baseline, the shower on and done, the window opened and the recovery
+  // stopped, which is where the page bands the chart
+  chk_view_marks(marks, CHK_BATH_MARKS, cadence, v);
+
+  // the verdict: how long the moisture took to halve, and the advice the tier
+  // earns
+  chk_bath_tier_t tier = chk_bath_tier(chk_half_life(r[CHK_BATH_K]));
+  const char *advice = tier == CHK_BATH_TIER_LOW   ? CHK_TEXT(bath__advice_low)
+                       : tier == CHK_BATH_TIER_MID ? CHK_TEXT(bath__advice_mid)
+                                                   : CHK_TEXT(bath__advice_high);
+  v->verdict[0] = (chk_bubble_t){tier == CHK_BATH_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
+                                 lvx_fmt(CHK_TEXT(bath__verdict), half), CHK_TEXT(next)};
+  v->verdict[1] = (chk_bubble_t){&img_robin_pointing, advice, CHK_TEXT(next)};
+  v->num_verdict = 2;
+}
+
+void *chk_bath_run(void *on_exit, void *on_idle, void *self) {
+  // pick the check up where it stopped, or start it
+  chk_t *c = chk_context();
+  if (!chk_resuming(c, CHK_BATH)) {
+    chk_begin(c, CHK_BATH);
+    // a bathroom check runs in the bathroom by definition, so it is not asked
+    c->room = CHK_CODE_ROOM_BATHROOM;
+  }
+  // the record runs slower than the sensor, which is what keeps a shower and
+  // its recovery inside the sample cap
+  c->record = CHK_BATH_RECORD_S;
+  chk_park_into(self);
+
+  const char *title = CHK_TEXT(bath__title);
+
+  // the step loop, as the checks above have it
+  bool back = false;
+  for (;;) {
+    /* Introduction */
+
+    if (c->step == BATH_STEP_INTRO) {
+      const chk_bubble_t intro[] = {
+          {&img_robin_happy, CHK_TEXT(bath__intro_1), CHK_TEXT(next)},
+          {&img_robin_pointing, CHK_TEXT(bath__intro_2), CHK_TEXT(next)},
+          {&img_robin_standing, CHK_TEXT(bath__intro_3), CHK_TEXT(start)},
+      };
+      size_t n = sizeof(intro) / sizeof(intro[0]);
+      CHK_TRY(chk_say_from(intro, n, back ? n - 1 : 0), CHK_LEAVE);
+      c->step = BATH_STEP_OUTDOOR;
+    }
+
+    /* Outdoor air */
+
+    // what the airing had to work with: a remembered reading while it is
+    // fresh, a walk outside, or nothing at all. Skipping is allowed, and the
+    // page then compares against the room's own baseline alone.
+    if (c->step == BATH_STEP_OUTDOOR) {
+      const chk_bubble_t ask = {&img_robin_pointing, CHK_TEXT(bath__outdoor_ask), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&ask, 1), CHK_STEP(BATH_STEP_INTRO));
+
+      // the remembered row is only there when there is something to remember,
+      // so the rows are numbered as they are built
+      float tmp = 0, rh = 0, age = 0;
+      bool held = chk_bath_outdoor_get(al_clock_get_epoch(), &tmp, &rh, &age);
+      const char *rows[4] = {0};
+      int num = 0;
+      int use = -1;
+      if (held) {
+        rows[num] = lvx_fmt(CHK_TEXT(bath__outdoor_remembered), tmp, rh, chk_vent_age_text(age));
+        use = num++;
+      }
+      int measure = num;
+      rows[num++] = CHK_TEXT(bath__outdoor_measure);
+      rows[num++] = CHK_TEXT(bath__outdoor_skip);
+
+      // the list cannot tell leaving from timing out, so both go back to the
+      // bubble, which times out on its own if nobody is there
+      int offset = 0;
+      int chosen = gui_list_strings(0, &offset, rows, CHK_TEXT(next), CHK_TEXT(back), GUI_INACTION);
+      if (chosen < 0) {
+        continue;
+      }
+      if (chosen == measure) {
+        c->step = BATH_STEP_OUTSIDE;
+      } else {
+        bool kept = chosen == use;
+        c->result[CHK_BATH_OUT_HOW] = (float)(kept ? CHK_BATH_OUT_MEASURED : CHK_BATH_OUT_SKIPPED);
+        c->result[CHK_BATH_TOUT] = kept ? tmp : 0;
+        c->result[CHK_BATH_RHOUT] = kept ? rh : 0;
+        c->result[CHK_BATH_OUT_AGE] = kept ? age : 0;
+        c->step = BATH_STEP_PRECHECK;
+      }
+    }
+
+    /* Outside */
+
+    if (c->step == BATH_STEP_OUTSIDE) {
+      const chk_bubble_t go = {&img_robin_pointing, CHK_TEXT(bath__go_outside), CHK_TEXT(start)};
+      CHK_TRY(chk_say(&go, 1), CHK_STEP(BATH_STEP_OUTDOOR));
+
+      // a counted run rather than a settling one: the settle classifier's
+      // band is ten ppm of CO2 and means nothing in degrees
+      const chk_screen_t outside = {
+          .title = title,
+          .stage = CHK_TEXT(stage__outside),
+          .hint = CHK_TEXT(bath__outside_hint),
+          .unit = "C",
+          .show = CHK_SHOW_PROGRESS,
+          .back = CHK_TEXT(back),
+          .field = AL_SAMPLE_TMP,
+          .cfg = {.max_ms = CHK_BATH_OUTSIDE_MS, .capacity = CHK_BATH_OUTSIDE_N},
+          .on_sample = chk_baseline_sample,
+      };
+      CHK_TRY(chk_measure(c, &outside), (chk_measure_reset(&c->run), CHK_STEP(BATH_STEP_OUTSIDE)));
+
+      // the tail of the run, by which point the sensor has caught up with the
+      // air outside
+      float tmp = chk_bath_median(AL_SAMPLE_TMP, CHK_BATH_MEDIAN_N);
+      float rh = chk_bath_median(AL_SAMPLE_HUM, CHK_BATH_MEDIAN_N);
+      chk_bath_outdoor_set(tmp, rh, al_clock_get_epoch());
+      c->result[CHK_BATH_OUT_HOW] = (float)CHK_BATH_OUT_MEASURED;
+      c->result[CHK_BATH_TOUT] = tmp;
+      c->result[CHK_BATH_RHOUT] = rh;
+      c->result[CHK_BATH_OUT_AGE] = 0;
+
+      // the walk outside is not part of the check's own series, so the run
+      // ends here and the baseline starts the clock again
+      chk_measure_reset(&c->run);
+      c->step = BATH_STEP_PRECHECK;
+
+      const chk_bubble_t got = {&img_robin_happy, lvx_fmt(CHK_TEXT(bath__outdoor_got), tmp, rh), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&got, 1), CHK_STEP(BATH_STEP_OUTSIDE));
+    }
+
+    /* Precheck */
+
+    if (c->step == BATH_STEP_PRECHECK) {
+      const char *const items[] = {
+          CHK_TEXT(bath__list_window),
+          CHK_TEXT(bath__list_door),
+          CHK_TEXT(bath__list_place),
+      };
+      CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3, back), CHK_STEP(BATH_STEP_OUTDOOR));
+      c->step = BATH_STEP_BASELINE;
+    }
+
+    /* Baseline */
+
+    // the room before the shower, as a count rather than a settling run: the
+    // humidity of a dry bathroom is where it is, and a minute of it is enough
+    if (c->step == BATH_STEP_BASELINE) {
+      // the series starts here, as in the checks above
+      if (c->run.began == 0) {
+        chk_restart(c);
+      }
+      const chk_screen_t baseline = {
+          .title = title,
+          .stage = CHK_TEXT(stage__baseline),
+          .hint = CHK_TEXT(bath__baseline_hint),
+          .unit = "%",
+          .show = CHK_SHOW_PROGRESS,
+          .back = CHK_TEXT(back),
+          .field = AL_SAMPLE_HUM,
+          .cfg = {.capacity = CHK_BATH_BASELINE_N},
+          .on_sample = chk_baseline_sample,
+      };
+      CHK_TRY(chk_measure(c, &baseline), CHK_REDO(BATH_STEP_PRECHECK));
+      chk_mark(c, CHK_BATH_MARK_SETTLED);
+
+      c->result[CHK_BATH_RH0] = chk_bath_median(AL_SAMPLE_HUM, CHK_BATH_MEDIAN_N);
+      c->result[CHK_BATH_T0] = chk_bath_median(AL_SAMPLE_TMP, CHK_BATH_MEDIAN_N);
+      c->result[CHK_BATH_PEAK] = c->result[CHK_BATH_RH0];
+
+      // the shower is a run of its own
+      chk_measure_reset(&c->run);
+      c->step = BATH_STEP_TRIGGER;
+    }
+
+    /* Trigger */
+
+    if (c->step == BATH_STEP_TRIGGER) {
+      // cue the user, unless this is a timer wake re-entering the prompt
+      if (scr_awake()) {
+        al_buzzer_beep(1047, 80, false);
+      }
+      const chk_bubble_t shower = {
+          &img_robin_pointing,
+          lvx_fmt(CHK_TEXT(bath__shower_ask), c->result[CHK_BATH_RH0]),
+          CHK_TEXT(bath__shower_is_on),
+      };
+      CHK_TRY(chk_say(&shower, 1), CHK_REDO(BATH_STEP_BASELINE));
+
+      // the water is running now
+      chk_mark(c, CHK_BATH_MARK_SHOWER_ON);
+      c->step = BATH_STEP_SHOWER;
+    }
+
+    /* Shower */
+
+    // the water is on, so there is no going back from here, only stopping
+    if (c->step == BATH_STEP_SHOWER) {
+      const chk_screen_t shower = {
+          .title = title,
+          .stage = CHK_TEXT(bath__stage_shower),
+          .nudge = CHK_TEXT(bath__shower_nudge),
+          .unit = "%",
+          .show = CHK_SHOW_CHART,
+          .back = CHK_TEXT(bath__shower_done),
+          .field = AL_SAMPLE_HUM,
+          .cfg = {.min_ms = CHK_BATH_SHOWER_MIN_MS,
+                  .max_ms = CHK_BATH_SHOWER_MAX_MS,
+                  .nudge_ms = CHK_BATH_SHOWER_NUDGE_MS},
+          .on_sample = bath_shower_sample,
+          .floor = c->result[CHK_BATH_RH0],
+          .ends_on_key = true,
+          .slot_ms = CHK_BATH_SHOWER_SLOT_MS,
+          .redraw_ms = CHK_BATH_REDRAW_MS,
+      };
+      CHK_TRY(chk_measure(c, &shower), CHK_LEAVE);
+      chk_mark(c, CHK_BATH_MARK_SHOWER_DONE);
+
+      // the recovery is a run of its own, timed from the window opening
+      chk_measure_reset(&c->run);
+      c->step = BATH_STEP_OPEN;
+    }
+
+    /* Open the window */
+
+    if (c->step == BATH_STEP_OPEN) {
+      if (scr_awake()) {
+        al_buzzer_beep(1047, 80, false);
+      }
+      const chk_bubble_t open = {&img_robin_pointing, CHK_TEXT(bath__open_window), CHK_TEXT(bath__window_is_open)};
+      CHK_TRY(chk_say(&open, 1), CHK_LEAVE);
+
+      // the window goes open now: the recovery starts here, and the stretch
+      // since the shower ended was the user at the device
+      chk_mark(c, CHK_BATH_MARK_OPENED);
+      c->step = BATH_STEP_RECOVERY;
+    }
+
+    /* Recovery */
+
+    if (c->step == BATH_STEP_RECOVERY) {
+      const chk_screen_t recovery = {
+          .title = title,
+          .stage = CHK_TEXT(bath__stage_airing),
+          .unit = "%",
+          .show = CHK_SHOW_CHART,
+          .field = AL_SAMPLE_HUM,
+          .cfg = {.min_ms = CHK_BATH_RECOVERY_MIN_MS, .max_ms = CHK_BATH_RECOVERY_MAX_MS},
+          .on_sample = bath_recovery_sample,
+          .on_remaining = bath_recovery_remaining,
+          .floor = c->result[CHK_BATH_RH0],
+          .slot_ms = CHK_BATH_RECOVERY_SLOT_MS,
+          .redraw_ms = CHK_BATH_REDRAW_MS,
+      };
+      CHK_TRY(chk_measure(c, &recovery), CHK_LEAVE);
+      chk_mark(c, CHK_BATH_MARK_STOPPED);
+      c->step = BATH_STEP_RESULT;
+      c->phase = RESULT_PHASE_VERDICT;
+    }
+
+    /* Result */
+
+    // the room at the end, beside the humidity the fit was made of
+    c->result[CHK_BATH_T1] = chk_bath_median(AL_SAMPLE_TMP, CHK_BATH_MEDIAN_N);
+
+    chk_bath_quality_t quality = chk_bath_evaluate(c, c->run.elapsed);
+
+    // no number worth reporting: say which way the moisture went and offer
+    // another go
+    if (quality != CHK_BATH_SOLID) {
+      const char *direction = quality == CHK_BATH_QUICK ? CHK_TEXT(vent__quickly) : CHK_TEXT(vent__slowly);
+      const chk_bubble_t unclear = {
+          &img_robin_standing,
+          lvx_fmt(CHK_TEXT(bath__unclear), direction),
+          CHK_TEXT(again),
+      };
+      return chk_leave(c, chk_say(&unclear, 1), on_exit, on_idle, self);
+    }
+
+    // seal it before saying anything, as the checks above do
+    uint16_t stored = chk_record(c, AL_SAMPLE_HUM);
+
+    /* Verdict, stats and share */
+
+    return chk_finish(c, CHK_BATH, stored, on_exit, on_idle, self);
+  }
+}
+
 /* View */
 
 const char *chk_name(uint8_t id) {
@@ -820,6 +1529,10 @@ const char *chk_name(uint8_t id) {
       return CHK_TEXT(vent__name);
     case CHK_STOVE:
       return CHK_TEXT(stove__name);
+    case CHK_BEDROOM:
+      return CHK_TEXT(bedroom__name);
+    case CHK_BATH:
+      return CHK_TEXT(bath__name);
     default:
       return NULL;
   }
@@ -839,6 +1552,12 @@ bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t
       return true;
     case CHK_STOVE:
       chk_view_stove(result, marks, cadence, out);
+      return true;
+    case CHK_BEDROOM:
+      chk_view_bedroom(result, marks, cadence, out);
+      return true;
+    case CHK_BATH:
+      chk_view_bath(result, marks, cadence, out);
       return true;
     default:
       return false;
