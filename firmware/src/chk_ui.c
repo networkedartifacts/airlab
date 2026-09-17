@@ -665,10 +665,10 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
 static uint8_t chk_qr_symbol[CHK_CODE_QR_BUFFER_LEN];
 static lv_color_t *chk_qr_canvas_buffer;
 
-chk_result_t chk_qr(const char *title, char letter, const char *digits, const char *caption) {
+chk_result_t chk_qr(const char *title, const char *digits, const char *caption) {
   // encode the link, which the codec does so the host tests can hold it to
   // an independent encoding
-  bool ok = chk_code_symbol(letter, digits, chk_qr_symbol);
+  bool ok = chk_code_symbol(digits, chk_qr_symbol);
 
   // begin draw, as a full refresh: a symbol over the ghost of the screen
   // before it does not scan as well as one on clean white
@@ -906,16 +906,18 @@ chk_result_t chk_show_code(uint16_t num) {
   }
 
   chk_code_meta_t meta = {
+      .check = view.check,
       .minute = (uint32_t)((file->head.start - 1735689600000LL) / 60000),
+      .offset = file->head.offset,
       .device = chk_device_tag(),
       .room = 0,  // the device has no way to know where it stands yet
       .cadence = cadence,
   };
 
   static char digits[CHK_CODE_MAX_DIGITS];
-  if (!chk_code_pack(view.letter, &meta, view.payload, view.num_payload, chk_samples, have, CHK_SHARE_MAX_BYTES,
-                     digits, sizeof(digits), NULL, NULL)) {
-    naos_log("chk: record %u (%c, %u samples, cadence %u) refused by the packer", num, view.letter, have,
+  if (!chk_code_pack(&meta, view.payload, view.num_payload, chk_samples, have, CHK_SHARE_MAX_BYTES, digits,
+                     sizeof(digits), NULL, NULL)) {
+    naos_log("chk: record %u (check %u, %u samples, cadence %u) refused by the packer", num, view.check, have,
              file->head.cadence);
     for (size_t i = 0; i < view.num_payload; i++) {
       naos_log("chk:   field %u = %f", i, view.payload[i]);
@@ -924,7 +926,7 @@ chk_result_t chk_show_code(uint16_t num) {
     return chk_say(&sorry, 1);
   }
 
-  return chk_qr(view.title, view.letter, digits, CHK_TEXT(share_scan));
+  return chk_qr(view.title, digits, CHK_TEXT(share_scan));
 }
 
 chk_result_t chk_reopen(uint16_t num) {

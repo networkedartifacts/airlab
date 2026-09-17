@@ -27,7 +27,7 @@
 
 #define CHK_STORE_MAGIC 0x4B434C41       // "ALCK"
 #define CHK_STORE_MAGIC_OPEN 0x4F434C41  // "ALCO", a record still being written
-#define CHK_STORE_VERSION 1
+#define CHK_STORE_VERSION 2
 #define CHK_STORE_FILES 64
 #define CHK_STORE_MAX_SAMPLES 512
 
@@ -36,6 +36,7 @@ typedef struct __attribute__((packed)) {
   uint16_t version;             // CHK_STORE_VERSION
   uint16_t num;                 // file number, also the filename
   int64_t start;                // ms since 1970
+  int16_t offset;               // the room's UTC offset at start in minutes east, or CHK_CODE_OFFSET_UNKNOWN
   uint8_t check;                // which check, a chk_id_t
   uint8_t signal;               // the field the samples carry
   uint8_t cadence;              // seconds between samples

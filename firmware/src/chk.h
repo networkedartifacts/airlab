@@ -228,7 +228,7 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
 
 // Draws the QR code a phone scans to carry the result away, with a short
 // line beside it. Returns once acknowledged.
-chk_result_t chk_qr(const char *title, char letter, const char *digits, const char *caption);
+chk_result_t chk_qr(const char *title, const char *digits, const char *caption);
 
 // Shows a run's result as labelled lines with a note beneath.
 chk_result_t chk_stats(const char *title, const char *stage, const char *const *lines, size_t count,
@@ -370,6 +370,11 @@ typedef struct {
 // cadence rather than anything the stores are configured to.
 int chk_cadence(void);
 
+// The clock's UTC offset in minutes east at a moment, from the zone the
+// device's time is set to. Whether a zone was set at all is the caller's to
+// know; this reports what the clock does.
+int16_t chk_utc_offset(int64_t epoch_ms);
+
 // Runs a measurement: draws the screen, samples at the device's cadence,
 // feeds each reading to the check, and stops when the policy says so. The
 // run is filled in as it goes, so the caller can see what happened. A run
@@ -394,7 +399,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self);
 // than that at once.
 typedef struct {
   const char *title;
-  char letter;
+  uint8_t check;  // the payload's check id, a chk_code_check_t
   al_sample_field_t signal;
   const char *headline;  // the one number the verdict is about
   const char *lines[6];

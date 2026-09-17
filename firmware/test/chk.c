@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include <unity.h>
 
@@ -213,7 +215,43 @@ static void test_first_after_lands_on_the_next_sample() {
   TEST_ASSERT_EQUAL_INT(-1, chk_first_after(&none, 0));
 }
 
+static void test_utc_offset_follows_the_clock_zone() {
+  // 2026-09-17T10:00:00Z, summer in Europe; and 2026-11-26T10:40:00Z, winter
+  const int64_t summer = 1789639200000LL;
+  const int64_t winter = 1795689600000LL;
+
+  setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
+  tzset();
+  TEST_ASSERT_EQUAL_INT16(120, chk_utc_offset(summer));
+  TEST_ASSERT_EQUAL_INT16(60, chk_utc_offset(winter));
+
+  // a half-hour zone, and one west of UTC
+  setenv("TZ", "IST-5:30", 1);
+  tzset();
+  TEST_ASSERT_EQUAL_INT16(330, chk_utc_offset(summer));
+  setenv("TZ", "EST5EDT,M3.2.0,M11.1.0", 1);
+  tzset();
+  TEST_ASSERT_EQUAL_INT16(-240, chk_utc_offset(summer));
+  TEST_ASSERT_EQUAL_INT16(-300, chk_utc_offset(winter));
+
+  // across a year end, where the day of the year says nothing: Auckland at
+  // 2026-12-31T14:00:00Z is already 3 a.m. on New Year's Day, and Honolulu at
+  // 2027-01-01T05:00:00Z is still the evening of the year before
+  setenv("TZ", "NZST-12NZDT,M9.5.0,M4.1.0/3", 1);
+  tzset();
+  TEST_ASSERT_EQUAL_INT16(780, chk_utc_offset(1798725600000LL));
+  setenv("TZ", "HST10", 1);
+  tzset();
+  TEST_ASSERT_EQUAL_INT16(-600, chk_utc_offset(1798779600000LL));
+
+  // and UTC itself
+  setenv("TZ", "UTC0", 1);
+  tzset();
+  TEST_ASSERT_EQUAL_INT16(0, chk_utc_offset(summer));
+}
+
 void suite_chk() {
+  RUN_TEST(test_utc_offset_follows_the_clock_zone);
   RUN_TEST(test_first_after_lands_on_the_next_sample);
   RUN_TEST(test_language_order_matches_scr);
   RUN_TEST(test_english_is_complete);

@@ -129,6 +129,17 @@ chk_store_file_t *chk_store_get(size_t num) {
   return &chk_store_files[num];
 }
 
+// The room's UTC offset, which the payload carries so the page can show the
+// time the room saw. The device knows its zone only once one was set; NAOS
+// leaves the name at Etc/UTC until then, and the page is told so rather than
+// shown UTC as if it were local.
+static int16_t chk_store_offset(int64_t start) {
+  if (strcmp(naos_get_s("time-tz-name"), "Etc/UTC") == 0) {
+    return CHK_CODE_OFFSET_UNKNOWN;
+  }
+  return chk_utc_offset(start);
+}
+
 uint16_t chk_store_open(const chk_t *c, uint8_t signal, uint8_t cadence) {
   if (c == NULL) {
     return 0;
@@ -160,6 +171,7 @@ uint16_t chk_store_open(const chk_t *c, uint8_t signal, uint8_t cadence) {
       .version = CHK_STORE_VERSION,
       .num = num,
       .start = c->start,
+      .offset = chk_store_offset(c->start),
       .check = c->id,
       .signal = signal,
       .cadence = cadence,

@@ -15,10 +15,27 @@ typedef struct {
   float scale;
 } chk_code_field_t;
 
-// mark, minute, device, room, cadence
+// mark, check, minute, offset, device, room, cadence
 static const chk_code_field_t chk_code_header[] = {
-    {1, 1}, {22, 1}, {16, 1}, {4, 1}, {3, 1},
+    {1, 1}, {5, 1}, {23, 1}, {7, 1}, {16, 1}, {4, 1}, {3, 1},
 };
+
+// the offset rides in quarter hours from -12:00, so 0 is UTC-12, 48 is UTC and
+// 104 is UTC+14; the field's top value says the device had no zone set
+#define CHK_CODE_OFFSET_NONE 127
+
+static float chk_code_offset(int16_t minutes) {
+  if (minutes == CHK_CODE_OFFSET_UNKNOWN) {
+    return CHK_CODE_OFFSET_NONE;
+  }
+  int32_t code = ((int32_t)minutes + 720 + 7) / 15;  // to the nearest quarter hour
+  if (code < 0) {
+    code = 0;
+  } else if (code > 104) {
+    code = 104;
+  }
+  return (float)code;
+}
 
 // ach, achSe, r2, c0, c1, cout, pre
 static const chk_code_field_t chk_code_fields_a[] = {
@@ -30,8 +47,9 @@ static const chk_code_field_t chk_code_fields_e[] = {
     {10, 10}, {12, 100}, {12, 10}, {12, 10}, {13, 1}, {9, 1}, {6, 1}, {10, 1}, {10, 1}, {10, 1},
 };
 
+// one layout per check under CHK_CODE_LETTER
 typedef struct {
-  char letter;
+  uint8_t check;
   const chk_code_field_t *fields;
   size_t num_fields;
   float scale;         // fixed point of a raw sample
@@ -42,8 +60,8 @@ typedef struct {
 static const int chk_code_steps_co2[] = {1, 2, 5, 10, 20, 25, 50, 100};
 
 static const chk_code_format_t chk_code_formats[] = {
-    {'A', chk_code_fields_a, 7, 1, chk_code_steps_co2, 8},
-    {'E', chk_code_fields_e, 10, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_VENT, chk_code_fields_a, 7, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_STOVE, chk_code_fields_e, 10, 1, chk_code_steps_co2, 8},
 };
 
 /* Bit writer */
@@ -221,20 +239,23 @@ static bool chk_code_pack_fields(chk_code_writer_t *w, const chk_code_field_t *s
   return true;
 }
 
-static const chk_code_format_t *chk_code_format(char letter) {
+static const chk_code_format_t *chk_code_format(uint8_t check) {
   for (size_t i = 0; i < sizeof(chk_code_formats) / sizeof(chk_code_formats[0]); i++) {
-    if (chk_code_formats[i].letter == letter) {
+    if (chk_code_formats[i].check == check) {
       return &chk_code_formats[i];
     }
   }
   return NULL;
 }
 
-bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields, size_t num_fields,
-                   const float *samples, size_t count, size_t max_bytes, char *digits, size_t digits_len,
-                   int *step_out, size_t *bytes_out) {
-  const chk_code_format_t *format = chk_code_format(letter);
-  if (format == NULL || meta == NULL || samples == NULL || digits == NULL) {
+bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const float *samples,
+                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out,
+                   size_t *bytes_out) {
+  if (meta == NULL || samples == NULL || digits == NULL) {
+    return false;
+  }
+  const chk_code_format_t *format = chk_code_format(meta->check);
+  if (format == NULL) {
     return false;
   }
   if (count < 1 || count > CHK_CODE_MAX_SAMPLES || count >= 1024) {
@@ -250,9 +271,15 @@ bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields
   static int32_t quantised[CHK_CODE_MAX_SAMPLES];
   static chk_code_writer_t w;
 
-  // the header, which every format shares
+  // the header, which every check shares
   const float header[] = {
-      1, (float)meta->minute, (float)meta->device, (float)meta->room, (float)meta->cadence,
+      1,
+      (float)meta->check,
+      (float)meta->minute,
+      chk_code_offset(meta->offset),
+      (float)meta->device,
+      (float)meta->room,
+      (float)meta->cadence,
   };
 
   // finest step first, so a short check keeps the curve the device recorded
@@ -271,7 +298,7 @@ bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields
     }
 
     memset(&w, 0, sizeof(w));
-    bool ok = chk_code_pack_fields(&w, chk_code_header, 5, header) &&
+    bool ok = chk_code_pack_fields(&w, chk_code_header, 7, header) &&
               chk_code_pack_fields(&w, format->fields, format->num_fields, fields) &&
               chk_code_write(&w, (uint32_t)count, 10) && chk_code_write(&w, (uint32_t)s, 3) &&
               chk_code_write(&w, (uint32_t)quantised[0], 16) && chk_code_series(&w, quantised, count);
@@ -301,7 +328,7 @@ bool chk_code_pack(char letter, const chk_code_meta_t *meta, const float *fields
 
 /* Symbol */
 
-bool chk_code_symbol(char letter, const char *digits, uint8_t *qrcode) {
+bool chk_code_symbol(const char *digits, uint8_t *qrcode) {
   if (digits == NULL || qrcode == NULL) {
     return false;
   }
@@ -312,7 +339,7 @@ bool chk_code_symbol(char letter, const char *digits, uint8_t *qrcode) {
 
   // the prefix and the letter in byte mode
   char head[sizeof(CHK_CODE_PREFIX) + 1];
-  snprintf(head, sizeof(head), "%s%c", CHK_CODE_PREFIX, letter);
+  snprintf(head, sizeof(head), "%s%c", CHK_CODE_PREFIX, CHK_CODE_LETTER);
 
   // the payload in numeric mode, which packs three digits into ten bits where
   // byte mode would spend twenty-four: encoding the whole link as text would

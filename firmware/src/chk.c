@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <string.h>
+#include <time.h>
 
 #include <al/clock.h>
 #include <al/sensor.h>
@@ -125,6 +126,21 @@ float chk_half_life_band(float ach, float ach_band) {
 
   // half-life goes as 1/ACH, so the band scales by its derivative, ln(2)/ACH^2
   return (float)(M_LN2 / (ach * ach) * ach_band * 60.0);
+}
+
+int16_t chk_utc_offset(int64_t epoch_ms) {
+  time_t t = (time_t)(epoch_ms / 1000);
+  struct tm local, utc;
+  localtime_r(&t, &local);
+  gmtime_r(&t, &utc);
+
+  // an offset is within a day of UTC, so the calendars differ by at most one
+  // day, and across a year end the day of the year says nothing
+  int days = local.tm_yday - utc.tm_yday;
+  if (local.tm_year != utc.tm_year) {
+    days = local.tm_year > utc.tm_year ? 1 : -1;
+  }
+  return (int16_t)(days * 1440 + (local.tm_hour - utc.tm_hour) * 60 + (local.tm_min - utc.tm_min));
 }
 
 int chk_round_minutes(float minutes) {

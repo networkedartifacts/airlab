@@ -197,7 +197,7 @@ static chk_step_t vent_decay_sample(chk_t *c, float value, int32_t t_ms) {
 
 static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
   v->title = CHK_TEXT(vent__title);
-  v->letter = 'A';
+  v->check = CHK_CODE_VENT;
   v->signal = AL_SAMPLE_CO2;
   v->note = CHK_TEXT(vent__stat_note);
 
@@ -450,7 +450,7 @@ static chk_step_t stove_sample(chk_t *c, float value, int32_t t_ms) {
 
 static void chk_view_stove(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
   v->title = CHK_TEXT(stove__title);
-  v->letter = 'E';
+  v->check = CHK_CODE_STOVE;
   v->signal = AL_SAMPLE_CO2;
   v->note = CHK_TEXT(stove__stat_note);
 
