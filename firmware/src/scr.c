@@ -406,6 +406,20 @@ static sig_event_t scr_idle_await() {
   return event;
 }
 
+void scr_park(int32_t interval_s, int32_t duration_ms, void* resume) {
+  // wake back into the given screen, whether the timer or a key ends the
+  // sleep: without this the wake lands in the menu
+  scr_return_timeout = resume;
+  scr_return_unlock = resume;
+  scr_return_unlock_mask = 0;
+  scr_return_quick = NULL;
+
+  // sleep, holding the given sampling interval rather than dropping to the
+  // sleep rate: the ULP keeps sampling through the sleep. Returns only when
+  // the device has to stay awake, woken up fully.
+  scr_sleep(interval_s, duration_ms);
+}
+
 /* Translations */
 
 #include "scr_trans.inc"

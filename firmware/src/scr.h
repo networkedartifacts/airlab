@@ -10,4 +10,13 @@
 
 void scr_run(al_trigger_t trigger);
 
+// Parks the given screen across a sleep: sleeps for the given duration while
+// holding the given sampling interval, leaving whatever is on the display in
+// place and waking back into that screen rather than the idle one. Does not
+// return when it sleeps. It returns only when the device must stay awake, in
+// which case it has woken up fully, the same as the idle screen does. Waking
+// up applies the main interval, so the held interval is dropped by a refused
+// or aborted sleep.
+void scr_park(int32_t interval_s, int32_t duration_ms, void* resume);
+
 #endif  // SCR_H
