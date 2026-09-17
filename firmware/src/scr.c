@@ -64,33 +64,35 @@ static bool scr_auto_cycle = true;
 // screen, so that switching between them keeps the same field.
 static int8_t scr_field = 0;  // co2, tmp, hum, voc, nox, prs, pm
 
-// The device distinguishes two wake states. It dozes when it woke up on its
-// own to perform background work (refresh the display, take a measurement)
-// and returns to sleep right after, and it is awake when a user is present or
-// a client is connected. Dozing keeps the sleep measurement interval and the
-// radios off, while waking up applies the main interval and starts the
-// radios. The state is derived from the wake up trigger and is not carried
+// The device runs one of two configurations. Dozing keeps the sleep
+// measurement interval and the radios off, which is how the device wakes up
+// on its own to perform background work (refresh the display, take a
+// measurement) and returns to sleep right after. Awake applies the main
+// interval and starts the radios, for a present user or a connected client.
+// Which one to apply is derived from the wake up trigger and is not carried
 // across sleep.
 //
-// The mode is also what makes scr_wake_up() re-apply the awake configuration,
-// as it only does so on a transition. A sleep therefore enters doze the moment
-// it is decided, before the sensors are reconfigured, even though the radios
-// stay up until the sleep itself takes them down.
+// What is tracked is the configuration currently applied, not whether a user
+// is present: scr_wake_up() applies the awake configuration only when it is
+// not applied yet, so a sleep switches to doze the moment it is decided,
+// before the sensors are reconfigured, even though the radios stay up until
+// the sleep itself takes them down. A fresh boot has applied nothing and its
+// radios are off, which is doze.
 typedef enum {
   SCR_DOZE,
   SCR_AWAKE,
-} scr_mode_t;
+} scr_config_t;
 
-static scr_mode_t scr_mode = SCR_DOZE;
+static scr_config_t scr_applied = SCR_DOZE;
 
 static void scr_wake_up(const char* reason) {
-  // skip if already awake
-  if (scr_mode == SCR_AWAKE) {
+  // skip if already applied
+  if (scr_applied == SCR_AWAKE) {
     return;
   }
 
-  // enter awake state
-  scr_mode = SCR_AWAKE;
+  // apply the awake configuration
+  scr_applied = SCR_AWAKE;
   naos_log("scr: awake reason=%s", reason);
 
   // apply the main interval, which is the active interval while awake
@@ -290,14 +292,13 @@ static const char* scr_stay_awake() {
   return NULL;
 }
 
-// Leaves the awake state on the way to a sleep, whatever screen is sleeping.
-// Returns the reason the device must stay awake, in which case the state is
-// left as it was, or NULL once the device is dozing.
+// Applies the doze configuration on the way to a sleep, whatever screen is
+// sleeping. Returns the reason the device must stay awake, in which case
+// nothing is applied, or NULL once the device is dozing.
 //
-// The doze configuration is applied here, and scr_wake_up() undoes it on the
-// next transition. That is why the mode is set before the configuration is
-// touched: an aborted sleep must see a real transition, or the awake
-// configuration would never be re-applied.
+// The switch is recorded before the sensors are touched, so that an aborted
+// sleep finds the awake configuration not applied and scr_wake_up() puts it
+// back.
 //
 // What belongs to idling rather than to dozing is not here: the sleep
 // duration and the sensor interval, which the caller decides.
@@ -323,7 +324,7 @@ static const char* scr_enter_doze() {
 
   /* Doze */
 
-  scr_mode = SCR_DOZE;
+  scr_applied = SCR_DOZE;
 
   // set the PM rate in manual mode, so the sensor never runs on its own while
   // dozing and measurements are taken before sleeping
