@@ -349,7 +349,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self);
 void *chk_stove_run(void *on_exit, void *on_idle, void *self);
 
 // A finished check, rebuilt from its result block. The same view serves the
-// live flow and a reopened one, so the two cannot drift apart.
+// live flow and a reopened one, so the two cannot drift apart. Note the
+// ceiling: lvx_fmt rotates eight buffers, so a view may not hold more strings
+// than that at once.
 typedef struct {
   const char *title;
   char letter;
