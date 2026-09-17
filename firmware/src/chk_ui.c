@@ -105,38 +105,28 @@ void chk_chrome(const char *title, const char *stage) {
 
 // one bubble, awaited
 static chk_result_t chk_say_one(const chk_bubble_t *bubble) {
-  // robin and the bubble are anchored to the bottom like on the menu screen,
-  // so find the offset that centres the pair vertically (the frame sizes with
-  // the text, mirroring lvx_bubble_update)
-  lv_point_t size = {0};
-  lv_txt_get_size(&size, bubble->text, &fnt_16, 0, 0, 200, 0);
-  lv_coord_t frame = size.y >= 48 ? 64 : size.y >= 32 ? 48 : 32;
-  lv_coord_t top = frame > 88 ? 10 : 98 - frame;
-  lv_coord_t robin_top = 118 - (lv_coord_t)bubble->mood->header.h;
-  lv_coord_t delta = (lv_coord_t)((10 - (top < robin_top ? top : robin_top)) / 2);
-
   // begin draw
   gfx_begin(false, false);
 
-  // add robin
+  // add robin, standing where he stands on the menu screen whatever the
+  // bubble says, so he does not hop about as the text changes
   lv_obj_t *robin = lv_img_create(lv_scr_act());
   lv_img_set_src(robin, bubble->mood);
-  lv_obj_align(robin, LV_ALIGN_BOTTOM_LEFT, 20, -10 + delta);
+  lv_obj_align(robin, LV_ALIGN_BOTTOM_LEFT, 20, -10);
 
-  // add bubble
+  // add bubble, growing upwards from its place on the menu screen
   lvx_bubble_t frame_obj = {.text = bubble->text};
   lvx_bubble_create(&frame_obj, lv_scr_act());
   lvx_bubble_update(&frame_obj);
-  lv_obj_align(frame_obj._frame, LV_ALIGN_BOTTOM_LEFT, 60, -30 + delta);
-  lv_obj_align(frame_obj._label, LV_ALIGN_BOTTOM_LEFT, 76, -38 + delta);
 
-  // add signs, robin standing clear of the left one
+  // add signs: robin has the bottom left, the bubble reaches over the right,
+  // so the second key sits between them
   lvx_sign_t sign = {
       .title = "A",
       .text = bubble->action != NULL ? bubble->action : CHK_TEXT(next),
       .align = LV_ALIGN_BOTTOM_RIGHT,
   };
-  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_LEFT};
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_MID};
   lvx_sign_create(&sign, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
