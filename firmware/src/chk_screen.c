@@ -643,6 +643,17 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
 
 /* View */
 
+const char *chk_name(uint8_t id) {
+  switch (id) {
+    case CHK_VENT:
+      return CHK_TEXT(vent__name);
+    case CHK_STOVE:
+      return CHK_TEXT(stove__name);
+    default:
+      return NULL;
+  }
+}
+
 bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t marks_len, uint8_t cadence,
                   chk_view_t *out) {
   if (result == NULL || out == NULL || marks == NULL || marks_len < 4) {

@@ -118,7 +118,7 @@ typedef struct {
   const char* carry_on;
   const char* sensor_errors;
   const char* no_checks;
-  const char* past_checks;
+  const char* start_check;
   const char* stage__baseline;
   const char* stage__measuring;
   const char* stage__results;
@@ -128,6 +128,7 @@ typedef struct {
 
   // ventilation
   const char* vent__title;
+  const char* vent__name;
   const char* vent__intro_1;
   const char* vent__intro_2;
   const char* vent__intro_3;
@@ -157,6 +158,7 @@ typedef struct {
 
   // gas stove
   const char* stove__title;
+  const char* stove__name;
   const char* stove__intro_1;
   const char* stove__intro_2;
   const char* stove__intro_3;
@@ -401,6 +403,10 @@ typedef struct {
   float payload[CHK_CODE_MAX_FIELDS];
   size_t num_payload;
 } chk_view_t;
+
+// The name a check goes by in menus, shorter than the title its screens
+// carry. NULL for an unknown check.
+const char *chk_name(uint8_t id);
 
 // Fills a view from a check's result block. False for an unknown check.
 bool chk_describe(uint8_t id, const float *result, const int32_t *marks, uint8_t marks_len,

@@ -481,9 +481,9 @@ static void* scr_settings();
 static void* scr_config();
 static void* scr_develop();
 static void* scr_checks();
+static void* scr_check_start();
 static void* scr_check_vent();
 static void* scr_check_stove();
-static void* scr_check_past();
 
 static bool scr_time() {
   // begin draw
@@ -3733,49 +3733,99 @@ static void* scr_menu() {
 // The checks menu. A check that needs a signal this device cannot measure is
 // not offered: the particulate sensor arrives with Air Lab 2, so a PM check
 // is absent on the first device rather than failing in its own precheck.
+// The checks menu, laid out like the measurements one: starting a check on
+// top, then the checks already run, newest first, each named after its kind
+// with the day it ran, to be shown again without re-running it.
+static gui_list_item_t scr_checks_cb(int num, void* ctx) {
+  (void)ctx;
+
+  // handle start
+  if (num == 0) {
+    return (gui_list_item_t){.title = CHK_TEXT(start_check), .info = ""};
+  }
+
+  // newest first
+  chk_store_file_t* file = chk_store_get(chk_store_count() - (size_t)num);
+  const char* name = file != NULL ? chk_name(file->head.check) : NULL;
+  if (name == NULL) {
+    return (gui_list_item_t){.title = "?", .info = ""};
+  }
+
+  uint16_t year, month, day;
+  al_clock_epoch_date(file->head.start, &year, &month, &day);
+
+  return (gui_list_item_t){
+      .title = name,
+      .info = lvx_fmt("%d-%02d-%02d", year, month, day),
+  };
+}
+
 static void* scr_checks() {
-  // prepare variables
+  // prepare state
+  static int selected = 0;
+  static int offset = 0;
+
+  // the copy is the kit's
+  chk_init(scr_lang());
+
+  for (;;) {
+    // show list
+    int count = (int)chk_store_count();
+    selected = gui_list(count + 1, selected, &offset, scr_trans()->next, scr_trans()->back, scr_checks_cb, NULL,
+                        GUI_INACTION);
+    if (selected < 0) {
+      return scr_menu;
+    }
+
+    // handle start
+    if (selected == 0) {
+      return scr_check_start;
+    }
+
+    // show the check again
+    chk_store_file_t* file = chk_store_get(chk_store_count() - (size_t)selected);
+    if (file == NULL) {
+      continue;
+    }
+    chk_result_t result = chk_reopen(file->head.num);
+    if (result == CHK_IDLE) {
+      return scr_menu;
+    }
+  }
+}
+
+// Picks the check to start, from those the device in hand can run.
+static void* scr_check_start() {
+  // prepare state
   static int selected = 0;
   static int offset = 0;
 
   // prepare labels, keeping the mapping back to the checks themselves
-  const char* labels[4] = {0};
-  void* screens[4] = {0};
+  const char* labels[3] = {0};
+  void* screens[2] = {0};
   int num = 0;
   if (chk_available(CHK_NEEDS_CO2)) {
-    labels[num] = CHK_TEXT(vent__title);
+    labels[num] = CHK_TEXT(vent__name);
     screens[num] = scr_check_vent;
     num++;
-    labels[num] = CHK_TEXT(stove__title);
+    labels[num] = CHK_TEXT(stove__name);
     screens[num] = scr_check_stove;
     num++;
   }
 
-  // past checks, only once there are some
-  if (chk_store_count() > 0) {
-    labels[num] = CHK_TEXT(past_checks);
-    screens[num] = scr_check_past;
-    num++;
-  }
-
-  labels[num] = NULL;
-
   // nothing to offer
   if (num == 0) {
     gui_message(CHK_TEXT(no_checks), SCR_MSG_TIMEOUT);
-    return scr_menu;
+    return scr_checks;
   }
 
-  for (;;) {
-    // select a check
-    selected = gui_list_strings(selected, &offset, labels, scr_trans()->next, scr_trans()->back, GUI_INACTION);
-    if (selected < 0) {
-      return scr_menu;
-    }
-    if (selected < num) {
-      return screens[selected];
-    }
+  // select a check
+  selected = gui_list_strings(selected, &offset, labels, scr_trans()->next, scr_trans()->back, GUI_INACTION);
+  if (selected < 0 || selected >= num) {
+    return scr_checks;
   }
+
+  return screens[selected];
 }
 
 // Runs the ventilation check, telling it which screen each outcome lands on.
@@ -3791,63 +3841,6 @@ static void* scr_check_vent() {
 static void* scr_check_stove() {
   chk_init(scr_lang());
   return chk_stove_run(scr_checks, scr_idle, scr_check_stove);
-}
-
-// Lists the checks already run, newest first, so one can be shown again
-// without re-running it.
-static gui_list_item_t scr_check_past_item(int num, void* ctx) {
-  (void)ctx;
-
-  // newest first
-  chk_store_file_t* file = chk_store_get(chk_store_count() - 1 - (size_t)num);
-  if (file == NULL) {
-    return (gui_list_item_t){.title = "?", .info = ""};
-  }
-
-  // the result block alone says what this check was
-  chk_view_t view;
-  if (!chk_view_of(file->head.num, &view)) {
-    return (gui_list_item_t){.title = "?", .info = ""};
-  }
-
-  // the time it ran, which is all the device can say about where it was
-  uint16_t year, month, day, hour, minute, second;
-  al_clock_epoch_date(file->head.start, &year, &month, &day);
-  al_clock_epoch_time(file->head.start, &hour, &minute, &second);
-
-  return (gui_list_item_t){
-      .title = view.headline,
-      .info = lvx_fmt("%02d.%02d. %02d:%02d", day, month, hour, minute),
-  };
-}
-
-static void* scr_check_past() {
-  static int selected = 0;
-  static int offset = 0;
-
-  for (;;) {
-    int count = (int)chk_store_count();
-    if (count == 0) {
-      return scr_checks;
-    }
-
-    selected = gui_list(count, selected, &offset, scr_trans()->next, scr_trans()->back, scr_check_past_item, NULL,
-                        GUI_INACTION);
-    if (selected < 0) {
-      return scr_checks;
-    }
-
-    chk_store_file_t* file = chk_store_get(chk_store_count() - 1 - (size_t)selected);
-    if (file == NULL) {
-      return scr_checks;
-    }
-
-    chk_init(scr_lang());
-    chk_result_t result = chk_reopen(file->head.num);
-    if (result == CHK_IDLE) {
-      return scr_menu;
-    }
-  }
 }
 
 static void* scr_intro() {

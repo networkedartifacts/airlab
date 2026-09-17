@@ -13,7 +13,7 @@ static const chk_trans_t chk_trans_map[] = {
             .back = "Back",
             .stop = "Stop check",
             .carry_on = "Continue check",
-            .past_checks = "Past checks",
+            .start_check = "Start a check",
             .no_checks = "No checks for this device.",
             .sensor_errors = "Too many sensor errors. Try again.",
             .stage__baseline = "Baseline",
@@ -24,6 +24,7 @@ static const chk_trans_t chk_trans_map[] = {
             .share_failed = "Could not make a code for this result.",
 
             .vent__title = "Air Check: Ventilation",
+            .vent__name = "Ventilation Check",
             .vent__intro_1 = "Glad to assist with a ventilation check!",
             .vent__intro_2 = "First a baseline, with windows and doors closed.",
             .vent__intro_3 = "Then open a window wide and step out.",
@@ -54,6 +55,7 @@ static const chk_trans_t chk_trans_map[] = {
             .vent__stat_note = "ACH = air changes per hour",
 
             .stove__title = "Air Check: Gas Stove",
+            .stove__name = "Gas Stove Check",
             .stove__intro_1 = "Let's see how much of your stove's exhaust the hood catches!",
             .stove__intro_2 = "Gas or propane only: induction and electric make no exhaust.",
             .stove__intro_3 = "A pot of water, three short passes: hood off, hood clearing, hood on.",
