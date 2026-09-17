@@ -914,7 +914,7 @@ chk_result_t chk_show_code(uint16_t num) {
       .minute = (uint32_t)((file->head.start - 1735689600000LL) / 60000),
       .offset = file->head.offset,
       .device = chk_device_tag(),
-      .room = 0,  // the device has no way to know where it stands yet
+      .room = CHK_CODE_ROOM_NONE,  // the device has no way to know where it stands yet
       .cadence = cadence,
   };
 

@@ -47,6 +47,29 @@ typedef enum {
 // Seconds between samples, indexed by the header's cadence field.
 extern const int chk_code_cadences[8];
 
+// The room registry the page shares, fixed like the checks: an index names a
+// room for good, and the order is the order a picker lists them, likeliest
+// first. None is what the device writes until it can know where it stands,
+// and the page then says nothing about the room.
+typedef enum {
+  CHK_CODE_ROOM_NONE = 0,
+  CHK_CODE_ROOM_LIVING = 1,
+  CHK_CODE_ROOM_BEDROOM = 2,
+  CHK_CODE_ROOM_KITCHEN = 3,
+  CHK_CODE_ROOM_OFFICE = 4,
+  CHK_CODE_ROOM_BATHROOM = 5,
+  CHK_CODE_ROOM_KIDS = 6,
+  CHK_CODE_ROOM_MEETING = 7,
+  CHK_CODE_ROOM_CLASSROOM = 8,
+  CHK_CODE_ROOM_HALLWAY = 9,
+  CHK_CODE_ROOM_BASEMENT = 10,
+  CHK_CODE_ROOM_WORKSHOP = 11,
+  CHK_CODE_ROOM_GARAGE = 12,
+  CHK_CODE_ROOM_CAR = 13,
+  CHK_CODE_ROOM_HOTEL = 14,
+  CHK_CODE_ROOM_OUTDOORS = 15,
+} chk_code_room_t;
+
 // The offset a device with no time zone set writes, so the page says UTC
 // rather than guessing.
 #define CHK_CODE_OFFSET_UNKNOWN INT16_MIN
@@ -57,7 +80,7 @@ typedef struct {
   uint32_t minute;   // minutes since 2025-01-01 in UTC
   int16_t offset;    // the room's UTC offset in minutes east, or CHK_CODE_OFFSET_UNKNOWN
   uint32_t device;   // the last six hex characters of the device id, the name after "AL"
-  uint8_t room;      // index into the page's room names, 0 when unknown
+  uint8_t room;      // a chk_code_room_t, CHK_CODE_ROOM_NONE until the device can know
   uint8_t cadence;   // index into chk_code_cadences
 } chk_code_meta_t;
 
