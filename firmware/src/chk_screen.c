@@ -178,6 +178,7 @@ static void chk_view_marks(const int32_t *marks, size_t num, uint8_t cadence, ch
 // each step records that it is done before moving on.
 enum {
   VENT_STEP_INTRO,
+  VENT_STEP_ROOM,
   VENT_STEP_OUTDOOR,
   VENT_STEP_OUTSIDE,
   VENT_STEP_PRECHECK,
@@ -313,6 +314,50 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       };
       size_t n = sizeof(intro) / sizeof(intro[0]);
       CHK_TRY(chk_say_from(intro, n, back ? n - 1 : 0), CHK_LEAVE);
+      c->step = VENT_STEP_ROOM;
+    }
+
+    /* Room */
+
+    // where the check runs, for the record and the page: the registry rows in
+    // their order, likeliest first, opening on the room of the last check. The
+    // last row leaves it out, and the page then says nothing about the room
+    if (c->step == VENT_STEP_ROOM) {
+      const chk_bubble_t ask = {&img_robin_pointing, CHK_TEXT(vent__room_ask), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&ask, 1), CHK_STEP(VENT_STEP_INTRO));
+
+      // row i is room i + 1, and the row after the last room is none
+      const char *rows[] = {
+          CHK_TEXT(room__living),
+          CHK_TEXT(room__bedroom),
+          CHK_TEXT(room__kitchen),
+          CHK_TEXT(room__office),
+          CHK_TEXT(room__bathroom),
+          CHK_TEXT(room__kids),
+          CHK_TEXT(room__meeting),
+          CHK_TEXT(room__classroom),
+          CHK_TEXT(room__hallway),
+          CHK_TEXT(room__basement),
+          CHK_TEXT(room__workshop),
+          CHK_TEXT(room__garage),
+          CHK_TEXT(room__car),
+          CHK_TEXT(room__hotel),
+          CHK_TEXT(room__outdoors),
+          CHK_TEXT(room__none),
+          NULL,
+      };
+      int none = (int)(sizeof(rows) / sizeof(rows[0])) - 2;
+      uint8_t last = chk_room_last();
+      int start = last == CHK_CODE_ROOM_NONE ? none : last - 1;
+
+      // as with the floor, leaving and timing out both go back to the bubble
+      int offset = 0;
+      int chosen = gui_list_strings(start, &offset, rows, CHK_TEXT(next), CHK_TEXT(back), GUI_INACTION);
+      if (chosen < 0) {
+        continue;
+      }
+      c->room = chosen == none ? CHK_CODE_ROOM_NONE : (uint8_t)(chosen + 1);
+      chk_room_remember(c->room);
       c->step = VENT_STEP_OUTDOOR;
     }
 
@@ -323,7 +368,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     // assumption is on the screen the user chooses from.
     if (c->step == VENT_STEP_OUTDOOR) {
       const chk_bubble_t ask = {&img_robin_pointing, CHK_TEXT(vent__outdoor_ask), CHK_TEXT(next)};
-      CHK_TRY(chk_say(&ask, 1), CHK_STEP(VENT_STEP_INTRO));
+      CHK_TRY(chk_say(&ask, 1), CHK_STEP(VENT_STEP_ROOM));
 
       float ppm, age;
       chk_vent_cout_how_t how = chk_vent_outdoor_get(al_clock_get_epoch(), &ppm, &age);
@@ -614,6 +659,8 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
   chk_t *c = chk_context();
   if (!chk_resuming(c, CHK_STOVE)) {
     chk_begin(c, CHK_STOVE);
+    // a stove check runs in the kitchen by definition, so it is not asked
+    c->room = CHK_CODE_ROOM_KITCHEN;
   }
   chk_park_into(self);
 

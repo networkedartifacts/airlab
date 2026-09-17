@@ -173,6 +173,7 @@ uint16_t chk_store_open(const chk_t *c, uint8_t signal, uint8_t cadence) {
       .start = c->start,
       .offset = chk_store_offset(c->start),
       .check = c->id,
+      .room = c->room,
       .signal = signal,
       .cadence = cadence,
       .marks = 0,

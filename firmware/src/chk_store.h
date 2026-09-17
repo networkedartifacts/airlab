@@ -28,7 +28,7 @@
 
 #define CHK_STORE_MAGIC 0x4B434C41       // "ALCK"
 #define CHK_STORE_MAGIC_OPEN 0x4F434C41  // "ALCO", a record still being written
-#define CHK_STORE_VERSION 4              // 4: the bounds are the slots each flow names, not the order the marks came in
+#define CHK_STORE_VERSION 5              // 5: the head carries the room; 4: the bounds are the slots each flow names
 #define CHK_STORE_FILES 64
 #define CHK_STORE_MAX_SAMPLES 512
 
@@ -39,6 +39,7 @@ typedef struct __attribute__((packed)) {
   int64_t start;              // ms since 1970
   int16_t offset;             // the room's UTC offset at start in minutes east, or CHK_CODE_OFFSET_UNKNOWN
   uint8_t check;              // which check, a chk_id_t
+  uint8_t room;               // where it ran, a chk_code_room_t, none when not said
   uint8_t signal;             // the field the samples carry
   uint8_t cadence;            // seconds between samples
   uint8_t marks;              // how many phase boundaries are set

@@ -100,6 +100,7 @@ typedef struct {
 typedef struct {
   uint8_t id;                // which check, or CHK_NONE when idle
   uint8_t step;              // how far through the flow, for resuming
+  uint8_t room;              // where the check runs, a chk_code_room_t, none until the flow says
   int64_t start;             // epoch ms
   uint8_t phase;             // current phase within a step
   int32_t marks[CHK_MARKS];  // phase boundaries, ms since start
@@ -168,6 +169,7 @@ typedef struct {
   const char* vent__intro_2;
   const char* vent__intro_3;
   const char* vent__intro_4;
+  const char* vent__room_ask;
   const char* vent__list_windows;
   const char* vent__list_door;
   const char* vent__list_table;
@@ -201,6 +203,24 @@ typedef struct {
   const char* vent__stat_fresh;
   const char* vent__stat_co2;
   const char* vent__stat_note;
+
+  // the room registry, in its order, for the picker
+  const char* room__none;
+  const char* room__living;
+  const char* room__bedroom;
+  const char* room__kitchen;
+  const char* room__office;
+  const char* room__bathroom;
+  const char* room__kids;
+  const char* room__meeting;
+  const char* room__classroom;
+  const char* room__hallway;
+  const char* room__basement;
+  const char* room__workshop;
+  const char* room__garage;
+  const char* room__car;
+  const char* room__hotel;
+  const char* room__outdoors;
 
   // gas stove
   const char* stove__title;
@@ -307,6 +327,12 @@ void chk_release(chk_t* c);
 // again heads the series as a first one would. What the user entered before
 // measuring, the results so far, is kept.
 void chk_restart(chk_t* c);
+
+// The room a check last ran in, so the picker opens on it: one per device,
+// RTC-retained like the outdoor floor, and forgotten with it on a power-off.
+// A device is carried from room to room, so it is a default, not a setting.
+uint8_t chk_room_last(void);
+void chk_room_remember(uint8_t room);
 
 // True while leaving would throw the check away: it has taken readings and
 // no result has been sealed yet.

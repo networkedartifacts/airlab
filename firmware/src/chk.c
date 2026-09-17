@@ -301,6 +301,17 @@ chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t
 // the line the design draws.
 DEV_KEEP static chk_t chk_current;
 
+// the room the last check ran in, RTC-retained like the context
+DEV_KEEP static uint8_t chk_room;
+
+uint8_t chk_room_last(void) {
+  return chk_room;
+}
+
+void chk_room_remember(uint8_t room) {
+  chk_room = room;
+}
+
 chk_t *chk_context(void) {
   return &chk_current;
 }

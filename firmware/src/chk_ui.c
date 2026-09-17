@@ -922,10 +922,12 @@ void chk_restart(chk_t *c) {
   // begin afresh, keeping where the flow is and what the user has entered
   uint8_t id = c->id;
   uint8_t step = c->step;
+  uint8_t room = c->room;
   float result[CHK_RESULTS];
   memcpy(result, c->result, sizeof(result));
   chk_begin(c, id);
   c->step = step;
+  c->room = room;
   memcpy(c->result, result, sizeof(result));
 }
 
@@ -961,7 +963,7 @@ chk_result_t chk_show_code(uint16_t num) {
       .minute = (uint32_t)((file->head.start - 1735689600000LL) / 60000),
       .offset = file->head.offset,
       .device = chk_device_tag(),
-      .room = CHK_CODE_ROOM_NONE,  // the device has no way to know where it stands yet
+      .room = file->head.room,
       .cadence = cadence,
   };
 
