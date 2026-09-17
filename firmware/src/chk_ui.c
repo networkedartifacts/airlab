@@ -517,12 +517,14 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
   lv_obj_t *status = NULL;
 
   if (screen->show == CHK_SHOW_PROGRESS) {
-    // a baseline is counting, so centre the value and count beneath it
-    lv_obj_align(val, LV_ALIGN_TOP_MID, 0, 46);
+    // a baseline is counting, so centre the value and count beneath it. The
+    // three sit as one block, centred in the band the rule at 20 and the
+    // signs at 105 leave between them
+    lv_obj_align(val, LV_ALIGN_TOP_MID, 0, 34);
 
     hint = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(hint, &fnt_8, LV_PART_MAIN);
-    lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 77);
+    lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 65);
     lv_label_set_text(hint, screen->hint != NULL ? screen->hint : "");
 
     // a counted run fills the bar by samples; a settling one by the share of
@@ -530,7 +532,7 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     // that moves with the reading
     bar = lv_bar_create(lv_scr_act());
     lv_obj_set_size(bar, 200, 12);
-    lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, 90);
+    lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, 78);
     lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
     lv_bar_set_range(bar, 0, screen->cfg.capacity > 0 ? screen->cfg.capacity : CHK_BAR_SPAN);
   } else {
