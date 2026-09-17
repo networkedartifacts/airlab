@@ -45,6 +45,7 @@ typedef enum {
 #define CHK_CODE_MAX_DIGITS 480
 #define CHK_CODE_MAX_SAMPLES 512
 #define CHK_CODE_MAX_FIELDS 12
+#define CHK_CODE_MAX_MARKS 15  // the four-bit count of phase marks
 
 // Seconds between samples, indexed by the header's cadence field. The first
 // eight are the cadences a device samples at while awake; the rest are for
@@ -89,17 +90,22 @@ typedef struct {
 } chk_code_meta_t;
 
 // Packs a result into decimal digits. `fields` are the check's own values in
-// its own order and natural units, which the layout scales; `samples` are in
-// the series' natural unit.
+// its own order and natural units, which the layout scales; `marks` are the
+// sample indices where the check's phases end, in the order its layout names
+// them, so the page can band the chart; `samples` are in the series' natural
+// unit.
 //
 // The encoder tries the format's quantisation steps from fine to coarse and
 // keeps the first whose payload fits `max_bytes`, so a longer check loses
 // resolution rather than failing. The step it settled on is reported. A
-// field past its width is stored as the width's maximum, for the same reason.
+// field past its width is stored as the width's maximum, for the same reason,
+// and a mark past the series or behind the one before it is moved up to them.
 //
-// Returns false when the check is unknown or no step fits.
-bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const float *samples,
-                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out, size_t *bytes_out);
+// Returns false when the check is unknown, there are too many marks, or no
+// step fits.
+bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const uint16_t *marks,
+                   size_t num_marks, const float *samples, size_t count, size_t max_bytes, char *digits,
+                   size_t digits_len, int *step_out, size_t *bytes_out);
 
 // The largest symbol the 296x128 panel shows at two pixels a module with the
 // quiet zone inside the margin. The 153-byte budget above is what fits it at

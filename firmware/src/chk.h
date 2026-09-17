@@ -325,11 +325,14 @@ bool chk_confirm_discard(void);
 // off without walking the whole store past everything it has already seen.
 int chk_first_after(al_sample_source_t* source, int64_t since);
 
-// Marks a phase boundary at the current moment. A check is not one contiguous
-// window — the user is prompted between phases and takes as long as they take
-// — so the boundaries have to be recorded as they happen rather than inferred
-// from the durations afterwards.
-void chk_mark(chk_t* c);
+// Marks a phase boundary at the current moment, in the slot the check's own
+// enum names for it. A check is not one contiguous window — the user is
+// prompted between phases and takes as long as they take — so the boundaries
+// have to be recorded as they happen rather than inferred from the durations
+// afterwards; and they are named rather than appended so a step done again
+// lands on the same mark instead of shifting every one after it. The payload
+// carries them as sample indices, and the page bands the chart at them.
+void chk_mark(chk_t* c, uint8_t slot);
 
 // Milliseconds since the check began.
 int32_t chk_elapsed(const chk_t* c);
@@ -494,6 +497,8 @@ typedef struct {
   const char* note;
   float payload[CHK_CODE_MAX_FIELDS];
   size_t num_payload;
+  uint16_t marks[CHK_MARKS];  // the phase boundaries as sample indices, in the check's slot order
+  size_t num_marks;
 } chk_view_t;
 
 // The name a check goes by in menus, shorter than the title its screens

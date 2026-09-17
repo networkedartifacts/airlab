@@ -141,12 +141,25 @@ static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, void *on_exit, vo
   }
 }
 
-// how many samples fall between two phase boundaries, at this cadence
-static float chk_view_span(int32_t from_ms, int32_t to_ms, uint8_t cadence) {
-  if (cadence == 0 || to_ms <= from_ms) {
+// The sample index a phase boundary falls at: how many samples the series
+// holds before that moment, at this cadence. The record has no sample times,
+// so this is the grid the page draws the series on; a reading the sensor
+// could not give is left out of the record, and each one moves the marks
+// after it a sample early.
+static uint16_t chk_view_index(int32_t at_ms, uint8_t cadence) {
+  if (cadence == 0 || at_ms <= 0) {
     return 0;
   }
-  return (float)((to_ms - from_ms) / 1000 / cadence);
+  return (uint16_t)(at_ms / 1000 / cadence);
+}
+
+// the marks in the check's slot order, as indices; an unset slot reads as zero
+// and the encoder folds it into the mark before it
+static void chk_view_marks(const int32_t *marks, size_t num, uint8_t cadence, chk_view_t *v) {
+  for (size_t i = 0; i < num && i < CHK_MARKS; i++) {
+    v->marks[i] = chk_view_index(marks[i], cadence);
+  }
+  v->num_marks = num;
 }
 
 /* Ventilation */
@@ -246,7 +259,7 @@ static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence,
   v->lines[3] = lvx_fmt(CHK_TEXT(vent__stat_co2), r[CHK_VENT_C0], r[CHK_VENT_CLAST], r[CHK_VENT_COUT]);
   v->num_lines = 4;
 
-  // ach, achSe, r2, c0, c1, cout, coutHow, coutAge, pre
+  // ach, achSe, r2, c0, c1, cout, coutHow, coutAge
   v->payload[0] = r[CHK_VENT_ACH];
   v->payload[1] = r[CHK_VENT_ACH_BAND];
   v->payload[2] = r[CHK_VENT_R2];
@@ -257,10 +270,10 @@ static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence,
   // accuracy rests on it
   v->payload[6] = r[CHK_VENT_COUT_HOW];
   v->payload[7] = r[CHK_VENT_COUT_AGE];
-  // the baseline samples at the head of the series, which is where the page
-  // stops shading the chart as "before the window opened"
-  v->payload[8] = chk_view_span(0, marks[0], cadence);
-  v->num_payload = 9;
+  v->num_payload = 8;
+  // where the baseline held, the window went open and the decay stopped,
+  // which is where the page bands the chart
+  chk_view_marks(marks, CHK_VENT_MARKS, cadence, v);
 
   // the one number the verdict is about
   // the verdict: the one number, and the advice the tier earns
@@ -372,9 +385,6 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       c->result[CHK_VENT_COUT_HOW] = (float)(rough ? CHK_VENT_COUT_ROUGH : CHK_VENT_COUT_MEASURED);
       c->result[CHK_VENT_COUT_AGE] = 0;
 
-      // the walk outside is not part of the check's own series: start the
-      // clock and the record afresh, keeping what was just measured
-      chk_restart(c);
       c->step = VENT_STEP_PRECHECK;
 
       const chk_bubble_t got = {&img_robin_happy, lvx_fmt(CHK_TEXT(vent__outdoor_got), ppm), CHK_TEXT(next)};
@@ -400,6 +410,12 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     // along, and is taken once it holds: a room with someone in it never
     // reaches a plateau, so settled means the sensor has caught up, not the air
     if (c->step == VENT_STEP_BASELINE) {
+      // the series starts here: the intro, the checklist and the walk outside
+      // are not part of the check's own record, so the clock and the record
+      // start afresh, unless this is a resume into a baseline under way
+      if (c->run.began == 0) {
+        chk_restart(c);
+      }
       const chk_screen_t baseline = {
           .title = title,
           .stage = CHK_TEXT(stage__baseline),
@@ -411,6 +427,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
           .cfg = {.min_ms = CHK_VENT_SETTLE_MIN_MS, .max_ms = CHK_VENT_SETTLE_MAX_MS, .settle = true},
       };
       CHK_TRY(chk_measure(c, &baseline), CHK_REDO(VENT_STEP_PRECHECK));
+      chk_mark(c, CHK_VENT_MARK_SETTLED);
 
       // the baseline is the newest settled window, or what the store holds
       // when the run ended before one
@@ -445,9 +462,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       };
       CHK_TRY(chk_say(&open, 1), CHK_REDO(VENT_STEP_BASELINE));
 
-      // the boundary between the closed-window baseline and the decay, which
-      // is where the page bands the chart
-      chk_mark(c);
+      // the window goes open now: the decay starts here, and the stretch since
+      // the baseline held was the user at the device
+      chk_mark(c, CHK_VENT_MARK_OPENED);
       c->step = VENT_STEP_MEASURE;
     }
 
@@ -471,6 +488,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
           .floor = c->result[CHK_VENT_COUT],
       };
       CHK_TRY(chk_measure(c, &decay), CHK_LEAVE);
+      chk_mark(c, CHK_VENT_MARK_STOPPED);
       c->step = VENT_STEP_RESULT;
       c->phase = RESULT_PHASE_VERDICT;
     }
@@ -568,19 +586,17 @@ static void chk_view_stove(const float *r, const int32_t *marks, uint8_t cadence
   v->lines[2] = lvx_fmt(CHK_TEXT(stove__stat_peak), r[CHK_STOVE_PEAK]);
   v->num_lines = 3;
 
-  // ce, hoodAch, slope1, slope3, c0, noxPeak, pre, pass1, pass2, pass3
+  // ce, hoodAch, slope1, slope3, c0, noxPeak
   v->payload[0] = (float)percent;
   v->payload[1] = r[CHK_STOVE_HOOD_ACH] > 0 ? r[CHK_STOVE_HOOD_ACH] : 0;
   v->payload[2] = r[CHK_STOVE_SLOPE1];
   v->payload[3] = r[CHK_STOVE_SLOPE3];
   v->payload[4] = r[CHK_STOVE_C0];
   v->payload[5] = r[CHK_STOVE_NOX];
-  // the baseline, then a count per pass, from the boundaries the flow marked
-  v->payload[6] = chk_view_span(0, marks[0], cadence);
-  v->payload[7] = chk_view_span(marks[0], marks[1], cadence);
-  v->payload[8] = chk_view_span(marks[1], marks[2], cadence);
-  v->payload[9] = chk_view_span(marks[2], marks[3], cadence);
-  v->num_payload = 10;
+  v->num_payload = 6;
+  // the baseline taken, then each pass's prompt answered and run ended,
+  // which is where the page bands the chart
+  chk_view_marks(marks, CHK_STOVE_MARKS, cadence, v);
 
   // the verdict: the share caught, and the advice the tier earns
   chk_stove_tier_t tier = chk_stove_tier(r[CHK_STOVE_CAPTURE]);
@@ -640,6 +656,10 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
     /* Baseline */
 
     if (c->step == STOVE_STEP_BASELINE) {
+      // the series starts here, as in the ventilation check
+      if (c->run.began == 0) {
+        chk_restart(c);
+      }
       const chk_screen_t baseline = {
           .title = title,
           .stage = CHK_TEXT(stage__baseline),
@@ -652,6 +672,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
           .on_sample = chk_baseline_sample,
       };
       CHK_TRY(chk_measure(c, &baseline), CHK_REDO(STOVE_STEP_PRECHECK));
+      chk_mark(c, CHK_STOVE_MARK_SETTLED);
 
       c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
       c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
@@ -682,11 +703,9 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
         const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
         CHK_TRY(chk_say(&prompt, 1), c->phase == 0 ? CHK_REDO(STOVE_STEP_BASELINE) : CHK_LEAVE);
 
-        // the boundary between the baseline and the first pass, which is
-        // where the page bands the chart: the burner goes on now
-        if (c->phase == 0) {
-          chk_mark(c);
-        }
+        // the pass starts now: the burner or the hood goes on, and the
+        // stretch since the last run ended was the user at the device
+        chk_mark(c, (uint8_t)(CHK_STOVE_MARK_PASS1_ON + 2 * c->phase));
       }
 
       // a burn is drawn against the rise that ends it, the clearing against
@@ -706,7 +725,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
       CHK_TRY(chk_measure(c, &measure), CHK_LEAVE);
 
       // where this pass ended, so the page can band the chart per pass
-      chk_mark(c);
+      chk_mark(c, (uint8_t)(CHK_STOVE_MARK_PASS1_DONE + 2 * c->phase));
 
       // the kitchen has had enough: stop the check rather than the pass
       if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {

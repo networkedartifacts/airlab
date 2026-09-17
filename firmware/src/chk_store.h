@@ -22,12 +22,13 @@
 // never finished is recognised and dropped rather than listed.
 //
 // Checks live apart from recordings. The shapes differ — a recording header is
-// mostly a ninety-nine entry array of user marks, where a check needs three
-// phase boundaries and a result block — and the two lists should not mix.
+// mostly a ninety-nine entry array of user marks, where a check needs a few
+// phase boundaries in slots its flow names and a result block — and the two
+// lists should not mix.
 
 #define CHK_STORE_MAGIC 0x4B434C41       // "ALCK"
 #define CHK_STORE_MAGIC_OPEN 0x4F434C41  // "ALCO", a record still being written
-#define CHK_STORE_VERSION 3  // 3: the result block doubled to sixteen and the ventilation slots changed meaning
+#define CHK_STORE_VERSION 4              // 4: the bounds are the slots each flow names, not the order the marks came in
 #define CHK_STORE_FILES 64
 #define CHK_STORE_MAX_SAMPLES 512
 

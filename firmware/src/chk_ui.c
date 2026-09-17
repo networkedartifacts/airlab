@@ -966,8 +966,8 @@ chk_result_t chk_show_code(uint16_t num) {
   };
 
   static char digits[CHK_CODE_MAX_DIGITS];
-  if (!chk_code_pack(&meta, view.payload, view.num_payload, chk_samples, have, CHK_SHARE_MAX_BYTES, digits,
-                     sizeof(digits), NULL, NULL)) {
+  if (!chk_code_pack(&meta, view.payload, view.num_payload, view.marks, view.num_marks, chk_samples, have,
+                     CHK_SHARE_MAX_BYTES, digits, sizeof(digits), NULL, NULL)) {
     naos_log("chk: record %u (check %u, %u samples, cadence %u) refused by the packer", num, view.check, have,
              file->head.cadence);
     for (size_t i = 0; i < view.num_payload; i++) {

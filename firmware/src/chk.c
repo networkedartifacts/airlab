@@ -349,12 +349,12 @@ int chk_first_after(al_sample_source_t *source, int64_t since) {
   return al_sample_search(source, &offset);
 }
 
-void chk_mark(chk_t *c) {
-  // find the first free slot, ignoring the mark once they are all taken
-  for (size_t i = 0; i < CHK_MARKS; i++) {
-    if (c->marks[i] == 0) {
-      c->marks[i] = chk_elapsed(c);
-      return;
-    }
+void chk_mark(chk_t *c, uint8_t slot) {
+  if (slot >= CHK_MARKS) {
+    return;
   }
+  // zero is an unset slot, so a mark in the check's first millisecond is
+  // moved on by one
+  int32_t at = chk_elapsed(c);
+  c->marks[slot] = at > 0 ? at : 1;
 }

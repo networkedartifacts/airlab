@@ -36,6 +36,20 @@ enum {
   CHK_STOVE_PASS_HOOD,   // burner on, hood on
 };
 
+// The phase boundaries the flow marks, as slots in the context's marks: the
+// baseline taken, then for each pass the prompt answered and the run ended.
+// Pass n's pair is CHK_STOVE_MARK_PASS1_ON + 2n and the slot after it.
+enum {
+  CHK_STOVE_MARK_SETTLED,  // the baseline taken
+  CHK_STOVE_MARK_PASS1_ON,
+  CHK_STOVE_MARK_PASS1_DONE,
+  CHK_STOVE_MARK_PASS2_ON,
+  CHK_STOVE_MARK_PASS2_DONE,
+  CHK_STOVE_MARK_PASS3_ON,
+  CHK_STOVE_MARK_PASS3_DONE,
+  CHK_STOVE_MARKS,
+};
+
 // The slope is taken over the first two minutes of a pass, before the excess
 // that has built up starts feeding the hood's own removal and bends the rise.
 #define CHK_STOVE_SLOPE_MS 120000

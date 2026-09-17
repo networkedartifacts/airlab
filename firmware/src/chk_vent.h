@@ -26,6 +26,18 @@ enum {
 
 // Where the outdoor floor came from. It is carried in the payload, since the
 // estimate's accuracy rests on it and the page says which it was.
+// The phase boundaries the flow marks, as slots in the context's marks. The
+// series starts with the baseline screen; the stretches no measurement owns,
+// between the baseline holding and the window confirmed open and after the
+// decay stopped, are the user's time at the device, which the page shows as
+// such.
+enum {
+  CHK_VENT_MARK_SETTLED,  // the baseline held and was taken
+  CHK_VENT_MARK_OPENED,   // the window confirmed open: the decay starts
+  CHK_VENT_MARK_STOPPED,  // the decay run ended
+  CHK_VENT_MARKS,
+};
+
 typedef enum {
   CHK_VENT_COUT_ASSUMED,   // nothing measured: the sensor's own reference
   CHK_VENT_COUT_MEASURED,  // measured outside, and the reading had settled

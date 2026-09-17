@@ -37,15 +37,19 @@ static float chk_code_offset(int16_t minutes) {
   return (float)code;
 }
 
-// ach, achSe, r2, c0, c1, cout, coutHow, coutAge, pre
+// ach, achSe, r2, c0, c1, cout, coutHow, coutAge
 static const chk_code_field_t chk_code_fields_a[] = {
-    {12, 100}, {8, 100}, {7, 100}, {13, 1}, {13, 1}, {11, 1}, {2, 1}, {8, 1}, {6, 1},
+    {12, 100}, {8, 100}, {7, 100}, {13, 1}, {13, 1}, {11, 1}, {2, 1}, {8, 1},
 };
 
-// ce, hoodAch, slope1, slope3, c0, noxPeak, pre, pass1, pass2, pass3
+// ce, hoodAch, slope1, slope3, c0, noxPeak
 static const chk_code_field_t chk_code_fields_e[] = {
-    {10, 10}, {12, 100}, {12, 10}, {12, 10}, {13, 1}, {9, 1}, {6, 1}, {10, 1}, {10, 1}, {10, 1},
+    {10, 10}, {12, 100}, {12, 10}, {12, 10}, {13, 1}, {9, 1},
 };
+
+// the phase marks ride behind the first sample: a four-bit count, then each
+// as a ten-bit sample index
+#define CHK_CODE_MARK_BITS 4
 
 // one layout per check under CHK_CODE_LETTER
 typedef struct {
@@ -60,8 +64,8 @@ typedef struct {
 static const int chk_code_steps_co2[] = {1, 2, 5, 10, 20, 25, 50, 100};
 
 static const chk_code_format_t chk_code_formats[] = {
-    {CHK_CODE_VENT, chk_code_fields_a, 9, 1, chk_code_steps_co2, 8},
-    {CHK_CODE_STOVE, chk_code_fields_e, 10, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_VENT, chk_code_fields_a, 8, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_STOVE, chk_code_fields_e, 6, 1, chk_code_steps_co2, 8},
 };
 
 /* Bit writer */
@@ -264,9 +268,36 @@ static const chk_code_format_t *chk_code_format(uint8_t check) {
   return NULL;
 }
 
-bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const float *samples,
-                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out, size_t *bytes_out) {
+// the marks in order and within the series: one behind its predecessor or
+// past the end is moved up to it, so a flow that skipped a slot still shares
+static bool chk_code_marks(chk_code_writer_t *w, const uint16_t *marks, size_t num_marks, size_t count) {
+  if (!chk_code_write(w, (uint32_t)num_marks, CHK_CODE_MARK_BITS)) {
+    return false;
+  }
+  uint32_t last = 0;
+  for (size_t i = 0; i < num_marks; i++) {
+    uint32_t m = marks != NULL ? marks[i] : 0;
+    if (m < last) {
+      m = last;
+    }
+    if (m > count) {
+      m = (uint32_t)count;
+    }
+    if (!chk_code_write(w, m, 10)) {
+      return false;
+    }
+    last = m;
+  }
+  return true;
+}
+
+bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const uint16_t *marks,
+                   size_t num_marks, const float *samples, size_t count, size_t max_bytes, char *digits,
+                   size_t digits_len, int *step_out, size_t *bytes_out) {
   if (meta == NULL || samples == NULL || digits == NULL) {
+    return false;
+  }
+  if (num_marks > CHK_CODE_MAX_MARKS) {
     return false;
   }
   const chk_code_format_t *format = chk_code_format(meta->check);
@@ -316,7 +347,8 @@ bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_
     bool ok = chk_code_pack_fields(&w, chk_code_header, 7, header) &&
               chk_code_pack_fields(&w, format->fields, format->num_fields, fields) &&
               chk_code_write(&w, (uint32_t)count, 10) && chk_code_write(&w, (uint32_t)s, 3) &&
-              chk_code_write(&w, (uint32_t)quantised[0], 16) && chk_code_series(&w, quantised, count);
+              chk_code_write(&w, (uint32_t)quantised[0], 16) && chk_code_marks(&w, marks, num_marks, count) &&
+              chk_code_series(&w, quantised, count);
     if (!ok || w.overflow) {
       continue;  // a jump too large for this step, or simply too long
     }
