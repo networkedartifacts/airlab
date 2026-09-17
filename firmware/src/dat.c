@@ -154,8 +154,8 @@ void dat_init() {
 
     // log file
     if (DAT_DEBUG) {
-      naos_log("dat: add num=%u start=%" PRId64 " size=%zu stop=%d marks=%d ", file.head.num, file.head.start, file.size,
-               file.stop, file.marks);
+      naos_log("dat: add num=%u start=%" PRId64 " size=%zu stop=%d marks=%d ", file.head.num, file.head.start,
+               file.size, file.stop, file.marks);
     }
 
     // add file

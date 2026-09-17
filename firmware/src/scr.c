@@ -131,8 +131,7 @@ static const char* scr_field_str(al_sample_field_t field, float value) {
 
 // history fields in display order (PM joins the other pollutant values)
 static const int8_t scr_field_order[] = {
-    AL_SAMPLE_CO2, AL_SAMPLE_TMP, AL_SAMPLE_HUM, AL_SAMPLE_VOC,
-    AL_SAMPLE_NOX, AL_SAMPLE_PM,  AL_SAMPLE_PRS,
+    AL_SAMPLE_CO2, AL_SAMPLE_TMP, AL_SAMPLE_HUM, AL_SAMPLE_VOC, AL_SAMPLE_NOX, AL_SAMPLE_PM, AL_SAMPLE_PRS,
 };
 
 static void scr_field_cycle(bool forward, bool has_pm) {
@@ -1943,8 +1942,8 @@ static void scr_power_profile() {
     // update parameter preview
     const char* gas = window > 0 ? lvx_fmt("%s %lds", t->config__gas_mode_duty, window)
                                  : (window == 0 ? t->config__gas_mode_cont : t->off);
-    lv_label_set_text(info, lvx_fmt("%s: %lds\n%s: %lds\n%s: %s", t->config__sleep_rate, sleep,
-                                    t->config__display_rate, display, t->config__gas_mode, gas));
+    lv_label_set_text(info, lvx_fmt("%s: %lds\n%s: %lds\n%s: %s", t->config__sleep_rate, sleep, t->config__display_rate,
+                                    display, t->config__gas_mode, gas));
 
     // end draw
     gfx_end(false, false);
@@ -2653,8 +2652,8 @@ static void* scr_config() {
   const scr_trans_t* t = scr_trans();
 
   // select category
-  int choice = gui_list(SCR_CAT_NUM, selected, &offset, t->explore__select, t->back, scr_config_cat_cb, NULL,
-                        GUI_INACTION);
+  int choice =
+      gui_list(SCR_CAT_NUM, selected, &offset, t->explore__select, t->back, scr_config_cat_cb, NULL, GUI_INACTION);
   if (choice < 0) {
     return scr_settings;
   }
@@ -3771,8 +3770,8 @@ static void* scr_checks() {
   for (;;) {
     // show list
     int count = (int)chk_store_count();
-    selected = gui_list(count + 1, selected, &offset, scr_trans()->next, scr_trans()->back, scr_checks_cb, NULL,
-                        GUI_INACTION);
+    selected =
+        gui_list(count + 1, selected, &offset, scr_trans()->next, scr_trans()->back, scr_checks_cb, NULL, GUI_INACTION);
     if (selected < 0) {
       return scr_menu;
     }

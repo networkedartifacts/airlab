@@ -90,6 +90,10 @@ double pwr_days(int32_t sleep, int32_t display, int32_t gas) {
   return PWR_CAPACITY_MAH / pwr_current(sleep, display, gas) / 24;
 }
 
-int pwr_num_rungs(void) { return PWR_LADDER_NUM; }
+int pwr_num_rungs(void) {
+  return PWR_LADDER_NUM;
+}
 
-pwr_rung_t pwr_rung(int index) { return pwr_ladder[index]; }
+pwr_rung_t pwr_rung(int index) {
+  return pwr_ladder[index];
+}
