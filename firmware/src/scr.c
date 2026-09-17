@@ -71,6 +71,11 @@ static int8_t scr_field = 0;  // co2, tmp, hum, voc, nox, prs, pm
 // radios off, while waking up applies the main interval and starts the
 // radios. The state is derived from the wake up trigger and is not carried
 // across sleep.
+//
+// The mode is also what makes scr_wake_up() re-apply the awake configuration,
+// as it only does so on a transition. A sleep therefore enters doze the moment
+// it is decided, before the sensors are reconfigured, even though the radios
+// stay up until the sleep itself takes them down.
 typedef enum {
   SCR_DOZE,
   SCR_AWAKE,
@@ -285,7 +290,18 @@ static const char* scr_stay_awake() {
   return NULL;
 }
 
-static sig_event_t scr_idle_sleep() {
+// Leaves the awake state on the way to a sleep, whatever screen is sleeping.
+// Returns the reason the device must stay awake, in which case the state is
+// left as it was, or NULL once the device is dozing.
+//
+// The doze configuration is applied here, and scr_wake_up() undoes it on the
+// next transition. That is why the mode is set before the configuration is
+// touched: an aborted sleep must see a real transition, or the awake
+// configuration would never be re-applied.
+//
+// What belongs to idling rather than to dozing is not here: the sleep
+// duration and the sensor interval, which the caller decides.
+static const char* scr_enter_doze() {
   // read power state
   al_power_state_t power = al_power_get();
 
@@ -294,13 +310,37 @@ static sig_event_t scr_idle_sleep() {
     scr_power_off(true, true);
   }
 
-  // set sensor gas window and grace also while staying awake, the sensor
-  // monitor re-applies the configuration if it changed
+  // re-apply the gas window and grace, also while staying awake: the sensor
+  // monitor picks up the configuration if it changed
   al_sensor_set_gas_window(naos_get_l("gas-window"));
   al_sensor_set_gas_grace(naos_get_l("gas-grace"));
 
-  // check if the device stays awake
+  // stay awake if something holds the device
   const char* stay_awake = scr_stay_awake();
+  if (stay_awake != NULL) {
+    return stay_awake;
+  }
+
+  /* Doze */
+
+  scr_mode = SCR_DOZE;
+
+  // set the PM rate in manual mode, so the sensor never runs on its own while
+  // dozing and measurements are taken before sleeping
+  al_sensor_set_pm_rate(naos_get_l("pm-rate"), true);
+
+  // finish a PM measurement before sleeping if one is due, the sensor itself
+  // is idled by the sleep
+  if (al_sensor_pm_due() == 0) {
+    al_sensor_pm_measure();
+  }
+
+  return NULL;
+}
+
+static sig_event_t scr_idle_sleep() {
+  // enter doze, unless something holds the device
+  const char* stay_awake = scr_enter_doze();
   if (stay_awake != NULL) {
     // the device stays awake, so wake up fully
     scr_wake_up(stay_awake);
@@ -316,24 +356,8 @@ static sig_event_t scr_idle_sleep() {
     return event;
   }
 
-  // enter doze state, so an abort below or a later awake condition performs a
-  // real transition and re-applies the awake configuration
-  scr_mode = SCR_DOZE;
-
   // set sensor interval
   al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
-
-  // set the PM rate in manual mode, so the sensor never runs on its own while
-  // dozing and measurements are taken below before sleeping (this must stay
-  // below the awake return above, as scr_wake_up() applies the awake rate only
-  // on the state transition and would not restore it)
-  al_sensor_set_pm_rate(naos_get_l("pm-rate"), true);
-
-  // finish a PM measurement before sleeping if one is due, the sensor itself
-  // is idled by the sleep
-  if (al_sensor_pm_due() == 0) {
-    al_sensor_pm_measure();
-  }
 
   // check for a key press that arrived while preparing, as a PM measurement
   // may have extended the wake by several seconds, and wake up instead of
