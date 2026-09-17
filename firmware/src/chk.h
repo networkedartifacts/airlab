@@ -114,6 +114,8 @@ typedef struct {
   const char* done;
   const char* check;
   const char* back;
+  const char* stop;
+  const char* carry_on;
   const char* sensor_errors;
   const char* no_checks;
   const char* past_checks;
@@ -259,6 +261,14 @@ void chk_release(chk_t *c);
 // measuring, the results so far, is kept.
 void chk_restart(chk_t *c);
 
+// True while leaving would throw the check away: it has taken readings and
+// no result has been sealed yet.
+bool chk_underway(const chk_t *c);
+
+// Asks whether to stop the check, the way a recording asks on the way out.
+// Returns true to stop; a timeout keeps going.
+bool chk_confirm_stop(void);
+
 // The index of the first sample in a source taken after the given moment, or
 // -1 when there is none. A binary search, so a check picks up where it left
 // off without walking the whole store past everything it has already seen.
@@ -365,7 +375,8 @@ int chk_cadence(void);
 // than started, which is how a measurement picks up after a deep sleep. At a
 // slow cadence the wait between readings is spent in a deep sleep that wakes
 // back into the flow's own screen, so the run continues there. The B key
-// abandons the run, which starts the check over, and reports back.
+// leaves the run as it is and reports back; the flow decides whether that
+// is a restart, a stop, or nothing.
 chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen);
 
 // Runs the ventilation check. The three arguments are the screens each

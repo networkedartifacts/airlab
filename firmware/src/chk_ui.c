@@ -486,9 +486,12 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     chk_measure_reset(run);
     run->began = al_clock_get_epoch();
     c->seen = run->began;
+
+    // a new run gets a clean chart; a continued one keeps its bars, which a
+    // reset would have wiped anyway
+    chk_bar_count = 0;
   }
   int64_t began = run->began;
-  chk_bar_count = 0;
 
   // take an opening reading so the screen has something to show
   float value = chk_read(screen->field);
@@ -627,11 +630,10 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
       scr_park(interval, interval * 1000, chk_park_screen);
     }
 
-    // the key abandons the run: what it took is dropped with the check's
-    // clock, so a baseline done again heads the series
+    // the key hands the run back to the flow as it stands, so that a run
+    // come back to after a question carries on where it was
     if (chk_await() != CHK_NEXT) {
       gui_cleanup(false);
-      chk_restart(c);
       return CHK_BACK;
     }
   }
@@ -844,6 +846,14 @@ void chk_release(chk_t *c) {
 
   // nothing is left to park into
   chk_park_screen = NULL;
+}
+
+bool chk_underway(const chk_t *c) {
+  return chk_started(c) && (c->file == 0 || chk_store_pending() == c->file);
+}
+
+bool chk_confirm_stop(void) {
+  return gui_choose(CHK_TEXT(stop), CHK_TEXT(carry_on), true, CHK_ACTION_TIMEOUT) == 1;
 }
 
 void chk_restart(chk_t *c) {

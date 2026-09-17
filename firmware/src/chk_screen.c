@@ -20,11 +20,13 @@
 
 // Runs a kit call and routes every outcome but "next". The B key goes where
 // the step says, `on_back` naming the step or phase before it, or leaves when
-// there is nothing to go back to. Every other way out releases the check:
-// escape is the user abandoning it, and a timeout only reaches here before
-// the baseline, when the user was looking rather than waiting, so the next
-// run starts over. A started check never times out: its prompts park the
-// device on the flow's screen and wake back into it.
+// there is nothing to go back to; leaving a check that is under way is first
+// put as a question, and declining it shows the screen again. Every other way
+// out releases the check: escape is the user abandoning it, and a timeout
+// only reaches here before the baseline, when the user was looking rather
+// than waiting, so the next run starts over. A started check never times
+// out: its prompts park the device on the flow's screen and wake back into
+// it.
 //
 // A block rather than a statement, as going back continues the step loop it
 // sits in. Expects `c`, `back`, `on_exit`, `on_idle` and `self` in scope.
@@ -35,6 +37,10 @@
       back = true;                                                             \
       continue;                                                                \
     }                                                                          \
+    if (_r == CHK_BACK && chk_underway(c) && !chk_confirm_stop()) {            \
+      back = false;                                                            \
+      continue;                                                                \
+    }                                                                          \
     if (_r != CHK_NEXT) {                                                      \
       chk_release(c);                                                          \
       return _r == CHK_IDLE ? on_idle : _r == CHK_AGAIN ? self : on_exit;      \
@@ -42,8 +48,10 @@
     back = false;                                                              \
   }
 
-// where the B key goes: a step, a phase of the result, or out
+// where the B key goes: a step, a step with the check started over (out of a
+// baseline, or back into one), a phase of the result, or out
 #define CHK_STEP(s) (c->step = (s), true)
+#define CHK_REDO(s) (chk_restart(c), c->step = (s), true)
 #define CHK_PHASE(p) (c->phase = (p), true)
 #define CHK_LEAVE false
 
@@ -276,12 +284,6 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
     /* Baseline */
 
     if (c->step == VENT_STEP_BASELINE) {
-      // come back to from the prompt after it, the baseline is done over,
-      // which is the check starting over
-      if (back) {
-        chk_restart(c);
-      }
-
       const chk_screen_t baseline = {
           .title = title,
           .stage = CHK_TEXT(stage__baseline),
@@ -293,7 +295,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
           .cfg = {.capacity = CHK_VENT_BASELINE_N},
           .on_sample = chk_baseline_sample,
       };
-      CHK_TRY(chk_measure(c, &baseline), CHK_STEP(VENT_STEP_OUTDOOR));
+      CHK_TRY(chk_measure(c, &baseline), CHK_REDO(VENT_STEP_OUTDOOR));
 
       // the baseline is the median of what the store holds, which is
       // steadier than a mean when a reading or two is off
@@ -323,7 +325,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
           lvx_fmt(CHK_TEXT(vent__open_window), c->result[CHK_VENT_C0]),
           CHK_TEXT(vent__window_is_open),
       };
-      CHK_TRY(chk_say(&open, 1), CHK_STEP(VENT_STEP_BASELINE));
+      CHK_TRY(chk_say(&open, 1), CHK_REDO(VENT_STEP_BASELINE));
 
       // the boundary between the closed-window baseline and the decay, which
       // is where the page bands the chart
@@ -333,7 +335,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
     /* Measurement */
 
-    // the window is open, so there is no going back from here
+    // the window is open, so there is no going back from here, only stopping
     if (c->step == VENT_STEP_MEASURE) {
       const chk_screen_t decay = {
           .title = title,
@@ -523,12 +525,6 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
     /* Baseline */
 
     if (c->step == STOVE_STEP_BASELINE) {
-      // come back to from the first prompt, the baseline is done over, which
-      // is the check starting over
-      if (back) {
-        chk_restart(c);
-      }
-
       const chk_screen_t baseline = {
           .title = title,
           .stage = CHK_TEXT(stage__baseline),
@@ -540,7 +536,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
           .cfg = {.capacity = CHK_STOVE_BASELINE_N},
           .on_sample = chk_baseline_sample,
       };
-      CHK_TRY(chk_measure(c, &baseline), CHK_STEP(STOVE_STEP_PRECHECK));
+      CHK_TRY(chk_measure(c, &baseline), CHK_REDO(STOVE_STEP_PRECHECK));
 
       c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
       c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
@@ -561,7 +557,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
       // the prompt, unless the pass is already under way: a resume into a
       // measurement must not ask for the burner again. Before the first pass
       // the key goes back to the baseline; once a burner has been on there
-      // is no going back.
+      // is no going back, only stopping.
       if (c->run.began == 0) {
         // cue the user, unless this is a timer wake re-entering the prompt
         // they left on the table
@@ -569,7 +565,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
           al_buzzer_beep(1047, 80, false);
         }
         const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
-        CHK_TRY(chk_say(&prompt, 1), c->phase == 0 ? CHK_STEP(STOVE_STEP_BASELINE) : CHK_LEAVE);
+        CHK_TRY(chk_say(&prompt, 1), c->phase == 0 ? CHK_REDO(STOVE_STEP_BASELINE) : CHK_LEAVE);
 
         // the boundary between the baseline and the first pass, which is
         // where the page bands the chart: the burner goes on now
