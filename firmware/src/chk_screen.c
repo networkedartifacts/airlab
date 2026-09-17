@@ -3,12 +3,14 @@
 // chk_vent.c's and chk_stove.c's; what is here is each flow, its copy, the
 // numbers it chooses, and the view it and a reopened record share.
 
+#include <math.h>
 #include <stdbool.h>
 #include <string.h>
 
 #include <naos.h>
 
 #include <al/buzzer.h>
+#include <al/clock.h>
 
 #include "chk.h"
 #include "chk_stove.h"
@@ -32,26 +34,26 @@
 //
 // A block rather than a statement, as going back continues the step loop it
 // sits in. Expects `c`, `back`, `on_exit`, `on_idle` and `self` in scope.
-#define CHK_TRY(expr, on_back)                                                 \
-  {                                                                            \
-    chk_result_t _r = (expr);                                                  \
-    if (_r == CHK_BACK) {                                                      \
-      int _b = (on_back);                                                      \
-      if (_b == CHK_WENT) {                                                    \
-        back = true;                                                           \
-        continue;                                                              \
-      }                                                                        \
-      if (_b == CHK_STAYED || (chk_underway(c) && !chk_confirm_stop())) {      \
-        back = false;                                                          \
-        continue;                                                              \
-      }                                                                        \
-    }                                                                          \
-    if (_r != CHK_NEXT) {                                                      \
-      naos_log("chk: leaving step %u on %d", c->step, _r);                     \
-      chk_release(c);                                                          \
-      return _r == CHK_IDLE ? on_idle : _r == CHK_AGAIN ? self : on_exit;      \
-    }                                                                          \
-    back = false;                                                              \
+#define CHK_TRY(expr, on_back)                                            \
+  {                                                                       \
+    chk_result_t _r = (expr);                                             \
+    if (_r == CHK_BACK) {                                                 \
+      int _b = (on_back);                                                 \
+      if (_b == CHK_WENT) {                                               \
+        back = true;                                                      \
+        continue;                                                         \
+      }                                                                   \
+      if (_b == CHK_STAYED || (chk_underway(c) && !chk_confirm_stop())) { \
+        back = false;                                                     \
+        continue;                                                         \
+      }                                                                   \
+    }                                                                     \
+    if (_r != CHK_NEXT) {                                                 \
+      naos_log("chk: leaving step %u on %d", c->step, _r);                \
+      chk_release(c);                                                     \
+      return _r == CHK_IDLE ? on_idle : _r == CHK_AGAIN ? self : on_exit; \
+    }                                                                     \
+    back = false;                                                         \
   }
 
 // what the B key did: went somewhere, stayed after a question, or has
@@ -66,7 +68,7 @@ enum {
 // user has agreed to lose the baseline (out of one, or back into one), a
 // phase of the result, or out
 #define CHK_STEP(s) (c->step = (s), CHK_WENT)
-#define CHK_REDO(s)                                                                                        \
+#define CHK_REDO(s)                                                                                               \
   (chk_confirm_discard() ? (naos_log("chk: redo from step %u", c->step), chk_restart(c), c->step = (s), CHK_WENT) \
                          : CHK_STAYED)
 #define CHK_PHASE(p) (c->phase = (p), CHK_WENT)
@@ -83,8 +85,8 @@ static void *chk_leave(chk_t *c, chk_result_t said, void *on_exit, void *on_idle
   return on_exit;
 }
 
-// A baseline accumulates nothing: the run's own count ends it, and the value
-// is read back from the store afterwards as a median.
+// A counted baseline accumulates nothing: the run's own count ends it, and
+// the value is read back from the store afterwards as a median.
 static chk_step_t chk_baseline_sample(chk_t *c, float value, int32_t t_ms) {
   (void)c;
   (void)value;
@@ -105,8 +107,7 @@ enum {
 // shown now is built from exactly what a reopened check will be built from
 // later, or from the live block when the record could not be kept.
 static bool chk_finish_view(const chk_t *c, uint8_t id, uint16_t stored, chk_view_t *view) {
-  return chk_view_of(stored, view) ||
-         chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), view);
+  return chk_view_of(stored, view) || chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), view);
 }
 
 // The end every solid result shares: the verdict, the stats, then the code,
@@ -150,21 +151,33 @@ static float chk_view_span(int32_t from_ms, int32_t to_ms, uint8_t cadence) {
 
 /* Ventilation */
 
-// The baseline is six readings, which at the device's cadence is about half a
-// minute of closed-window air.
-#define CHK_VENT_BASELINE_N 6
+// The outdoor floor and the baseline both wait for the reading to settle
+// rather than for a count: outside, the sensor falls from room air to outdoor
+// air; back inside, it climbs from outdoor air to the room's. Either takes
+// the sensor about three minutes to make from a step of a few hundred ppm,
+// so the floor is two minutes and the cap five, after which the reading is
+// taken as it stands.
+#define CHK_VENT_SETTLE_MIN_MS 120000
+#define CHK_VENT_SETTLE_MAX_MS 300000
 
 // Where the flow can be resumed from after a deep sleep, which on this device
 // is a reset: main memory is gone and the flow is re-entered from the top, so
 // each step records that it is done before moving on.
 enum {
   VENT_STEP_INTRO,
-  VENT_STEP_PRECHECK,
   VENT_STEP_OUTDOOR,
+  VENT_STEP_OUTSIDE,
+  VENT_STEP_PRECHECK,
   VENT_STEP_BASELINE,
   VENT_STEP_TRIGGER,
   VENT_STEP_MEASURE,
   VENT_STEP_RESULT,
+};
+
+// the two ways to come by the outdoor floor, in the order the list shows them
+enum {
+  VENT_OUTDOOR_USE,
+  VENT_OUTDOOR_MEASURE,
 };
 
 // The measurement runs at least ninety seconds so the fit has a span, at most
@@ -178,10 +191,22 @@ enum {
 #define CHK_VENT_NUDGE_MS 120000
 
 // Outdoor CO2 is an input rather than a constant, because urban air reaches
-// 600 ppm and a 50 ppm error moves the estimate by about a third. The wheel
-// opens on what the device has seen, and the precheck wants this much excess
-// above it before there is anything to measure.
+// 600 ppm and a 50 ppm error moves the estimate by about a third. It is
+// measured outside or assumed, never typed in, since nobody knows today's
+// value; and the precheck wants this much excess above it before there is
+// anything to measure.
 #define CHK_VENT_EXCESS_MIN 200.0f
+
+// The age of a remembered floor, said out loud: the hour it was measured in
+// is "just now", then hours, then days.
+static const char *chk_vent_age_text(float hours) {
+  if (hours < 1) {
+    return CHK_TEXT(vent__age_now);
+  } else if (hours < 48) {
+    return lvx_fmt(CHK_TEXT(vent__age_hours), (int)hours);
+  }
+  return lvx_fmt(CHK_TEXT(vent__age_days), (int)(hours / 24));
+}
 
 static chk_step_t vent_decay_sample(chk_t *c, float value, int32_t t_ms) {
   // feed the fit
@@ -208,24 +233,29 @@ static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence,
   v->signal = AL_SAMPLE_CO2;
   v->note = CHK_TEXT(vent__stat_note);
 
-  int half = chk_round_minutes(r[CHK_VENT_HALF_LIFE]);
+  // the half-life and the time to fresh follow from the rate
+  int half = chk_round_minutes(chk_half_life(r[CHK_VENT_ACH]));
   v->lines[0] = lvx_fmt(CHK_TEXT(vent__stat_ach), r[CHK_VENT_ACH], r[CHK_VENT_ACH_BAND]);
   v->lines[1] = lvx_fmt(CHK_TEXT(vent__stat_half_life), half);
-  v->lines[2] = lvx_fmt(CHK_TEXT(vent__stat_fresh), chk_round_minutes(r[CHK_VENT_FRESH]));
+  v->lines[2] = lvx_fmt(CHK_TEXT(vent__stat_fresh), chk_round_minutes(chk_fresh_time(r[CHK_VENT_ACH])));
   v->lines[3] = lvx_fmt(CHK_TEXT(vent__stat_co2), r[CHK_VENT_C0], r[CHK_VENT_CLAST], r[CHK_VENT_COUT]);
   v->num_lines = 4;
 
-  // ach, achSe, r2, c0, c1, cout, pre
+  // ach, achSe, r2, c0, c1, cout, coutHow, coutAge, pre
   v->payload[0] = r[CHK_VENT_ACH];
   v->payload[1] = r[CHK_VENT_ACH_BAND];
   v->payload[2] = r[CHK_VENT_R2];
   v->payload[3] = r[CHK_VENT_C0];
   v->payload[4] = r[CHK_VENT_CLAST];
   v->payload[5] = r[CHK_VENT_COUT];
+  // where the floor came from, so the page can say so: the estimate's
+  // accuracy rests on it
+  v->payload[6] = r[CHK_VENT_COUT_HOW];
+  v->payload[7] = r[CHK_VENT_COUT_AGE];
   // the baseline samples at the head of the series, which is where the page
   // stops shading the chart as "before the window opened"
-  v->payload[6] = chk_view_span(0, marks[0], cadence);
-  v->num_payload = 7;
+  v->payload[8] = chk_view_span(0, marks[0], cadence);
+  v->num_payload = 9;
 
   // the one number the verdict is about
   // the verdict: the one number, and the advice the tier earns
@@ -265,7 +295,85 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       };
       size_t n = sizeof(intro) / sizeof(intro[0]);
       CHK_TRY(chk_say_from(intro, n, back ? n - 1 : 0), CHK_LEAVE);
+      c->step = VENT_STEP_OUTDOOR;
+    }
+
+    /* Outdoor floor */
+
+    // the floor the decay falls towards: the remembered value, or a walk
+    // outside to measure it. The list's row says what "use" would use, so the
+    // assumption is on the screen the user chooses from.
+    if (c->step == VENT_STEP_OUTDOOR) {
+      const chk_bubble_t ask = {&img_robin_pointing, CHK_TEXT(vent__outdoor_ask), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&ask, 1), CHK_STEP(VENT_STEP_INTRO));
+
+      float ppm, age;
+      chk_vent_cout_how_t how = chk_vent_outdoor_get(al_clock_get_epoch(), &ppm, &age);
+      const char *use = how == CHK_VENT_COUT_ASSUMED
+                            ? lvx_fmt(CHK_TEXT(vent__outdoor_default), ppm)
+                            : lvx_fmt(CHK_TEXT(vent__outdoor_remembered), ppm, chk_vent_age_text(age));
+      const char *rows[] = {use, CHK_TEXT(vent__outdoor_measure), NULL};
+
+      // the list cannot tell leaving from timing out, so both go back to the
+      // bubble, which times out on its own if nobody is there
+      int offset = 0;
+      int chosen = gui_list_strings(0, &offset, rows, CHK_TEXT(next), CHK_TEXT(back), GUI_INACTION);
+      if (chosen < 0) {
+        continue;
+      }
+      if (chosen == VENT_OUTDOOR_MEASURE) {
+        c->step = VENT_STEP_OUTSIDE;
+      } else {
+        c->result[CHK_VENT_COUT] = ppm;
+        c->result[CHK_VENT_COUT_HOW] = (float)how;
+        c->result[CHK_VENT_COUT_AGE] = age;
+        c->step = VENT_STEP_PRECHECK;
+      }
+    }
+
+    /* Outside */
+
+    if (c->step == VENT_STEP_OUTSIDE) {
+      const chk_bubble_t go = {&img_robin_pointing, CHK_TEXT(vent__go_outside), CHK_TEXT(start)};
+      CHK_TRY(chk_say(&go, 1), CHK_STEP(VENT_STEP_OUTDOOR));
+
+      // the reading falls from room air to outdoor air and is taken once it
+      // holds; the key drops the run and asks again
+      const chk_screen_t outside = {
+          .title = title,
+          .stage = CHK_TEXT(stage__outside),
+          .hint = CHK_TEXT(vent__outside_hint),
+          .unit = "ppm",
+          .show = CHK_SHOW_PROGRESS,
+          .back = CHK_TEXT(back),
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.min_ms = CHK_VENT_SETTLE_MIN_MS, .max_ms = CHK_VENT_SETTLE_MAX_MS, .settle = true},
+      };
+      CHK_TRY(chk_measure(c, &outside), (chk_measure_reset(&c->run), CHK_STEP(VENT_STEP_OUTSIDE)));
+
+      float ppm = chk_settle_value(&c->run);
+      bool rough = !chk_settle_done(&c->run);
+
+      // a floor that reads like indoor air is doubted, not refused: the key
+      // goes back out to measure again, the action takes it as it is
+      if (ppm > CHK_VENT_OUTDOOR_MAX) {
+        const chk_bubble_t doubt = {&img_robin_standing, lvx_fmt(CHK_TEXT(vent__outdoor_doubt), ppm),
+                                    CHK_TEXT(vent__outdoor_anyway)};
+        CHK_TRY(chk_say(&doubt, 1), (chk_measure_reset(&c->run), CHK_STEP(VENT_STEP_OUTSIDE)));
+      }
+
+      chk_vent_outdoor_set(ppm, rough, al_clock_get_epoch());
+      c->result[CHK_VENT_COUT] = ppm;
+      c->result[CHK_VENT_COUT_HOW] = (float)(rough ? CHK_VENT_COUT_ROUGH : CHK_VENT_COUT_MEASURED);
+      c->result[CHK_VENT_COUT_AGE] = 0;
+
+      // the walk outside is not part of the check's own series: start the
+      // clock and the record afresh, keeping what was just measured
+      chk_restart(c);
       c->step = VENT_STEP_PRECHECK;
+
+      const chk_bubble_t got = {&img_robin_happy, lvx_fmt(CHK_TEXT(vent__outdoor_got), ppm), CHK_TEXT(next)};
+      CHK_TRY(chk_say(&got, 1), CHK_STEP(VENT_STEP_OUTSIDE));
     }
 
     /* Precheck */
@@ -277,27 +385,15 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
           CHK_TEXT(vent__list_door),
           CHK_TEXT(vent__list_table),
       };
-      CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3, back), CHK_STEP(VENT_STEP_INTRO));
-      c->step = VENT_STEP_OUTDOOR;
-    }
-
-    if (c->step == VENT_STEP_OUTDOOR) {
-      // outdoor CO2, opened on the lowest the device has lately seen. The
-      // wheel cannot tell leaving from timing out, so both go back to the
-      // list, which times out on its own if nobody is there.
-      int outdoor = (int)chk_vent_outdoor_guess();
-      if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
-                     GUI_INACTION)) {
-        c->step = VENT_STEP_PRECHECK;
-        back = true;
-        continue;
-      }
-      c->result[CHK_VENT_COUT] = (float)outdoor;
+      CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3, back), CHK_STEP(VENT_STEP_OUTDOOR));
       c->step = VENT_STEP_BASELINE;
     }
 
     /* Baseline */
 
+    // the reading climbs back from outdoor air, or has sat in the room all
+    // along, and is taken once it holds: a room with someone in it never
+    // reaches a plateau, so settled means the sensor has caught up, not the air
     if (c->step == VENT_STEP_BASELINE) {
       const chk_screen_t baseline = {
           .title = title,
@@ -307,14 +403,16 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
           .show = CHK_SHOW_PROGRESS,
           .back = CHK_TEXT(back),
           .field = AL_SAMPLE_CO2,
-          .cfg = {.capacity = CHK_VENT_BASELINE_N},
-          .on_sample = chk_baseline_sample,
+          .cfg = {.min_ms = CHK_VENT_SETTLE_MIN_MS, .max_ms = CHK_VENT_SETTLE_MAX_MS, .settle = true},
       };
-      CHK_TRY(chk_measure(c, &baseline), CHK_REDO(VENT_STEP_OUTDOOR));
+      CHK_TRY(chk_measure(c, &baseline), CHK_REDO(VENT_STEP_PRECHECK));
 
-      // the baseline is the median of what the store holds, which is
-      // steadier than a mean when a reading or two is off
-      c->result[CHK_VENT_C0] = chk_vent_baseline_median(CHK_VENT_BASELINE_N);
+      // the baseline is the newest settled window, or what the store holds
+      // when the run ended before one
+      c->result[CHK_VENT_C0] = chk_settle_value(&c->run);
+      if (isnan(c->result[CHK_VENT_C0])) {
+        c->result[CHK_VENT_C0] = chk_vent_baseline_median(CHK_SETTLE_WINDOW);
+      }
 
       // there has to be something above outdoor to watch leave
       if (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT] < CHK_VENT_EXCESS_MIN) {
@@ -594,9 +692,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
           .unit = "ppm",
           .show = CHK_SHOW_CHART,
           .field = AL_SAMPLE_CO2,
-          .cfg = {.min_ms = CHK_STOVE_SLOPE_MS,
-                  .max_ms = CHK_STOVE_PASS_MAX_MS,
-                  .nudge_ms = CHK_STOVE_SLOPE_MS},
+          .cfg = {.min_ms = CHK_STOVE_SLOPE_MS, .max_ms = CHK_STOVE_PASS_MAX_MS, .nudge_ms = CHK_STOVE_SLOPE_MS},
           .on_sample = stove_sample,
           .floor = c->result[CHK_STOVE_C0],
           .range = pass->burning ? CHK_STOVE_BURN_RISE : c->result[CHK_STOVE_PEAK] - c->result[CHK_STOVE_C0],

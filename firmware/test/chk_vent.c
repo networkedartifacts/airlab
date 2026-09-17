@@ -33,9 +33,9 @@ static void test_a_clean_airing_solves() {
   TEST_ASSERT_TRUE(c.result[CHK_VENT_ACH_BAND] > 0);
 
   // and the figures the verdict is made of, which the walkthrough shows as
-  // "clears half the stale air in 14 min"
-  TEST_ASSERT_EQUAL_INT(15, chk_round_minutes(c.result[CHK_VENT_HALF_LIFE]));
-  TEST_ASSERT_TRUE(c.result[CHK_VENT_FRESH] > c.result[CHK_VENT_HALF_LIFE]);
+  // "clears half the stale air in 14 min", follow from the rate
+  TEST_ASSERT_EQUAL_INT(15, chk_round_minutes(chk_half_life(c.result[CHK_VENT_ACH])));
+  TEST_ASSERT_TRUE(chk_fresh_time(c.result[CHK_VENT_ACH]) > chk_half_life(c.result[CHK_VENT_ACH]));
 }
 
 static void test_samples_near_the_floor_are_excluded() {
@@ -61,7 +61,58 @@ static void test_a_weak_signal_is_gated_out() {
 
   // and nothing numeric is left behind for a screen to render
   TEST_ASSERT_EQUAL_FLOAT(0, c.result[CHK_VENT_ACH]);
-  TEST_ASSERT_TRUE(c.result[CHK_VENT_HALF_LIFE] < 0);
+  TEST_ASSERT_TRUE(chk_half_life(c.result[CHK_VENT_ACH]) < 0);
+}
+
+// a week in ms, and a day
+#define WEEK (7LL * 24 * 3600 * 1000)
+#define DAY (24LL * 3600 * 1000)
+
+static void test_the_floor_is_the_sensor_reference_until_measured() {
+  chk_vent_outdoor_forget();
+
+  // nothing measured: 400 ppm, which is what the calibration makes outdoor
+  // air read, and honestly labelled as assumed
+  float ppm, age;
+  TEST_ASSERT_EQUAL_INT(CHK_VENT_COUT_ASSUMED, chk_vent_outdoor_get(1000 * DAY, &ppm, &age));
+  TEST_ASSERT_EQUAL_FLOAT(400, ppm);
+  TEST_ASSERT_EQUAL_FLOAT(0, age);
+}
+
+static void test_a_measured_floor_is_remembered_with_its_age() {
+  chk_vent_outdoor_forget();
+  int64_t measured = 1000 * DAY;
+  chk_vent_outdoor_set(482, false, measured);
+
+  // used as measured, and the age is what the label and the page say
+  float ppm, age;
+  TEST_ASSERT_EQUAL_INT(CHK_VENT_COUT_MEASURED, chk_vent_outdoor_get(measured + 2 * 3600 * 1000, &ppm, &age));
+  TEST_ASSERT_EQUAL_FLOAT(482, ppm);
+  TEST_ASSERT_FLOAT_WITHIN(0.01, 2, age);
+
+  // a reading that had not settled is carried as such, not as a measurement
+  chk_vent_outdoor_set(470, true, measured);
+  TEST_ASSERT_EQUAL_INT(CHK_VENT_COUT_ROUGH, chk_vent_outdoor_get(measured + 60000, &ppm, &age));
+  TEST_ASSERT_EQUAL_FLOAT(470, ppm);
+
+  chk_vent_outdoor_forget();
+}
+
+static void test_a_measured_floor_expires_with_the_calibration() {
+  chk_vent_outdoor_forget();
+  int64_t measured = 1000 * DAY;
+  chk_vent_outdoor_set(482, false, measured);
+
+  // still good just inside a week, which is the self-calibration's period
+  float ppm, age;
+  TEST_ASSERT_EQUAL_INT(CHK_VENT_COUT_MEASURED, chk_vent_outdoor_get(measured + WEEK - 1, &ppm, &age));
+
+  // and the reference again beyond it, or if the clock went backwards
+  TEST_ASSERT_EQUAL_INT(CHK_VENT_COUT_ASSUMED, chk_vent_outdoor_get(measured + WEEK + 1, &ppm, &age));
+  TEST_ASSERT_EQUAL_FLOAT(400, ppm);
+  TEST_ASSERT_EQUAL_INT(CHK_VENT_COUT_ASSUMED, chk_vent_outdoor_get(measured - 1, &ppm, &age));
+
+  chk_vent_outdoor_forget();
 }
 
 static void test_a_steep_but_short_drop_reports_a_direction() {
@@ -124,6 +175,9 @@ void suite_chk_vent() {
   RUN_TEST(test_a_clean_airing_solves);
   RUN_TEST(test_samples_near_the_floor_are_excluded);
   RUN_TEST(test_a_weak_signal_is_gated_out);
+  RUN_TEST(test_the_floor_is_the_sensor_reference_until_measured);
+  RUN_TEST(test_a_measured_floor_is_remembered_with_its_age);
+  RUN_TEST(test_a_measured_floor_expires_with_the_calibration);
   RUN_TEST(test_a_steep_but_short_drop_reports_a_direction);
   RUN_TEST(test_a_rising_signal_is_never_solid);
   RUN_TEST(test_the_verdict_scale);

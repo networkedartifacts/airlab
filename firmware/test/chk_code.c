@@ -13,8 +13,8 @@
 // change the page breaks every code this firmware draws.
 
 static const char* VENT_DIGITS =
-    "31112749379027852417578738032935994643098716077310767150655357989944239003477739525992205649356796927518"
-    "5309944";
+    "79648638410311302189001569364316146286337157049481468385872002792927681115893118362093630186439084830339"
+    "433327283";
 
 static const char* STOVE_DIGITS =
     "20889143241590655319209129947475473247711932952214862062430698284361685431689312889944097350981409518929"
@@ -38,18 +38,18 @@ static void test_a_ventilation_payload_matches_the_page() {
   float samples[72];
   vent_samples(samples, 72);
 
-  // ach, achSe, r2, c0, c1, cout, pre
-  const float fields[] = {2.9f, 0.15f, 0.99f, 843, samples[71], 425, 6};
+  // ach, achSe, r2, c0, c1, cout, coutHow, coutAge, pre
+  const float fields[] = {2.9f, 0.15f, 0.99f, 843, samples[71], 425, 1, 2, 6};
   const chk_code_meta_t meta = TEST_META(CHK_CODE_VENT);
 
   char digits[CHK_CODE_MAX_DIGITS];
   int step = 0;
   size_t bytes = 0;
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 72, 153, digits, sizeof(digits), &step, &bytes));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 72, 153, digits, sizeof(digits), &step, &bytes));
 
   TEST_ASSERT_EQUAL_STRING(VENT_DIGITS, digits);
   TEST_ASSERT_EQUAL_INT_MESSAGE(1, step, "a short check keeps the finest step");
-  TEST_ASSERT_EQUAL_size_t(46, bytes);
+  TEST_ASSERT_EQUAL_size_t(47, bytes);
 }
 
 static void test_a_stove_payload_matches_the_page() {
@@ -74,17 +74,17 @@ static void test_a_stove_payload_matches_the_page() {
 static void test_a_long_check_loses_resolution_rather_than_failing() {
   // the encoder walks the steps from fine to coarse and keeps the first that
   // fits, so a check too long for the finest step still produces a link
-  float samples[400];
-  for (size_t i = 0; i < 400; i++) {
+  float samples[360];
+  for (size_t i = 0; i < 360; i++) {
     samples[i] = (float)(500 + (i * 37) % 900);  // deliberately noisy, so deltas are large
   }
-  const float fields[] = {2.9f, 0.15f, 0.99f, 843, 500, 425, 6};
+  const float fields[] = {2.9f, 0.15f, 0.99f, 843, 500, 425, 1, 2, 6};
   const chk_code_meta_t meta = TEST_META(CHK_CODE_VENT);
 
   char digits[CHK_CODE_MAX_DIGITS];
   int step = 0;
   size_t bytes = 0;
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 400, 153, digits, sizeof(digits), &step, &bytes));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 360, 153, digits, sizeof(digits), &step, &bytes));
 
   TEST_ASSERT_TRUE_MESSAGE(step > 1, "a long noisy check must have been coarsened");
   TEST_ASSERT_TRUE_MESSAGE(bytes <= 153, "and must fit the budget it was given");
@@ -92,14 +92,14 @@ static void test_a_long_check_loses_resolution_rather_than_failing() {
 
 static void test_an_unknown_check_is_refused() {
   float samples[4] = {1, 2, 3, 4};
-  const float fields[] = {0, 0, 0, 0, 0, 0, 0};
+  const float fields[] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
   char digits[CHK_CODE_MAX_DIGITS];
 
   // zero is no check, and the purifier has no layout in this firmware yet
   chk_code_meta_t meta = {.check = 0};
-  TEST_ASSERT_FALSE(chk_code_pack(&meta, fields, 7, samples, 4, 153, digits, sizeof(digits), NULL, NULL));
+  TEST_ASSERT_FALSE(chk_code_pack(&meta, fields, 9, samples, 4, 153, digits, sizeof(digits), NULL, NULL));
   meta.check = CHK_CODE_PURIFIER;
-  TEST_ASSERT_FALSE(chk_code_pack(&meta, fields, 7, samples, 4, 153, digits, sizeof(digits), NULL, NULL));
+  TEST_ASSERT_FALSE(chk_code_pack(&meta, fields, 9, samples, 4, 153, digits, sizeof(digits), NULL, NULL));
 }
 
 static void test_the_offset_is_carried_or_declared_unknown() {
@@ -108,27 +108,27 @@ static void test_the_offset_is_carried_or_declared_unknown() {
   // Each must pack, and each must pack differently, since the page reads the
   // offset back and shows the time in it
   float samples[8] = {600, 601, 602, 603, 604, 605, 606, 607};
-  const float fields[] = {2.9f, 0.15f, 0.99f, 843, 607, 425, 6};
+  const float fields[] = {2.9f, 0.15f, 0.99f, 843, 607, 425, 1, 2, 6};
 
   chk_code_meta_t meta = TEST_META(CHK_CODE_VENT);
   char known[CHK_CODE_MAX_DIGITS];
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 8, 153, known, sizeof(known), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 8, 153, known, sizeof(known), NULL, NULL));
 
   meta.offset = CHK_CODE_OFFSET_UNKNOWN;
   char unknown[CHK_CODE_MAX_DIGITS];
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 8, 153, unknown, sizeof(unknown), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 8, 153, unknown, sizeof(unknown), NULL, NULL));
   TEST_ASSERT_TRUE_MESSAGE(strcmp(known, unknown) != 0, "an unknown offset must not read as a zone");
 
   meta.offset = 330;  // Kolkata
   char half[CHK_CODE_MAX_DIGITS];
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 8, 153, half, sizeof(half), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 8, 153, half, sizeof(half), NULL, NULL));
   TEST_ASSERT_TRUE(strcmp(known, half) != 0 && strcmp(unknown, half) != 0);
 
   // the extremes fit the field rather than wrapping
   meta.offset = -720;
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 8, 153, half, sizeof(half), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 8, 153, half, sizeof(half), NULL, NULL));
   meta.offset = 840;
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 8, 153, half, sizeof(half), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 8, 153, half, sizeof(half), NULL, NULL));
 }
 
 static void test_a_field_past_its_width_saturates() {
@@ -139,21 +139,21 @@ static void test_a_field_past_its_width_saturates() {
   float samples[8] = {600, 601, 602, 603, 604, 605, 606, 607};
   const chk_code_meta_t meta = {.check = CHK_CODE_VENT};
 
-  const float ceiling[] = {40.95f, 0.15f, 0.99f, 843, 600, 425, 6};
+  const float ceiling[] = {40.95f, 0.15f, 0.99f, 843, 600, 425, 1, 2, 6};
   char want[CHK_CODE_MAX_DIGITS];
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, ceiling, 7, samples, 8, 153, want, sizeof(want), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, ceiling, 9, samples, 8, 153, want, sizeof(want), NULL, NULL));
 
-  const float past[] = {42.4f, 0.15f, 0.99f, 843, 600, 425, 6};
+  const float past[] = {42.4f, 0.15f, 0.99f, 843, 600, 425, 1, 2, 6};
   char got[CHK_CODE_MAX_DIGITS];
-  TEST_ASSERT_TRUE_MESSAGE(chk_code_pack(&meta, past, 7, samples, 8, 153, got, sizeof(got), NULL, NULL),
+  TEST_ASSERT_TRUE_MESSAGE(chk_code_pack(&meta, past, 9, samples, 8, 153, got, sizeof(got), NULL, NULL),
                            "a value past its field must not lose the result");
   TEST_ASSERT_EQUAL_STRING(want, got);
 
   // and c0, thirteen bits of ppm, the same way
-  const float c0_ceiling[] = {2.9f, 0.15f, 0.99f, 8191, 600, 425, 6};
-  const float c0_past[] = {2.9f, 0.15f, 0.99f, 90000, 600, 425, 6};
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, c0_ceiling, 7, samples, 8, 153, want, sizeof(want), NULL, NULL));
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, c0_past, 7, samples, 8, 153, got, sizeof(got), NULL, NULL));
+  const float c0_ceiling[] = {2.9f, 0.15f, 0.99f, 8191, 600, 425, 1, 2, 6};
+  const float c0_past[] = {2.9f, 0.15f, 0.99f, 90000, 600, 425, 1, 2, 6};
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, c0_ceiling, 9, samples, 8, 153, want, sizeof(want), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, c0_past, 9, samples, 8, 153, got, sizeof(got), NULL, NULL));
   TEST_ASSERT_EQUAL_STRING(want, got);
 }
 
@@ -207,7 +207,7 @@ static void test_the_payload_ends_with_its_checksum() {
 
   uint8_t bytes[CHK_CODE_MAX_BYTES];
   size_t len = digits_to_bytes(VENT_DIGITS, bytes, sizeof(bytes));
-  TEST_ASSERT_EQUAL_size_t(46, len);
+  TEST_ASSERT_EQUAL_size_t(47, len);
   TEST_ASSERT_EQUAL_HEX8(reference_crc8(bytes, len - 1), bytes[len - 1]);
 
   len = digits_to_bytes(STOVE_DIGITS, bytes, sizeof(bytes));
@@ -219,11 +219,11 @@ static void test_the_digits_are_only_digits() {
   // the payload rides in a numeric-mode QR segment, which has no other alphabet
   float samples[72];
   vent_samples(samples, 72);
-  const float fields[] = {2.9f, 0.15f, 0.99f, 843, samples[71], 425, 6};
+  const float fields[] = {2.9f, 0.15f, 0.99f, 843, samples[71], 425, 1, 2, 6};
   const chk_code_meta_t meta = TEST_META(CHK_CODE_VENT);
 
   char digits[CHK_CODE_MAX_DIGITS];
-  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 7, samples, 72, 153, digits, sizeof(digits), NULL, NULL));
+  TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 9, samples, 72, 153, digits, sizeof(digits), NULL, NULL));
 
   for (const char* p = digits; *p != '\0'; p++) {
     TEST_ASSERT_TRUE_MESSAGE(*p >= '0' && *p <= '9', "the payload must be all digits");
@@ -250,8 +250,8 @@ static int reference_symbol(const char* digits, uint8_t* out) {
   segs[1] = qrcodegen_makeNumeric(digits, num_buf);
 
   static uint8_t scratch[qrcodegen_BUFFER_LEN_FOR_VERSION(40)];
-  if (!qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN, 40,
-                                        qrcodegen_Mask_AUTO, true, scratch, out)) {
+  if (!qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN, 40, qrcodegen_Mask_AUTO,
+                                        true, scratch, out)) {
     return -1;
   }
   return (qrcodegen_getSize(out) - 17) / 4;

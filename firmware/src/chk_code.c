@@ -5,7 +5,7 @@
 #include "chk_code.h"
 
 #define CHK_CODE_BLOCK 16  // samples per Rice block
-#define CHK_CODE_MAX_Q 64   // longest unary run the encoder will emit
+#define CHK_CODE_MAX_Q 64  // longest unary run the encoder will emit
 
 const int chk_code_cadences[16] = {1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600, 900, 1200, 1800, 3600, 7200};
 
@@ -37,9 +37,9 @@ static float chk_code_offset(int16_t minutes) {
   return (float)code;
 }
 
-// ach, achSe, r2, c0, c1, cout, pre
+// ach, achSe, r2, c0, c1, cout, coutHow, coutAge, pre
 static const chk_code_field_t chk_code_fields_a[] = {
-    {12, 100}, {8, 100}, {7, 100}, {13, 1}, {13, 1}, {11, 1}, {6, 1},
+    {12, 100}, {8, 100}, {7, 100}, {13, 1}, {13, 1}, {11, 1}, {2, 1}, {8, 1}, {6, 1},
 };
 
 // ce, hoodAch, slope1, slope3, c0, noxPeak, pre, pass1, pass2, pass3
@@ -52,15 +52,15 @@ typedef struct {
   uint8_t check;
   const chk_code_field_t *fields;
   size_t num_fields;
-  float scale;         // fixed point of a raw sample
-  const int *steps;    // quantisation steps, finest first
+  float scale;       // fixed point of a raw sample
+  const int *steps;  // quantisation steps, finest first
   size_t num_steps;
 } chk_code_format_t;
 
 static const int chk_code_steps_co2[] = {1, 2, 5, 10, 20, 25, 50, 100};
 
 static const chk_code_format_t chk_code_formats[] = {
-    {CHK_CODE_VENT, chk_code_fields_a, 7, 1, chk_code_steps_co2, 8},
+    {CHK_CODE_VENT, chk_code_fields_a, 9, 1, chk_code_steps_co2, 8},
     {CHK_CODE_STOVE, chk_code_fields_e, 10, 1, chk_code_steps_co2, 8},
 };
 
@@ -228,8 +228,7 @@ static uint8_t chk_code_crc8(const uint8_t *bytes, size_t len) {
 
 /* Packing */
 
-static bool chk_code_pack_fields(chk_code_writer_t *w, const chk_code_field_t *spec, size_t num,
-                                 const float *values) {
+static bool chk_code_pack_fields(chk_code_writer_t *w, const chk_code_field_t *spec, size_t num, const float *values) {
   for (size_t i = 0; i < num; i++) {
     float v = values != NULL ? values[i] : 0;
     if (isnan(v) || v < 0) {
@@ -266,8 +265,7 @@ static const chk_code_format_t *chk_code_format(uint8_t check) {
 }
 
 bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const float *samples,
-                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out,
-                   size_t *bytes_out) {
+                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out, size_t *bytes_out) {
   if (meta == NULL || samples == NULL || digits == NULL) {
     return false;
   }
@@ -378,6 +376,6 @@ bool chk_code_symbol(const char *digits, uint8_t *qrcode) {
   segs[0] = qrcodegen_makeBytes((const uint8_t *)head, strlen(head), temp);
   segs[1] = qrcodegen_makeNumeric(digits, temp + sizeof(temp) / 2);
 
-  return qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN,
-                                          CHK_CODE_QR_MAX_VERSION, qrcodegen_Mask_AUTO, true, temp, qrcode);
+  return qrcodegen_encodeSegmentsAdvanced(segs, 2, qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN, CHK_CODE_QR_MAX_VERSION,
+                                          qrcodegen_Mask_AUTO, true, temp, qrcode);
 }

@@ -44,6 +44,9 @@ static uint32_t chk_device_tag(void);
 // the screen the running flow is on, or NULL when no flow runs
 static void *chk_park_screen = NULL;
 
+// the range of a progress bar that shows time rather than a count
+#define CHK_BAR_SPAN 1000
+
 void chk_park_into(void *screen) {
   chk_park_screen = screen;
 }
@@ -248,8 +251,7 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
   return result;
 }
 
-chk_result_t chk_stats(const char *title, const char *stage, const char *const *lines, size_t count,
-                       const char *note) {
+chk_result_t chk_stats(const char *title, const char *stage, const char *const *lines, size_t count, const char *note) {
   // begin draw
   gfx_begin(false, false);
 
@@ -356,6 +358,9 @@ static int chk_catch_up(chk_t *c, const chk_screen_t *screen, int64_t began, chk
     chk_step_t verdict = CHK_STEP_WAIT;
     if (valid && screen->on_sample != NULL) {
       verdict = screen->on_sample(c, value, elapsed);
+    }
+    if (valid) {
+      verdict = chk_measure_classify(&screen->cfg, &c->run, value, elapsed, verdict);
     }
 
     // keep a bar for the slot this reading falls in
@@ -520,11 +525,14 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     lv_obj_align(hint, LV_ALIGN_TOP_MID, 0, 77);
     lv_label_set_text(hint, screen->hint != NULL ? screen->hint : "");
 
+    // a counted run fills the bar by samples; a settling one by the share of
+    // its estimated time that has passed, so the bar moves towards an end
+    // that moves with the reading
     bar = lv_bar_create(lv_scr_act());
     lv_obj_set_size(bar, 200, 12);
     lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, 90);
     lv_obj_set_style_radius(bar, 0, LV_PART_MAIN);
-    lv_bar_set_range(bar, 0, screen->cfg.capacity > 0 ? screen->cfg.capacity : 1);
+    lv_bar_set_range(bar, 0, screen->cfg.capacity > 0 ? screen->cfg.capacity : CHK_BAR_SPAN);
   } else {
     // a measurement is a curve, so the value sits left with the clock right
     lv_obj_align(val, LV_ALIGN_TOP_LEFT, 8, 29);
@@ -585,7 +593,14 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
 
     // update the progress or the chart
     if (bar != NULL) {
-      lv_bar_set_value(bar, run->count, LV_ANIM_OFF);
+      int32_t left = chk_measure_remaining(&screen->cfg, run, elapsed);
+      if (left < 0) {
+        lv_bar_set_value(bar, run->count, LV_ANIM_OFF);
+      } else {
+        lv_bar_set_value(bar, (int32_t)((int64_t)elapsed * CHK_BAR_SPAN / (elapsed + left)), LV_ANIM_OFF);
+        lv_label_set_text(hint, left < 60000 ? CHK_TEXT(settle_soon)
+                                             : lvx_fmt(CHK_TEXT(settle_left), (left + 59999) / 60000));
+      }
     } else {
       lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
       lv_draw_line_dsc_t dsc;

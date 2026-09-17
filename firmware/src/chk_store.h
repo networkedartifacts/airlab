@@ -27,24 +27,24 @@
 
 #define CHK_STORE_MAGIC 0x4B434C41       // "ALCK"
 #define CHK_STORE_MAGIC_OPEN 0x4F434C41  // "ALCO", a record still being written
-#define CHK_STORE_VERSION 2
+#define CHK_STORE_VERSION 3  // 3: the result block doubled to sixteen and the ventilation slots changed meaning
 #define CHK_STORE_FILES 64
 #define CHK_STORE_MAX_SAMPLES 512
 
 typedef struct __attribute__((packed)) {
-  uint32_t magic;               // CHK_STORE_MAGIC, or CHK_STORE_MAGIC_OPEN while open
-  uint16_t version;             // CHK_STORE_VERSION
-  uint16_t num;                 // file number, also the filename
-  int64_t start;                // ms since 1970
-  int16_t offset;               // the room's UTC offset at start in minutes east, or CHK_CODE_OFFSET_UNKNOWN
-  uint8_t check;                // which check, a chk_id_t
-  uint8_t signal;               // the field the samples carry
-  uint8_t cadence;              // seconds between samples
-  uint8_t marks;                // how many phase boundaries are set
-  int32_t bounds[CHK_MARKS];    // phase boundaries, ms since start
-  float result[CHK_RESULTS];    // the evaluator's outputs
-  uint16_t count;               // samples that follow
-  uint16_t recording;           // a recording backing this check, 0 for none
+  uint32_t magic;             // CHK_STORE_MAGIC, or CHK_STORE_MAGIC_OPEN while open
+  uint16_t version;           // CHK_STORE_VERSION
+  uint16_t num;               // file number, also the filename
+  int64_t start;              // ms since 1970
+  int16_t offset;             // the room's UTC offset at start in minutes east, or CHK_CODE_OFFSET_UNKNOWN
+  uint8_t check;              // which check, a chk_id_t
+  uint8_t signal;             // the field the samples carry
+  uint8_t cadence;            // seconds between samples
+  uint8_t marks;              // how many phase boundaries are set
+  int32_t bounds[CHK_MARKS];  // phase boundaries, ms since start
+  float result[CHK_RESULTS];  // the evaluator's outputs
+  uint16_t count;             // samples that follow
+  uint16_t recording;         // a recording backing this check, 0 for none
 } chk_store_head_t;
 
 typedef struct {

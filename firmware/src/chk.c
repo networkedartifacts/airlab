@@ -152,8 +152,104 @@ int chk_round_minutes(float minutes) {
   return (int)(minutes / 10 + 0.5f) * 10;
 }
 
+float chk_median(float *values, int n) {
+  if (n <= 0) {
+    return NAN;
+  }
+
+  // insertion sort, which is plenty for a handful of readings
+  for (int i = 1; i < n; i++) {
+    for (int j = i; j > 0 && values[j] < values[j - 1]; j--) {
+      float tmp = values[j];
+      values[j] = values[j - 1];
+      values[j - 1] = tmp;
+    }
+  }
+
+  // the middle, or the mean of the two middles
+  if (n % 2 == 1) {
+    return values[n / 2];
+  }
+  return (values[n / 2 - 1] + values[n / 2]) / 2;
+}
+
 void chk_measure_reset(chk_measure_run_t *r) {
   memset(r, 0, sizeof(*r));
+  r->settle.last = NAN;
+  r->settle.prior = NAN;
+  r->settle.eta = -1;
+}
+
+chk_step_t chk_measure_classify(const chk_measure_cfg_t *cfg, chk_measure_run_t *r, float value, int32_t elapsed,
+                                chk_step_t verdict) {
+  if (!cfg->settle) {
+    return verdict;
+  }
+  chk_settle_t *s = &r->settle;
+
+  // fill the window, and say nothing new until it is full
+  s->window[s->fill++] = value;
+  if (s->fill < CHK_SETTLE_WINDOW) {
+    return s->settled ? CHK_STEP_DONE : CHK_STEP_GO;
+  }
+
+  // reduce it to its median and shift the windows along
+  float sorted[CHK_SETTLE_WINDOW];
+  memcpy(sorted, s->window, sizeof(sorted));
+  s->prior = s->last;
+  s->last = chk_median(sorted, CHK_SETTLE_WINDOW);
+  s->fill = 0;
+
+  // one window says nothing about whether the reading holds
+  if (isnan(s->prior)) {
+    s->settled = false;
+    s->eta = -1;
+    return CHK_STEP_GO;
+  }
+
+  // settled when two windows in a row agree to within the band
+  float delta = fabsf(s->last - s->prior);
+  s->settled = delta <= CHK_SETTLE_BAND;
+
+  // the change per window falls by a fixed factor each window, so the time
+  // until it is under the band is the time constant times the log of the ratio
+  if (s->settled) {
+    s->eta = elapsed;
+  } else {
+    s->eta = elapsed + (int32_t)(CHK_SETTLE_TAU_MS * log(delta / CHK_SETTLE_BAND));
+  }
+
+  return s->settled ? CHK_STEP_DONE : CHK_STEP_GO;
+}
+
+float chk_settle_value(const chk_measure_run_t *r) {
+  return r->settle.last;
+}
+
+bool chk_settle_done(const chk_measure_run_t *r) {
+  return r->settle.settled;
+}
+
+int32_t chk_measure_remaining(const chk_measure_cfg_t *cfg, const chk_measure_run_t *r, int32_t elapsed) {
+  if (!cfg->settle) {
+    return -1;
+  }
+
+  // what the last two windows promise, or the floor while there are not two
+  int32_t left = r->settle.eta >= 0 ? r->settle.eta - elapsed : cfg->min_ms - elapsed;
+
+  // never before the floor, never after the cap
+  if (left < cfg->min_ms - elapsed) {
+    left = cfg->min_ms - elapsed;
+  }
+  if (cfg->max_ms > 0 && left > cfg->max_ms - elapsed) {
+    left = cfg->max_ms - elapsed;
+  }
+  if (left < 0) {
+    left = 0;
+  }
+
+  return left;
 }
 
 chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t *r, int32_t elapsed, bool valid,

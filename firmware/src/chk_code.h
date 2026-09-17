@@ -18,7 +18,9 @@
 // Two things are named for good. A check id names a check, and the letter
 // names the layout of every check's fields together: a change to any check's
 // fields takes the next letter, so old links keep decoding under the one they
-// were made with, and a new check is a row under the current letter.
+// were made with, and a new check is a row under the current letter. Until
+// the first code is out in the world there is nothing to keep decoding, so
+// the current letter is edited in place while the checks are prototyped.
 //
 // This is the encoder only. The decoder lives with the page that renders the
 // result; the host tests check that this produces the same bytes it does.
@@ -78,12 +80,12 @@ typedef enum {
 
 // What every payload carries before the check's own fields.
 typedef struct {
-  uint8_t check;     // a chk_code_check_t, which also picks the layout
-  uint32_t minute;   // minutes since 2025-01-01 in UTC
-  int16_t offset;    // the room's UTC offset in minutes east, or CHK_CODE_OFFSET_UNKNOWN
-  uint32_t device;   // the last six hex characters of the device id, the name after "AL"
-  uint8_t room;      // a chk_code_room_t, CHK_CODE_ROOM_NONE until the device can know
-  uint8_t cadence;   // index into chk_code_cadences
+  uint8_t check;    // a chk_code_check_t, which also picks the layout
+  uint32_t minute;  // minutes since 2025-01-01 in UTC
+  int16_t offset;   // the room's UTC offset in minutes east, or CHK_CODE_OFFSET_UNKNOWN
+  uint32_t device;  // the last six hex characters of the device id, the name after "AL"
+  uint8_t room;     // a chk_code_room_t, CHK_CODE_ROOM_NONE until the device can know
+  uint8_t cadence;  // index into chk_code_cadences
 } chk_code_meta_t;
 
 // Packs a result into decimal digits. `fields` are the check's own values in
@@ -97,8 +99,7 @@ typedef struct {
 //
 // Returns false when the check is unknown or no step fits.
 bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_fields, const float *samples,
-                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out,
-                   size_t *bytes_out);
+                   size_t count, size_t max_bytes, char *digits, size_t digits_len, int *step_out, size_t *bytes_out);
 
 // The largest symbol the 296x128 panel shows at two pixels a module with the
 // quiet zone inside the margin. The 153-byte budget above is what fits it at

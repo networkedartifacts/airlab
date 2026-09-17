@@ -10,17 +10,48 @@
 // floor and the advice to crack a window for sleeping belong to the
 // closed-window rate, which this check does not measure and must not claim.
 
-// Where the evaluator leaves its outputs in chk_t.result.
+// Where the evaluator leaves its outputs in chk_t.result. The half-life and
+// the time to fresh are not here: both follow from the rate, and the view
+// derives them, so the block holds only what cannot be recomputed.
 enum {
-  CHK_VENT_COUT,       // outdoor CO2, the floor the decay falls towards (ppm)
-  CHK_VENT_C0,         // baseline concentration (ppm)
-  CHK_VENT_CLAST,      // last concentration seen (ppm)
-  CHK_VENT_ACH,        // air changes per hour
-  CHK_VENT_ACH_BAND,   // standard error of the rate
-  CHK_VENT_R2,         // coefficient of determination of the fit
-  CHK_VENT_HALF_LIFE,  // minutes to clear half the stale air
-  CHK_VENT_FRESH,      // minutes to 95 per cent fresh
+  CHK_VENT_COUT,      // outdoor CO2, the floor the decay falls towards (ppm)
+  CHK_VENT_C0,        // baseline concentration (ppm)
+  CHK_VENT_CLAST,     // last concentration seen (ppm)
+  CHK_VENT_ACH,       // air changes per hour
+  CHK_VENT_ACH_BAND,  // standard error of the rate
+  CHK_VENT_R2,        // coefficient of determination of the fit
+  CHK_VENT_COUT_HOW,  // where the floor came from, a chk_vent_cout_how_t
+  CHK_VENT_COUT_AGE,  // hours between measuring the floor and starting the check
 };
+
+// Where the outdoor floor came from. It is carried in the payload, since the
+// estimate's accuracy rests on it and the page says which it was.
+typedef enum {
+  CHK_VENT_COUT_ASSUMED,   // nothing measured: the sensor's own reference
+  CHK_VENT_COUT_MEASURED,  // measured outside, and the reading had settled
+  CHK_VENT_COUT_ROUGH,     // measured outside, but still drifting at the cap
+} chk_vent_cout_how_t;
+
+// The floor with nothing measured. The SCD41's automatic self-calibration is
+// at its factory setting, on, and it adjusts the sensor so that the cleanest
+// air of the past week reads 400 ppm: outdoor air reads about 400 in the
+// sensor's own units whatever it really is, and the fit needs the floor in
+// those units. So 400 is not a guess at outdoor air but the reference the
+// calibration built in, which is what makes it honest to assume.
+#define CHK_VENT_OUTDOOR_DEFAULT 400.0f
+
+// How long a measured floor is remembered: a week, which is the calibration's
+// own period. Within it the sensor's units are the ones the value was measured
+// in; after it the calibration may have moved and the reference is the honest
+// floor again.
+#define CHK_VENT_OUTDOOR_TTL_MS (7LL * 24 * 60 * 60 * 1000)
+
+// A measured floor above this reads like indoor air, which is what a device
+// that never left the room settles on. It is put as a question rather than
+// refused: urban outdoor air reaches 600 ppm (ASHRAE 2025), so a lower cut
+// would reject real readings where measuring outside matters most, and a
+// refusal would leave someone on a busy street with no way to finish.
+#define CHK_VENT_OUTDOOR_MAX 700.0f
 
 // Samples at or below this far above the floor carry too little signal to
 // contribute to a log fit (ASTM E741 decay via Persily 1997).
@@ -39,9 +70,9 @@ enum {
 
 // Whether the fit earned a number, and what to say when it did not.
 typedef enum {
-  CHK_VENT_SOLID,    // the fit stands, the result is a rate
-  CHK_VENT_QUICK,    // no usable fit, but the air moved fast
-  CHK_VENT_SLOW,     // no usable fit, and the air barely moved
+  CHK_VENT_SOLID,  // the fit stands, the result is a rate
+  CHK_VENT_QUICK,  // no usable fit, but the air moved fast
+  CHK_VENT_SLOW,   // no usable fit, and the air barely moved
 } chk_vent_quality_t;
 
 // Whether the room aired well, for a three-step scale.
@@ -60,14 +91,22 @@ bool chk_vent_observe(chk_t *c, float co2, int32_t t_ms);
 // a number; when it did not, the drop rate decides which direction to report.
 chk_vent_quality_t chk_vent_evaluate(chk_t *c, int32_t elapsed_ms);
 
-// Guesses outdoor CO2 from the lowest reading the device has lately seen,
-// floored at 400 ppm. This is a guess and the user may overrule it.
-//
-// NOTE: its worth depends on whether the sensor's automatic self-calibration
-// is enabled, since that recalibrates so the rolling minimum reads about
-// 400 ppm — which would make this number an artefact of the calibration
-// rather than a measurement of outdoor air. Open question.
-float chk_vent_outdoor_guess(void);
+// The remembered outdoor floor, one per device since outdoor air is the same
+// for every room of a flat. It lives in RTC memory: it survives the deep sleep
+// between checks and is lost on a crash, a power-off or a reflash, after which
+// the reference is assumed again. Whether it should be a device parameter
+// instead is an open question in the space.
+
+// Remembers a floor measured outside at `now`.
+void chk_vent_outdoor_set(float ppm, bool rough, int64_t now);
+
+// Forgets it, so the reference is assumed again.
+void chk_vent_outdoor_forget(void);
+
+// What the check would use at `now`: the remembered floor while it is under a
+// week old, the reference otherwise. Reports where it came from, and its age
+// in hours, which is zero for the reference.
+chk_vent_cout_how_t chk_vent_outdoor_get(int64_t now, float *ppm, float *age_hours);
 
 // The median of the last n readings, which is steadier than a mean when one
 // or two come back wrong.

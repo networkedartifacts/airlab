@@ -1,8 +1,10 @@
 #include <math.h>
+#include <string.h>
 
 #include <al/store.h>
 
 #include "chk_vent.h"
+#include "dev.h"
 
 bool chk_vent_observe(chk_t *c, float co2, int32_t t_ms) {
   // keep the latest reading whatever happens to it, the result reports the
@@ -38,8 +40,6 @@ chk_vent_quality_t chk_vent_evaluate(chk_t *c, int32_t elapsed_ms) {
     c->result[CHK_VENT_ACH] = ach;
     c->result[CHK_VENT_ACH_BAND] = band;
     c->result[CHK_VENT_R2] = r2;
-    c->result[CHK_VENT_HALF_LIFE] = chk_half_life(ach);
-    c->result[CHK_VENT_FRESH] = chk_fresh_time(ach);
 
     return CHK_VENT_SOLID;
   }
@@ -49,8 +49,6 @@ chk_vent_quality_t chk_vent_evaluate(chk_t *c, int32_t elapsed_ms) {
   c->result[CHK_VENT_ACH] = 0;
   c->result[CHK_VENT_ACH_BAND] = 0;
   c->result[CHK_VENT_R2] = solved ? r2 : 0;
-  c->result[CHK_VENT_HALF_LIFE] = -1;
-  c->result[CHK_VENT_FRESH] = -1;
 
   // 10 ppm a minute is the branch's own cut between "quickly" and "slowly"
   float minutes = elapsed_ms / 60000.0f;
@@ -70,28 +68,39 @@ chk_vent_tier_t chk_vent_tier(float ach) {
   return CHK_VENT_TIER_LOW;
 }
 
-float chk_vent_outdoor_guess(void) {
-  // walk the long store, which reaches back far enough to have seen the room
-  // ventilated at least once
-  float lowest = NAN;
-  size_t count = al_store_count(AL_STORE_LONG);
-  for (size_t i = 0; i < count; i++) {
-    al_sample_t sample = al_store_get(AL_STORE_LONG, (int)i);
-    if (!al_sample_valid(sample)) {
-      continue;
-    }
-    float co2 = al_sample_read(sample, AL_SAMPLE_CO2);
-    if (!isnan(co2) && (isnan(lowest) || co2 < lowest)) {
-      lowest = co2;
-    }
+// The remembered floor. RTC-retained like the check context, and cleared the
+// same way: a reset that is not a deep sleep starts it empty.
+typedef struct {
+  float ppm;   // the floor, 0 while nothing is remembered
+  int64_t at;  // epoch ms it was measured
+  bool rough;  // it was still drifting at the cap
+} chk_vent_outdoor_t;
+
+DEV_KEEP static chk_vent_outdoor_t chk_vent_outdoor;
+
+void chk_vent_outdoor_set(float ppm, bool rough, int64_t now) {
+  chk_vent_outdoor.ppm = ppm;
+  chk_vent_outdoor.at = now;
+  chk_vent_outdoor.rough = rough;
+}
+
+void chk_vent_outdoor_forget(void) {
+  memset(&chk_vent_outdoor, 0, sizeof(chk_vent_outdoor));
+}
+
+chk_vent_cout_how_t chk_vent_outdoor_get(int64_t now, float *ppm, float *age_hours) {
+  // nothing remembered, or a value from a clock that has since been set back,
+  // which is no age at all
+  int64_t age = now - chk_vent_outdoor.at;
+  if (chk_vent_outdoor.ppm <= 0 || age < 0 || age > CHK_VENT_OUTDOOR_TTL_MS) {
+    *ppm = CHK_VENT_OUTDOOR_DEFAULT;
+    *age_hours = 0;
+    return CHK_VENT_COUT_ASSUMED;
   }
 
-  // outdoor air is not below 400 ppm, whatever the sensor says
-  if (isnan(lowest) || lowest < 400) {
-    return 400;
-  }
-
-  return lowest;
+  *ppm = chk_vent_outdoor.ppm;
+  *age_hours = (float)(age / 3600000.0);
+  return chk_vent_outdoor.rough ? CHK_VENT_COUT_ROUGH : CHK_VENT_COUT_MEASURED;
 }
 
 float chk_vent_baseline_median(int n) {
@@ -111,22 +120,5 @@ float chk_vent_baseline_median(int n) {
       values[have++] = co2;
     }
   }
-  if (have == 0) {
-    return NAN;
-  }
-
-  // insertion sort, which is plenty for a handful of readings
-  for (int i = 1; i < have; i++) {
-    for (int j = i; j > 0 && values[j] < values[j - 1]; j--) {
-      float tmp = values[j];
-      values[j] = values[j - 1];
-      values[j - 1] = tmp;
-    }
-  }
-
-  // the middle, or the mean of the two middles
-  if (have % 2 == 1) {
-    return values[have / 2];
-  }
-  return (values[have / 2 - 1] + values[have / 2]) / 2;
+  return chk_median(values, have);
 }
