@@ -425,6 +425,10 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
         CHK_TRY(chk_say(&doubt, 1), (chk_measure_reset(&c->run), CHK_STEP(VENT_STEP_OUTSIDE)));
       }
 
+      // the baseline is a run of its own: left as it is, the outdoor run's
+      // clock and settle state would carry into it
+      chk_measure_reset(&c->run);
+
       chk_vent_outdoor_set(ppm, rough, al_clock_get_epoch());
       c->result[CHK_VENT_COUT] = ppm;
       c->result[CHK_VENT_COUT_HOW] = (float)(rough ? CHK_VENT_COUT_ROUGH : CHK_VENT_COUT_MEASURED);
