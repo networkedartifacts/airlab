@@ -59,6 +59,8 @@ static chk_result_t chk_prompt_await(int32_t timeout) {
     sig_event_t event = gui_await(SIG_META, timeout);
     if (event.type & SIG_ENTER) {
       return CHK_NEXT;
+    } else if (event.type & SIG_ESCAPE) {
+      return CHK_BACK;
     } else if (!(event.type & SIG_TIMEOUT)) {
       return CHK_EXIT;
     } else if (chk_park_screen == NULL || !chk_started(chk_context())) {
@@ -128,13 +130,15 @@ static chk_result_t chk_say_one(const chk_bubble_t *bubble) {
   lv_obj_align(frame_obj._frame, LV_ALIGN_BOTTOM_LEFT, 60, -30 + delta);
   lv_obj_align(frame_obj._label, LV_ALIGN_BOTTOM_LEFT, 76, -38 + delta);
 
-  // add sign
+  // add signs, robin standing clear of the left one
   lvx_sign_t sign = {
       .title = "A",
       .text = bubble->action != NULL ? bubble->action : CHK_TEXT(next),
       .align = LV_ALIGN_BOTTOM_RIGHT,
   };
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_LEFT};
   lvx_sign_create(&sign, lv_scr_act());
+  lvx_sign_create(&back, lv_scr_act());
 
   // end draw
   gfx_end(false, false);
@@ -148,23 +152,37 @@ static chk_result_t chk_say_one(const chk_bubble_t *bubble) {
   return result;
 }
 
-chk_result_t chk_say(const chk_bubble_t *bubbles, size_t count) {
-  for (size_t i = 0; i < count; i++) {
+chk_result_t chk_say_from(const chk_bubble_t *bubbles, size_t count, size_t start) {
+  size_t i = start < count ? start : 0;
+  for (;;) {
     chk_result_t result = chk_say_one(&bubbles[i]);
-    if (result != CHK_NEXT) {
+    if (result == CHK_NEXT) {
+      if (++i == count) {
+        return CHK_NEXT;
+      }
+    } else if (result == CHK_BACK) {
+      if (i == 0) {
+        return CHK_BACK;
+      }
+      i--;
+    } else {
       return result;
     }
   }
-  return CHK_NEXT;
+}
+
+chk_result_t chk_say(const chk_bubble_t *bubbles, size_t count) {
+  return chk_say_from(bubbles, count, 0);
 }
 
 // the most items a checklist holds
 #define CHK_LIST_MAX 8
 
-chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count) {
+chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count, bool done) {
   if (count > CHK_LIST_MAX) {
     count = CHK_LIST_MAX;
   }
+  size_t ticked = done ? count : 0;
 
   // begin draw
   gfx_begin(false, false);
@@ -182,7 +200,7 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
     lv_obj_set_style_border_width(boxes[i], 1, LV_PART_MAIN);
     lv_obj_set_style_border_color(boxes[i], lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_color(boxes[i], lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(boxes[i], LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(boxes[i], i < ticked ? LV_OPA_COVER : LV_OPA_TRANSP, LV_PART_MAIN);
 
     lv_obj_t *lbl = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(lbl, &fnt_16, LV_PART_MAIN);
@@ -191,7 +209,11 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
   }
 
   // add signs
-  lvx_sign_t ok = {.title = "A", .text = CHK_TEXT(check), .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t ok = {
+      .title = "A",
+      .text = ticked == count ? CHK_TEXT(next) : CHK_TEXT(check),
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+  };
   lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_LEFT};
   lvx_sign_create(&ok, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
@@ -201,7 +223,6 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
 
   // the key ticks the items off one at a time, and only moves on once every
   // box is filled: the list is there to be read, not skipped
-  size_t ticked = 0;
   chk_result_t result;
   for (;;) {
     result = chk_prompt_await(CHK_ACTION_TIMEOUT);
@@ -255,9 +276,11 @@ chk_result_t chk_stats(const char *title, const char *stage, const char *const *
     lv_label_set_text(lbl, note);
   }
 
-  // add sign
+  // add signs, stacked on the right as the note has the left
   lvx_sign_t sign = {.title = "A", .text = CHK_TEXT(done), .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -20};
   lvx_sign_create(&sign, lv_scr_act());
+  lvx_sign_create(&back, lv_scr_act());
 
   // end draw
   gfx_end(false, false);
@@ -521,6 +544,12 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     lv_obj_align(status, LV_ALIGN_BOTTOM_LEFT, 8, -3);
   }
 
+  // label the key where the check says what it does
+  if (screen->back != NULL) {
+    lvx_sign_t back = {.title = "B", .text = screen->back, .align = LV_ALIGN_BOTTOM_LEFT};
+    lvx_sign_create(&back, lv_scr_act());
+  }
+
   // end draw
   gfx_end(true, false);
 
@@ -598,17 +627,21 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
       scr_park(interval, interval * 1000, chk_park_screen);
     }
 
+    // the key abandons the run: what it took is dropped with the check's
+    // clock, so a baseline done again heads the series
     if (chk_await() != CHK_NEXT) {
       gui_cleanup(false);
-      return CHK_EXIT;
+      chk_restart(c);
+      return CHK_BACK;
     }
   }
 
   // cleanup
   gui_cleanup(false);
 
-  // a run nobody could measure is not a result
+  // a run nobody could measure is not a result, and nothing of it is kept
   if (state == CHK_RUN_FAILED) {
+    chk_restart(c);
     chk_bubble_t sorry = {.mood = &img_robin_standing, .text = CHK_TEXT(sensor_errors), .action = CHK_TEXT(ok)};
     chk_result_t said = chk_say(&sorry, 1);
     return said == CHK_NEXT ? CHK_AGAIN : said;
@@ -704,9 +737,11 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
     lv_label_set_text(lbl, caption != NULL ? caption : CHK_TEXT(share_scan));
   }
 
-  // add sign
+  // add signs, stacked on the right as the symbol has the left
   lvx_sign_t sign = {.title = "A", .text = CHK_TEXT(done), .align = LV_ALIGN_BOTTOM_RIGHT};
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -20};
   lvx_sign_create(&sign, lv_scr_act());
+  lvx_sign_create(&back, lv_scr_act());
 
   // end draw and wait for the panel: the first flag skips the update, which
   // is the layout pass other screens take and not what a symbol wants
@@ -811,6 +846,22 @@ void chk_release(chk_t *c) {
   chk_park_screen = NULL;
 }
 
+void chk_restart(chk_t *c) {
+  // the record so far goes, it holds what is being redone
+  if (c->file != 0) {
+    chk_store_discard(c->file);
+  }
+
+  // begin afresh, keeping where the flow is and what the user has entered
+  uint8_t id = c->id;
+  uint8_t step = c->step;
+  float result[CHK_RESULTS];
+  memcpy(result, c->result, sizeof(result));
+  chk_begin(c, id);
+  c->step = step;
+  memcpy(c->result, result, sizeof(result));
+}
+
 chk_result_t chk_show_code(uint16_t num) {
   chk_store_file_t *file = chk_find(num);
 
@@ -866,11 +917,21 @@ chk_result_t chk_reopen(uint16_t num) {
     return CHK_EXIT;
   }
 
-  // the stats as they were, rebuilt from the header without the samples
-  chk_result_t result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
-  if (result != CHK_NEXT) {
-    return result;
-  }
+  // the stats as they were, rebuilt from the header without the samples,
+  // then the code, and back to the stats from it
+  for (;;) {
+    chk_result_t result = chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note);
+    if (result != CHK_NEXT) {
+      return result;
+    }
+    result = chk_show_code(num);
+    if (result != CHK_BACK) {
+      return result;
+    }
 
-  return chk_show_code(num);
+    // the code screen's own view turned the formatter's buffers over
+    if (!chk_view_of(num, &view)) {
+      return CHK_EXIT;
+    }
+  }
 }

@@ -7,6 +7,12 @@
 
 /* Formatting */
 
+// the size of each of the buffers lvx_fmt rotates through, including the
+// terminator
+#define LVX_FMT_SIZE 96
+
+// Formats into one of eight rotating buffers, so a handful of results can be
+// held at once but none survives eight further calls.
 const char *lvx_fmt(const char *fmt, ...);
 const char *lvx_truncate(const char *str, size_t max_len);
 

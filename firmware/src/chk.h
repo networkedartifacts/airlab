@@ -23,6 +23,7 @@
 // CHK_NEXT continues the flow.
 typedef enum {
   CHK_NEXT,   // carry on
+  CHK_BACK,   // user went back a screen
   CHK_AGAIN,  // restart this check
   CHK_EXIT,   // user left
   CHK_IDLE,   // timed out
@@ -205,7 +206,10 @@ typedef struct {
 
 // Says a sequence of bubbles, one key press each, and returns once the last
 // is acknowledged. The action of each bubble labels the key; a NULL action
-// falls back to the shared "Next".
+// falls back to the shared "Next". The B key steps back through the sequence
+// and out of it from the first bubble. A sequence entered backwards starts at
+// `start`, its last bubble.
+chk_result_t chk_say_from(const chk_bubble_t *bubbles, size_t count, size_t start);
 chk_result_t chk_say(const chk_bubble_t *bubbles, size_t count);
 
 // Draws the header every non-dialogue check screen carries. Must be called
@@ -214,7 +218,9 @@ void chk_chrome(const char *title, const char *stage);
 
 // Shows a checklist the user confirms before a check starts, so that the
 // single-zone assumption the decay and rise methods rest on is actually met.
-chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count);
+// The key ticks the items off one at a time; `done` shows them ticked already,
+// for a list come back to.
+chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count, bool done);
 
 // Draws the QR code a phone scans to carry the result away, with a short
 // line beside it. Returns once acknowledged.
@@ -246,6 +252,12 @@ void chk_end(chk_t *c);
 // drops a record it left unfinished. The flows call this rather than chk_end,
 // which resets the context alone.
 void chk_release(chk_t *c);
+
+// Starts the check over at the step it is on: everything measured so far is
+// dropped, the record with it, and the clock starts anew, so a baseline done
+// again heads the series as a first one would. What the user entered before
+// measuring, the results so far, is kept.
+void chk_restart(chk_t *c);
 
 // The index of the first sample in a source taken after the given moment, or
 // -1 when there is none. A binary search, so a check picks up where it left
@@ -334,6 +346,7 @@ typedef struct {
   const char *nudge;  // shown instead once the run is prompting, or NULL
   const char *unit;   // "ppm", "ug/m3"
   chk_show_t show;
+  const char *back;  // the B key's label, or NULL to leave the key unlabelled
   al_sample_field_t field;  // which signal to read
   chk_measure_cfg_t cfg;
   chk_sample_fn on_sample;
@@ -351,7 +364,8 @@ int chk_cadence(void);
 // that has already been entered (its `began` is set) is continued rather
 // than started, which is how a measurement picks up after a deep sleep. At a
 // slow cadence the wait between readings is spent in a deep sleep that wakes
-// back into the flow's own screen, so the run continues there.
+// back into the flow's own screen, so the run continues there. The B key
+// abandons the run, which starts the check over, and reports back.
 chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen);
 
 // Runs the ventilation check. The three arguments are the screens each

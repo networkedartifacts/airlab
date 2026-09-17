@@ -18,27 +18,34 @@
 
 /* Shared */
 
-// Every way out of a kit call but "next" releases the check. Escape is the
-// user abandoning it; a timeout only reaches here before the baseline, when
-// the user was looking rather than waiting, so the next run starts over too.
-// A started check never times out: its prompts park the device on the flow's
-// screen and wake back into it. Expects `c`, `on_exit`, `on_idle` and `self`
-// in scope.
-#define CHK_TRY(expr)         \
-  do {                        \
-    chk_result_t _r = (expr); \
-    if (_r == CHK_NEXT) {     \
-      break;                  \
-    }                         \
-    chk_release(c);           \
-    if (_r == CHK_IDLE) {     \
-      return on_idle;         \
-    }                         \
-    if (_r == CHK_AGAIN) {    \
-      return self;            \
-    }                         \
-    return on_exit;           \
-  } while (0)
+// Runs a kit call and routes every outcome but "next". The B key goes where
+// the step says, `on_back` naming the step or phase before it, or leaves when
+// there is nothing to go back to. Every other way out releases the check:
+// escape is the user abandoning it, and a timeout only reaches here before
+// the baseline, when the user was looking rather than waiting, so the next
+// run starts over. A started check never times out: its prompts park the
+// device on the flow's screen and wake back into it.
+//
+// A block rather than a statement, as going back continues the step loop it
+// sits in. Expects `c`, `back`, `on_exit`, `on_idle` and `self` in scope.
+#define CHK_TRY(expr, on_back)                                                 \
+  {                                                                            \
+    chk_result_t _r = (expr);                                                  \
+    if (_r == CHK_BACK && (on_back)) {                                         \
+      back = true;                                                             \
+      continue;                                                                \
+    }                                                                          \
+    if (_r != CHK_NEXT) {                                                      \
+      chk_release(c);                                                          \
+      return _r == CHK_IDLE ? on_idle : _r == CHK_AGAIN ? self : on_exit;      \
+    }                                                                          \
+    back = false;                                                              \
+  }
+
+// where the B key goes: a step, a phase of the result, or out
+#define CHK_STEP(s) (c->step = (s), true)
+#define CHK_PHASE(p) (c->phase = (p), true)
+#define CHK_LEAVE false
 
 // Releases the check after a closing bubble and picks where to land: a
 // timeout goes idle, "again" restarts when the caller offers a screen for it,
@@ -60,32 +67,62 @@ static chk_step_t chk_baseline_sample(chk_t *c, float value, int32_t t_ms) {
 }
 
 // The result step is shown in phases, so a wake out of a parked sleep lands
-// on the screen that was showing rather than back at the verdict.
+// on the screen that was showing rather than back at the verdict, and the B
+// key walks the phases backwards.
 enum {
   RESULT_PHASE_VERDICT,
   RESULT_PHASE_STATS,
   RESULT_PHASE_SHARE,
 };
 
-// The end every solid result shares: the stats, then the code. The record was
-// just written, so reading it back means the result shown now is built from
-// exactly what a reopened check will be built from later; the live block is
-// the fallback for a record that could not be kept.
-static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, void *on_exit, void *on_idle, void *self) {
-  chk_view_t view;
-  if (!chk_view_of(stored, &view) &&
-      !chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), &view)) {
+// the bubbles a verdict has
+#define CHK_VERDICT_MAX 2
+
+// The end every solid result shares: the verdict, the stats, then the code.
+// The record was just written, so reading it back means the result shown now
+// is built from exactly what a reopened check will be built from later; the
+// live block is the fallback for a record that could not be kept.
+static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, const chk_bubble_t *verdict, size_t count,
+                        void *on_exit, void *on_idle, void *self) {
+  // the verdict's copy is kept here: the formatter's buffers turn over under
+  // the screens after it, and the key comes back to it
+  static char texts[CHK_VERDICT_MAX][LVX_FMT_SIZE];
+  chk_bubble_t said[CHK_VERDICT_MAX];
+  if (count > CHK_VERDICT_MAX) {
+    count = CHK_VERDICT_MAX;
+  }
+  for (size_t i = 0; i < count; i++) {
+    said[i] = verdict[i];
+    strncpy(texts[i], verdict[i].text, sizeof(texts[i]) - 1);
+    texts[i][sizeof(texts[i]) - 1] = 0;
+    said[i].text = texts[i];
+  }
+
+  bool back = false;
+  for (;;) {
+    if (c->phase == RESULT_PHASE_VERDICT) {
+      CHK_TRY(chk_say_from(said, count, back ? count - 1 : 0), CHK_LEAVE);
+      c->phase = RESULT_PHASE_STATS;
+    }
+
+    if (c->phase == RESULT_PHASE_STATS) {
+      // built each time it is shown, as the code screen's own view turns the
+      // formatter's buffers over
+      chk_view_t view;
+      if (!chk_view_of(stored, &view) &&
+          !chk_describe(id, c->result, c->marks, CHK_MARKS, (uint8_t)chk_cadence(), &view)) {
+        chk_release(c);
+        return on_exit;
+      }
+      CHK_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note),
+              CHK_PHASE(RESULT_PHASE_VERDICT));
+      c->phase = RESULT_PHASE_SHARE;
+    }
+
+    CHK_TRY(chk_show_code(stored), CHK_PHASE(RESULT_PHASE_STATS));
     chk_release(c);
     return on_exit;
   }
-  if (c->phase <= RESULT_PHASE_STATS) {
-    c->phase = RESULT_PHASE_STATS;
-    CHK_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
-  }
-  c->phase = RESULT_PHASE_SHARE;
-  CHK_TRY(chk_show_code(stored));
-  chk_release(c);
-  return on_exit;
 }
 
 // how many samples fall between two phase boundaries, at this cadence
@@ -189,155 +226,171 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
 
   const char *title = CHK_TEXT(vent__title);
 
-  /* Introduction */
+  // The steps run in order and fall through into one another; the B key sets
+  // the step back and restarts the loop, and a step entered backwards opens on
+  // its last screen rather than its first.
+  bool back = false;
+  for (;;) {
+    /* Introduction */
 
-  if (c->step == VENT_STEP_INTRO) {
-    const chk_bubble_t intro[] = {
-        {&img_robin_happy, CHK_TEXT(vent__intro_1), CHK_TEXT(next)},
-        {&img_robin_pointing, CHK_TEXT(vent__intro_2), CHK_TEXT(next)},
-        {&img_robin_pointing, CHK_TEXT(vent__intro_3), CHK_TEXT(next)},
-        {&img_robin_standing, CHK_TEXT(vent__intro_4), CHK_TEXT(start)},
-    };
-    CHK_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
-    c->step = VENT_STEP_PRECHECK;
-  }
-
-  /* Precheck */
-
-  // the single-zone assumption the decay rests on is the user's to meet
-  if (c->step == VENT_STEP_PRECHECK) {
-    const char *const items[] = {
-        CHK_TEXT(vent__list_windows),
-        CHK_TEXT(vent__list_door),
-        CHK_TEXT(vent__list_table),
-    };
-    CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
-    c->step = VENT_STEP_OUTDOOR;
-  }
-
-  if (c->step == VENT_STEP_OUTDOOR) {
-    // outdoor CO2, opened on the lowest the device has lately seen. The wheel
-    // cannot tell leaving from timing out, so both release the check.
-    int outdoor = (int)chk_vent_outdoor_guess();
-    if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
-                   GUI_INACTION)) {
-      chk_release(c);
-      return on_exit;
-    }
-    c->result[CHK_VENT_COUT] = (float)outdoor;
-    c->step = VENT_STEP_BASELINE;
-  }
-
-  /* Baseline */
-
-  if (c->step == VENT_STEP_BASELINE) {
-    const chk_screen_t baseline = {
-        .title = title,
-        .stage = CHK_TEXT(stage__baseline),
-        .hint = CHK_TEXT(vent__baseline_hint),
-        .unit = "ppm",
-        .show = CHK_SHOW_PROGRESS,
-        .field = AL_SAMPLE_CO2,
-        .cfg = {.capacity = CHK_VENT_BASELINE_N},
-        .on_sample = chk_baseline_sample,
-    };
-    CHK_TRY(chk_measure(c, &baseline));
-
-    // the baseline is the median of what the store holds, which is steadier
-    // than a mean when a reading or two is off
-    c->result[CHK_VENT_C0] = chk_vent_baseline_median(CHK_VENT_BASELINE_N);
-
-    // there has to be something above outdoor to watch leave
-    if (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT] < CHK_VENT_EXCESS_MIN) {
-      const chk_bubble_t fresh = {&img_robin_standing, CHK_TEXT(vent__already_fresh), CHK_TEXT(ok)};
-      return chk_leave(c, chk_say(&fresh, 1), on_exit, on_idle, NULL);
+    if (c->step == VENT_STEP_INTRO) {
+      const chk_bubble_t intro[] = {
+          {&img_robin_happy, CHK_TEXT(vent__intro_1), CHK_TEXT(next)},
+          {&img_robin_pointing, CHK_TEXT(vent__intro_2), CHK_TEXT(next)},
+          {&img_robin_pointing, CHK_TEXT(vent__intro_3), CHK_TEXT(next)},
+          {&img_robin_standing, CHK_TEXT(vent__intro_4), CHK_TEXT(start)},
+      };
+      size_t n = sizeof(intro) / sizeof(intro[0]);
+      CHK_TRY(chk_say_from(intro, n, back ? n - 1 : 0), CHK_LEAVE);
+      c->step = VENT_STEP_PRECHECK;
     }
 
-    // the decay is a run of its own, not a continuation of the baseline
-    chk_measure_reset(&c->run);
-    c->step = VENT_STEP_TRIGGER;
-  }
+    /* Precheck */
 
-  /* Trigger */
-
-  if (c->step == VENT_STEP_TRIGGER) {
-    // cue the user, unless this is a timer wake re-entering the prompt they
-    // left on the table
-    if (scr_awake()) {
-      al_buzzer_beep(1047, 80, false);
+    // the single-zone assumption the decay rests on is the user's to meet
+    if (c->step == VENT_STEP_PRECHECK) {
+      const char *const items[] = {
+          CHK_TEXT(vent__list_windows),
+          CHK_TEXT(vent__list_door),
+          CHK_TEXT(vent__list_table),
+      };
+      CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3, back), CHK_STEP(VENT_STEP_INTRO));
+      c->step = VENT_STEP_OUTDOOR;
     }
-    const chk_bubble_t open = {
-        &img_robin_pointing,
-        lvx_fmt(CHK_TEXT(vent__open_window), c->result[CHK_VENT_C0]),
-        CHK_TEXT(vent__window_is_open),
+
+    if (c->step == VENT_STEP_OUTDOOR) {
+      // outdoor CO2, opened on the lowest the device has lately seen. The
+      // wheel cannot tell leaving from timing out, so both go back to the
+      // list, which times out on its own if nobody is there.
+      int outdoor = (int)chk_vent_outdoor_guess();
+      if (!gui_wheel(CHK_TEXT(vent__outdoor), &outdoor, 380, 10, 700, CHK_TEXT(next), CHK_TEXT(back), "%d ppm",
+                     GUI_INACTION)) {
+        c->step = VENT_STEP_PRECHECK;
+        back = true;
+        continue;
+      }
+      c->result[CHK_VENT_COUT] = (float)outdoor;
+      c->step = VENT_STEP_BASELINE;
+    }
+
+    /* Baseline */
+
+    if (c->step == VENT_STEP_BASELINE) {
+      // come back to from the prompt after it, the baseline is done over,
+      // which is the check starting over
+      if (back) {
+        chk_restart(c);
+      }
+
+      const chk_screen_t baseline = {
+          .title = title,
+          .stage = CHK_TEXT(stage__baseline),
+          .hint = CHK_TEXT(vent__baseline_hint),
+          .unit = "ppm",
+          .show = CHK_SHOW_PROGRESS,
+          .back = CHK_TEXT(back),
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.capacity = CHK_VENT_BASELINE_N},
+          .on_sample = chk_baseline_sample,
+      };
+      CHK_TRY(chk_measure(c, &baseline), CHK_STEP(VENT_STEP_OUTDOOR));
+
+      // the baseline is the median of what the store holds, which is
+      // steadier than a mean when a reading or two is off
+      c->result[CHK_VENT_C0] = chk_vent_baseline_median(CHK_VENT_BASELINE_N);
+
+      // there has to be something above outdoor to watch leave
+      if (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT] < CHK_VENT_EXCESS_MIN) {
+        const chk_bubble_t fresh = {&img_robin_standing, CHK_TEXT(vent__already_fresh), CHK_TEXT(ok)};
+        return chk_leave(c, chk_say(&fresh, 1), on_exit, on_idle, NULL);
+      }
+
+      // the decay is a run of its own, not a continuation of the baseline
+      chk_measure_reset(&c->run);
+      c->step = VENT_STEP_TRIGGER;
+    }
+
+    /* Trigger */
+
+    if (c->step == VENT_STEP_TRIGGER) {
+      // cue the user, unless this is a timer wake re-entering the prompt they
+      // left on the table
+      if (scr_awake()) {
+        al_buzzer_beep(1047, 80, false);
+      }
+      const chk_bubble_t open = {
+          &img_robin_pointing,
+          lvx_fmt(CHK_TEXT(vent__open_window), c->result[CHK_VENT_C0]),
+          CHK_TEXT(vent__window_is_open),
+      };
+      CHK_TRY(chk_say(&open, 1), CHK_STEP(VENT_STEP_BASELINE));
+
+      // the boundary between the closed-window baseline and the decay, which
+      // is where the page bands the chart
+      chk_mark(c);
+      c->step = VENT_STEP_MEASURE;
+    }
+
+    /* Measurement */
+
+    // the window is open, so there is no going back from here
+    if (c->step == VENT_STEP_MEASURE) {
+      const chk_screen_t decay = {
+          .title = title,
+          .stage = CHK_TEXT(stage__measuring),
+          .nudge = CHK_TEXT(vent__nudge),
+          .unit = "ppm",
+          .show = CHK_SHOW_CHART,
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.min_ms = CHK_VENT_MIN_MS,
+                  .max_ms = CHK_VENT_MAX_MS,
+                  .capacity = CHK_VENT_SAMPLES,
+                  .nudge_ms = CHK_VENT_NUDGE_MS},
+          .on_sample = vent_decay_sample,
+          .floor = c->result[CHK_VENT_COUT],
+      };
+      CHK_TRY(chk_measure(c, &decay), CHK_LEAVE);
+      c->step = VENT_STEP_RESULT;
+      c->phase = RESULT_PHASE_VERDICT;
+    }
+
+    /* Result */
+
+    chk_vent_quality_t quality = chk_vent_evaluate(c, c->run.elapsed);
+
+    // no number worth reporting: say which way the air went and offer
+    // another go
+    if (quality != CHK_VENT_SOLID) {
+      const char *direction = quality == CHK_VENT_QUICK ? CHK_TEXT(vent__quickly) : CHK_TEXT(vent__slowly);
+      const chk_bubble_t unclear = {
+          &img_robin_standing,
+          lvx_fmt(CHK_TEXT(vent__unclear), direction),
+          CHK_TEXT(again),
+      };
+      return chk_leave(c, chk_say(&unclear, 1), on_exit, on_idle, self);
+    }
+
+    // seal it before saying anything: walking away from the verdict should
+    // not lose the check. A result step re-entered afterwards gets the same
+    // record.
+    uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
+
+    // the verdict: the one number, and the advice the tier earns
+    int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);
+    chk_vent_tier_t tier = chk_vent_tier(c->result[CHK_VENT_ACH]);
+    const char *advice = tier == CHK_VENT_TIER_LOW   ? CHK_TEXT(vent__advice_low)
+                         : tier == CHK_VENT_TIER_MID ? CHK_TEXT(vent__advice_mid)
+                                                     : CHK_TEXT(vent__advice_high);
+    const chk_bubble_t verdict[] = {
+        {tier == CHK_VENT_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
+         lvx_fmt(CHK_TEXT(vent__verdict_half_life), half), CHK_TEXT(next)},
+        {&img_robin_pointing, advice, CHK_TEXT(next)},
     };
-    CHK_TRY(chk_say(&open, 1));
 
-    // the boundary between the closed-window baseline and the decay, which is
-    // where the page bands the chart
-    chk_mark(c);
-    c->step = VENT_STEP_MEASURE;
+    /* Verdict, stats and share */
+
+    return chk_finish(c, CHK_VENT, stored, verdict, 2, on_exit, on_idle, self);
   }
-
-  /* Measurement */
-
-  if (c->step == VENT_STEP_MEASURE) {
-    const chk_screen_t decay = {
-        .title = title,
-        .stage = CHK_TEXT(stage__measuring),
-        .nudge = CHK_TEXT(vent__nudge),
-        .unit = "ppm",
-        .show = CHK_SHOW_CHART,
-        .field = AL_SAMPLE_CO2,
-        .cfg = {.min_ms = CHK_VENT_MIN_MS,
-                .max_ms = CHK_VENT_MAX_MS,
-                .capacity = CHK_VENT_SAMPLES,
-                .nudge_ms = CHK_VENT_NUDGE_MS},
-        .on_sample = vent_decay_sample,
-        .floor = c->result[CHK_VENT_COUT],
-    };
-    CHK_TRY(chk_measure(c, &decay));
-    c->step = VENT_STEP_RESULT;
-    c->phase = RESULT_PHASE_VERDICT;
-  }
-
-  /* Result */
-
-  chk_vent_quality_t quality = chk_vent_evaluate(c, c->run.elapsed);
-
-  // no number worth reporting: say which way the air went and offer another go
-  if (quality != CHK_VENT_SOLID) {
-    const char *direction = quality == CHK_VENT_QUICK ? CHK_TEXT(vent__quickly) : CHK_TEXT(vent__slowly);
-    const chk_bubble_t unclear = {
-        &img_robin_standing,
-        lvx_fmt(CHK_TEXT(vent__unclear), direction),
-        CHK_TEXT(again),
-    };
-    return chk_leave(c, chk_say(&unclear, 1), on_exit, on_idle, self);
-  }
-
-  // seal it before saying anything: walking away from the verdict should not
-  // lose the check. A result step re-entered afterwards gets the same record.
-  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
-
-  // the verdict: the one number, and the advice the tier earns
-  int half = chk_round_minutes(c->result[CHK_VENT_HALF_LIFE]);
-  chk_vent_tier_t tier = chk_vent_tier(c->result[CHK_VENT_ACH]);
-  const char *advice = tier == CHK_VENT_TIER_LOW   ? CHK_TEXT(vent__advice_low)
-                       : tier == CHK_VENT_TIER_MID ? CHK_TEXT(vent__advice_mid)
-                                                   : CHK_TEXT(vent__advice_high);
-  const chk_bubble_t verdict[] = {
-      {tier == CHK_VENT_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
-       lvx_fmt(CHK_TEXT(vent__verdict_half_life), half), CHK_TEXT(next)},
-      {&img_robin_pointing, advice, CHK_TEXT(next)},
-  };
-  if (c->phase == RESULT_PHASE_VERDICT) {
-    CHK_TRY(chk_say(verdict, 2));
-  }
-
-  /* Stats and share */
-
-  return chk_finish(c, CHK_VENT, stored, on_exit, on_idle, self);
 }
 
 /* Gas stove */
@@ -433,147 +486,163 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
 
   const char *title = CHK_TEXT(stove__title);
 
-  /* Introduction */
-
-  if (c->step == STOVE_STEP_INTRO) {
-    const chk_bubble_t intro[] = {
-        {&img_robin_happy, CHK_TEXT(stove__intro_1), CHK_TEXT(next)},
-        {&img_robin_pointing, CHK_TEXT(stove__intro_2), CHK_TEXT(next)},
-        {&img_robin_standing, CHK_TEXT(stove__intro_3), CHK_TEXT(start)},
-    };
-    CHK_TRY(chk_say(intro, sizeof(intro) / sizeof(intro[0])));
-    c->step = STOVE_STEP_PRECHECK;
-  }
-
-  /* Precheck */
-
-  if (c->step == STOVE_STEP_PRECHECK) {
-    const char *const items[] = {
-        CHK_TEXT(stove__list_off),
-        CHK_TEXT(stove__list_pot),
-        CHK_TEXT(stove__list_away),
-    };
-    CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3));
-    c->step = STOVE_STEP_BASELINE;
-  }
-
-  /* Baseline */
-
-  if (c->step == STOVE_STEP_BASELINE) {
-    const chk_screen_t baseline = {
-        .title = title,
-        .stage = CHK_TEXT(stage__baseline),
-        .hint = CHK_TEXT(stove__baseline_hint),
-        .unit = "ppm",
-        .show = CHK_SHOW_PROGRESS,
-        .field = AL_SAMPLE_CO2,
-        .cfg = {.capacity = CHK_STOVE_BASELINE_N},
-        .on_sample = chk_baseline_sample,
-    };
-    CHK_TRY(chk_measure(c, &baseline));
-
-    c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
-    c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
-
-    // the boundary between the baseline and the first pass, which is a run
-    // of its own
-    chk_mark(c);
-    chk_measure_reset(&c->run);
-    c->phase = 0;
-    c->step = STOVE_STEP_PASSES;
-  }
-
-  /* Three passes */
-
   const chk_stove_pass_t passes[] = {
       {CHK_TEXT(stove__pass_open), CHK_TEXT(stove__burner_on), CHK_TEXT(stove__stage_open), true},
       {CHK_TEXT(stove__pass_clear), CHK_TEXT(stove__hood_on), CHK_TEXT(stove__stage_clear), false},
       {CHK_TEXT(stove__pass_hood), CHK_TEXT(stove__burner_on), CHK_TEXT(stove__stage_hood), true},
   };
 
-  for (int i = c->step == STOVE_STEP_PASSES ? c->phase : 3; i < 3; i++) {
-    const chk_stove_pass_t *pass = &passes[i];
+  // the step loop, as the ventilation check has it
+  bool back = false;
+  for (;;) {
+    /* Introduction */
 
-    // the callback reads the pass back off the context, and a resume comes
-    // back into the pass it left
-    c->phase = (uint8_t)i;
+    if (c->step == STOVE_STEP_INTRO) {
+      const chk_bubble_t intro[] = {
+          {&img_robin_happy, CHK_TEXT(stove__intro_1), CHK_TEXT(next)},
+          {&img_robin_pointing, CHK_TEXT(stove__intro_2), CHK_TEXT(next)},
+          {&img_robin_standing, CHK_TEXT(stove__intro_3), CHK_TEXT(start)},
+      };
+      size_t n = sizeof(intro) / sizeof(intro[0]);
+      CHK_TRY(chk_say_from(intro, n, back ? n - 1 : 0), CHK_LEAVE);
+      c->step = STOVE_STEP_PRECHECK;
+    }
 
-    // the prompt, unless the pass is already under way: a resume into a
-    // measurement must not ask for the burner again
-    if (c->run.began == 0) {
-      if (scr_awake()) {
-        al_buzzer_beep(1047, 80, false);
+    /* Precheck */
+
+    if (c->step == STOVE_STEP_PRECHECK) {
+      const char *const items[] = {
+          CHK_TEXT(stove__list_off),
+          CHK_TEXT(stove__list_pot),
+          CHK_TEXT(stove__list_away),
+      };
+      CHK_TRY(chk_list(title, CHK_TEXT(stage__baseline), items, 3, back), CHK_STEP(STOVE_STEP_INTRO));
+      c->step = STOVE_STEP_BASELINE;
+    }
+
+    /* Baseline */
+
+    if (c->step == STOVE_STEP_BASELINE) {
+      // come back to from the first prompt, the baseline is done over, which
+      // is the check starting over
+      if (back) {
+        chk_restart(c);
       }
-      const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
-      CHK_TRY(chk_say(&prompt, 1));
+
+      const chk_screen_t baseline = {
+          .title = title,
+          .stage = CHK_TEXT(stage__baseline),
+          .hint = CHK_TEXT(stove__baseline_hint),
+          .unit = "ppm",
+          .show = CHK_SHOW_PROGRESS,
+          .back = CHK_TEXT(back),
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.capacity = CHK_STOVE_BASELINE_N},
+          .on_sample = chk_baseline_sample,
+      };
+      CHK_TRY(chk_measure(c, &baseline), CHK_STEP(STOVE_STEP_PRECHECK));
+
+      c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
+      c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
+
+      // the first pass is a run of its own
+      chk_measure_reset(&c->run);
+      c->phase = 0;
+      c->step = STOVE_STEP_PASSES;
     }
 
-    // a burn is drawn against the rise that ends it, the clearing against
-    // the excess it has to lose
-    const chk_screen_t measure = {
-        .title = title,
-        .stage = pass->stage,
-        .nudge = pass->burning ? CHK_TEXT(stove__nudge) : NULL,
-        .unit = "ppm",
-        .show = CHK_SHOW_CHART,
-        .field = AL_SAMPLE_CO2,
-        .cfg = {.min_ms = CHK_STOVE_SLOPE_MS,
-                .max_ms = CHK_STOVE_PASS_MAX_MS,
-                .nudge_ms = CHK_STOVE_SLOPE_MS},
-        .on_sample = stove_sample,
-        .floor = c->result[CHK_STOVE_C0],
-        .range = pass->burning ? CHK_STOVE_BURN_RISE : c->result[CHK_STOVE_PEAK] - c->result[CHK_STOVE_C0],
-    };
-    CHK_TRY(chk_measure(c, &measure));
+    /* Three passes */
 
-    // where this pass ended, so the page can band the chart per pass
-    chk_mark(c);
+    // one pass per trip round the loop, the pass index being the context's
+    // phase, so a sleep inside pass two comes back into pass two
+    if (c->step == STOVE_STEP_PASSES) {
+      const chk_stove_pass_t *pass = &passes[c->phase];
 
-    // the kitchen has had enough: stop the check rather than the pass
-    if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {
-      const chk_bubble_t stop = {&img_robin_angry1, CHK_TEXT(stove__too_much), CHK_TEXT(ok)};
-      return chk_leave(c, chk_say(&stop, 1), on_exit, on_idle, NULL);
+      // the prompt, unless the pass is already under way: a resume into a
+      // measurement must not ask for the burner again. Before the first pass
+      // the key goes back to the baseline; once a burner has been on there
+      // is no going back.
+      if (c->run.began == 0) {
+        // cue the user, unless this is a timer wake re-entering the prompt
+        // they left on the table
+        if (scr_awake()) {
+          al_buzzer_beep(1047, 80, false);
+        }
+        const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
+        CHK_TRY(chk_say(&prompt, 1), c->phase == 0 ? CHK_STEP(STOVE_STEP_BASELINE) : CHK_LEAVE);
+
+        // the boundary between the baseline and the first pass, which is
+        // where the page bands the chart: the burner goes on now
+        if (c->phase == 0) {
+          chk_mark(c);
+        }
+      }
+
+      // a burn is drawn against the rise that ends it, the clearing against
+      // the excess it has to lose
+      const chk_screen_t measure = {
+          .title = title,
+          .stage = pass->stage,
+          .nudge = pass->burning ? CHK_TEXT(stove__nudge) : NULL,
+          .unit = "ppm",
+          .show = CHK_SHOW_CHART,
+          .field = AL_SAMPLE_CO2,
+          .cfg = {.min_ms = CHK_STOVE_SLOPE_MS,
+                  .max_ms = CHK_STOVE_PASS_MAX_MS,
+                  .nudge_ms = CHK_STOVE_SLOPE_MS},
+          .on_sample = stove_sample,
+          .floor = c->result[CHK_STOVE_C0],
+          .range = pass->burning ? CHK_STOVE_BURN_RISE : c->result[CHK_STOVE_PEAK] - c->result[CHK_STOVE_C0],
+      };
+      CHK_TRY(chk_measure(c, &measure), CHK_LEAVE);
+
+      // where this pass ended, so the page can band the chart per pass
+      chk_mark(c);
+
+      // the kitchen has had enough: stop the check rather than the pass
+      if (c->result[CHK_STOVE_PEAK] >= CHK_STOVE_ABORT_PPM) {
+        const chk_bubble_t stop = {&img_robin_angry1, CHK_TEXT(stove__too_much), CHK_TEXT(ok)};
+        return chk_leave(c, chk_say(&stop, 1), on_exit, on_idle, NULL);
+      }
+
+      // the next pass starts fresh
+      chk_measure_reset(&c->run);
+      if (++c->phase < 3) {
+        continue;
+      }
+      c->step = STOVE_STEP_RESULT;
+      c->phase = RESULT_PHASE_VERDICT;
     }
 
-    // the next pass starts fresh
-    chk_measure_reset(&c->run);
-  }
-  if (c->step != STOVE_STEP_RESULT) {
-    c->step = STOVE_STEP_RESULT;
-    c->phase = RESULT_PHASE_VERDICT;
-  }
+    /* Result */
 
-  /* Result */
+    if (chk_stove_evaluate(c) != CHK_STOVE_SOLID) {
+      const chk_bubble_t unclear[] = {
+          {&img_robin_standing, CHK_TEXT(stove__unclear_1), CHK_TEXT(next)},
+          {&img_robin_standing, CHK_TEXT(stove__unclear_2), CHK_TEXT(again)},
+      };
+      return chk_leave(c, chk_say(unclear, 2), on_exit, on_idle, self);
+    }
 
-  if (chk_stove_evaluate(c) != CHK_STOVE_SOLID) {
-    const chk_bubble_t unclear[] = {
-        {&img_robin_standing, CHK_TEXT(stove__unclear_1), CHK_TEXT(next)},
-        {&img_robin_standing, CHK_TEXT(stove__unclear_2), CHK_TEXT(again)},
+    // seal it before saying anything, as the ventilation check does
+    uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
+
+    int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
+    chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
+    const char *advice = tier == CHK_STOVE_TIER_LOW   ? CHK_TEXT(stove__advice_low)
+                         : tier == CHK_STOVE_TIER_MID ? CHK_TEXT(stove__advice_mid)
+                                                      : CHK_TEXT(stove__advice_high);
+
+    const chk_bubble_t verdict[] = {
+        {tier == CHK_STOVE_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
+         lvx_fmt(CHK_TEXT(stove__verdict), percent), CHK_TEXT(next)},
+        {&img_robin_pointing, advice, CHK_TEXT(next)},
     };
-    return chk_leave(c, chk_say(unclear, 2), on_exit, on_idle, self);
+
+    /* Verdict, stats and share */
+
+    return chk_finish(c, CHK_STOVE, stored, verdict, 2, on_exit, on_idle, self);
   }
-
-  // seal it before saying anything, as the ventilation check does
-  uint16_t stored = chk_record(c, AL_SAMPLE_CO2);
-
-  int percent = (int)(c->result[CHK_STOVE_CAPTURE] * 100 + 0.5f);
-  chk_stove_tier_t tier = chk_stove_tier(c->result[CHK_STOVE_CAPTURE]);
-  const char *advice = tier == CHK_STOVE_TIER_LOW   ? CHK_TEXT(stove__advice_low)
-                       : tier == CHK_STOVE_TIER_MID ? CHK_TEXT(stove__advice_mid)
-                                                    : CHK_TEXT(stove__advice_high);
-
-  const chk_bubble_t verdict[] = {
-      {tier == CHK_STOVE_TIER_HIGH ? &img_robin_happy : &img_robin_standing,
-       lvx_fmt(CHK_TEXT(stove__verdict), percent), CHK_TEXT(next)},
-      {&img_robin_pointing, advice, CHK_TEXT(next)},
-  };
-  if (c->phase == RESULT_PHASE_VERDICT) {
-    CHK_TRY(chk_say(verdict, 2));
-  }
-
-  /* Stats and share */
-
-  return chk_finish(c, CHK_STOVE, stored, on_exit, on_idle, self);
 }
 
 /* View */

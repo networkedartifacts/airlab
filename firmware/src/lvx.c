@@ -29,7 +29,7 @@ static lv_coord_t lvx_text_width(lv_obj_t* obj, const char* text) {
 
 const char* lvx_fmt(const char* fmt, ...) {
   // prepare global storage
-  static char buffers[8][96];
+  static char buffers[8][LVX_FMT_SIZE];
   static uint8_t num = 0;
 
   // select string
