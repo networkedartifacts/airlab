@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <naos.h>
+
 #include <al/buzzer.h>
 
 #include "chk.h"
@@ -42,6 +44,7 @@
       continue;                                                                \
     }                                                                          \
     if (_r != CHK_NEXT) {                                                      \
+      naos_log("chk: leaving step %u on %d", c->step, _r);                     \
       chk_release(c);                                                          \
       return _r == CHK_IDLE ? on_idle : _r == CHK_AGAIN ? self : on_exit;      \
     }                                                                          \
@@ -51,7 +54,7 @@
 // where the B key goes: a step, a step with the check started over (out of a
 // baseline, or back into one), a phase of the result, or out
 #define CHK_STEP(s) (c->step = (s), true)
-#define CHK_REDO(s) (chk_restart(c), c->step = (s), true)
+#define CHK_REDO(s) (naos_log("chk: redo from step %u", c->step), chk_restart(c), c->step = (s), true)
 #define CHK_PHASE(p) (c->phase = (p), true)
 #define CHK_LEAVE false
 
@@ -59,6 +62,7 @@
 // timeout goes idle, "again" restarts when the caller offers a screen for it,
 // and anything else leaves.
 static void *chk_leave(chk_t *c, chk_result_t said, void *on_exit, void *on_idle, void *again) {
+  naos_log("chk: closing at step %u on %d", c->step, said);
   chk_release(c);
   if (said == CHK_IDLE) return on_idle;
   if (said == CHK_NEXT && again != NULL) return again;
