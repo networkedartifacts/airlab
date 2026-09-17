@@ -19,4 +19,9 @@ void scr_run(al_trigger_t trigger);
 // or aborted sleep.
 void scr_park(int32_t interval_s, int32_t duration_ms, void* resume);
 
+// Reports whether the awake configuration is applied, which it is for a
+// present user or a connected client and is not on a wake up the device
+// performs on its own, to refresh the display or move the stores along.
+bool scr_awake(void);
+
 #endif  // SCR_H

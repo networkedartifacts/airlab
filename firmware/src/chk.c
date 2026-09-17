@@ -193,6 +193,10 @@ bool chk_resuming(const chk_t *c, uint8_t id) {
   return c->id == id && c->start != 0;
 }
 
+bool chk_started(const chk_t *c) {
+  return c->seen != 0;
+}
+
 void chk_begin(chk_t *c, uint8_t id) {
   memset(c, 0, sizeof(*c));
   c->id = id;

@@ -28,16 +28,47 @@
 #include "lvx.h"
 #include "sig.h"
 
-// maps a key press or the lack of one onto an outcome
 static uint16_t chk_device_tag(void);
 
-static chk_result_t chk_outcome(sig_type_t event) {
-  if (event & SIG_ENTER) {
-    return CHK_NEXT;
-  } else if (event & SIG_TIMEOUT) {
-    return CHK_IDLE;
+// Below this cadence a deep sleep is not worth a reset cycle, so a check
+// simply stays awake. The trial's checks sample every five seconds and never
+// sleep; the long condition checks, which sample every minute or slower, spend
+// nearly all their time asleep.
+#define CHK_SLEEP_MIN_S 30
+
+// How long a prompt sleeps before waking to look for its key again. The panel
+// holds the prompt through the sleep and a key wakes the device at once, so
+// the timer wake is only there to keep the stores moving.
+#define CHK_PARK_MS (30 * 60 * 1000)
+
+// the screen the running flow is on, or NULL when no flow runs
+static void *chk_park_screen = NULL;
+
+void chk_park_into(void *screen) {
+  chk_park_screen = screen;
+}
+
+// Waits for a prompt's key and maps it onto an outcome. Inaction is read two
+// ways: on a check nobody has started the user was only looking, so the
+// prompt gives the device back; on a started check they are waiting for it,
+// so the prompt stays until it is dismissed, sleeping through the wait where
+// the cadence allows. A sleep is a reset that re-enters the flow at the step
+// it was on; a refused one returns here to keep waiting awake.
+static chk_result_t chk_prompt_await(int32_t timeout) {
+  for (;;) {
+    sig_event_t event = gui_await(SIG_META, timeout);
+    if (event.type & SIG_ENTER) {
+      return CHK_NEXT;
+    } else if (!(event.type & SIG_TIMEOUT)) {
+      return CHK_EXIT;
+    } else if (chk_park_screen == NULL || !chk_started(chk_context())) {
+      return CHK_IDLE;
+    }
+    int interval = chk_cadence();
+    if (interval >= CHK_SLEEP_MIN_S) {
+      scr_park(interval, CHK_PARK_MS, chk_park_screen);
+    }
   }
-  return CHK_EXIT;
 }
 
 // the header every non-dialogue check screen carries: the check on the left,
@@ -109,12 +140,12 @@ static chk_result_t chk_say_one(const chk_bubble_t *bubble) {
   gfx_end(false, false);
 
   // await the key
-  sig_event_t event = gui_await(SIG_META, CHK_ACTION_TIMEOUT);
+  chk_result_t result = chk_prompt_await(CHK_ACTION_TIMEOUT);
 
   // cleanup
   gui_cleanup(false);
 
-  return chk_outcome(event.type);
+  return result;
 }
 
 chk_result_t chk_say(const chk_bubble_t *bubbles, size_t count) {
@@ -160,12 +191,12 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
   gfx_end(false, false);
 
   // await the key
-  sig_event_t event = gui_await(SIG_META, CHK_ACTION_TIMEOUT);
+  chk_result_t result = chk_prompt_await(CHK_ACTION_TIMEOUT);
 
   // cleanup
   gui_cleanup(false);
 
-  return chk_outcome(event.type);
+  return result;
 }
 
 chk_result_t chk_stats(const char *title, const char *stage, const char *const *lines, size_t count,
@@ -200,12 +231,12 @@ chk_result_t chk_stats(const char *title, const char *stage, const char *const *
   gfx_end(false, false);
 
   // await the key
-  sig_event_t event = gui_await(SIG_META, CHK_ACTION_TIMEOUT);
+  chk_result_t result = chk_prompt_await(CHK_ACTION_TIMEOUT);
 
   // cleanup
   gui_cleanup(false);
 
-  return chk_outcome(event.type);
+  return result;
 }
 
 // The chart is a display buffer, not the data path: it holds one bar per
@@ -293,12 +324,6 @@ static int chk_catch_up(chk_t *c, const chk_screen_t *screen, int64_t began, chk
 
   return taken;
 }
-
-// Below this cadence a deep sleep is not worth a reset cycle, so a check
-// simply stays awake. The trial's checks sample every five seconds and never
-// sleep; the long condition checks, which sample every minute or slower, spend
-// nearly all their time asleep.
-#define CHK_SLEEP_MIN_S 30
 
 int chk_cadence(void) {
   // the sensor's own cadence, not the interval the stores migrate at: the
@@ -391,7 +416,7 @@ static chk_result_t chk_await(void) {
   }
 }
 
-chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
   // prepare the canvas once and keep it: a check may run many times
   if (screen->show == CHK_SHOW_CHART && chk_canvas_buffer == NULL) {
     chk_canvas_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(280, 50));
@@ -538,7 +563,7 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
     // The call returns only when the device has to stay awake after all, in
     // which case the wait happens here instead.
     if (interval >= CHK_SLEEP_MIN_S) {
-      scr_park(interval, interval * 1000, resume);
+      scr_park(interval, interval * 1000, chk_park_screen);
     }
 
     if (chk_await() != CHK_NEXT) {
@@ -656,12 +681,12 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
   gfx_end(false, true);
 
   // await the key, giving the user time to actually scan it
-  sig_event_t event = gui_await(SIG_META, CHK_ACTION_TIMEOUT * 3);
+  chk_result_t result = chk_prompt_await(CHK_ACTION_TIMEOUT * 3);
 
   // cleanup
   gui_cleanup(false);
 
-  return chk_outcome(event.type);
+  return result;
 }
 
 // The payload bytes a 2 px symbol carries behind the prefix at level M, which
@@ -749,6 +774,9 @@ void chk_release(chk_t *c) {
     chk_store_discard(c->file);
   }
   chk_end(c);
+
+  // nothing is left to park into
+  chk_park_screen = NULL;
 }
 
 chk_result_t chk_show_code(uint16_t num) {

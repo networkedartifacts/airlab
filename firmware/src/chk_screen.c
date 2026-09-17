@@ -14,26 +14,30 @@
 #include "gui.h"
 #include "img.h"
 #include "lvx.h"
+#include "scr.h"
 
 /* Shared */
 
-// Leaving and timing out are not the same thing. A user who presses escape
-// has abandoned the check, so the context is released and the next run starts
-// over. A timeout is the device going to sleep with the user still intending
-// to finish, so the context is kept and the flow resumes into the step it
-// was on. Expects `c`, `on_exit`, `on_idle` and `self` in scope.
-#define CHK_TRY(expr)                   \
-  do {                                  \
-    chk_result_t _r = (expr);           \
-    if (_r == CHK_EXIT) {               \
-      chk_release(c);                   \
-      return on_exit;                   \
-    }                                   \
-    if (_r == CHK_IDLE) return on_idle; \
-    if (_r == CHK_AGAIN) {              \
-      chk_release(c);                   \
-      return self;                      \
-    }                                   \
+// Every way out of a kit call but "next" releases the check. Escape is the
+// user abandoning it; a timeout only reaches here before the baseline, when
+// the user was looking rather than waiting, so the next run starts over too.
+// A started check never times out: its prompts park the device on the flow's
+// screen and wake back into it. Expects `c`, `on_exit`, `on_idle` and `self`
+// in scope.
+#define CHK_TRY(expr)         \
+  do {                        \
+    chk_result_t _r = (expr); \
+    if (_r == CHK_NEXT) {     \
+      break;                  \
+    }                         \
+    chk_release(c);           \
+    if (_r == CHK_IDLE) {     \
+      return on_idle;         \
+    }                         \
+    if (_r == CHK_AGAIN) {    \
+      return self;            \
+    }                         \
+    return on_exit;           \
   } while (0)
 
 // Releases the check after a closing bubble and picks where to land: a
@@ -55,6 +59,14 @@ static chk_step_t chk_baseline_sample(chk_t *c, float value, int32_t t_ms) {
   return CHK_STEP_WAIT;
 }
 
+// The result step is shown in phases, so a wake out of a parked sleep lands
+// on the screen that was showing rather than back at the verdict.
+enum {
+  RESULT_PHASE_VERDICT,
+  RESULT_PHASE_STATS,
+  RESULT_PHASE_SHARE,
+};
+
 // The end every solid result shares: the stats, then the code. The record was
 // just written, so reading it back means the result shown now is built from
 // exactly what a reopened check will be built from later; the live block is
@@ -66,7 +78,11 @@ static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, void *on_exit, vo
     chk_release(c);
     return on_exit;
   }
-  CHK_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
+  if (c->phase <= RESULT_PHASE_STATS) {
+    c->phase = RESULT_PHASE_STATS;
+    CHK_TRY(chk_stats(view.title, CHK_TEXT(stage__results), view.lines, view.num_lines, view.note));
+  }
+  c->phase = RESULT_PHASE_SHARE;
   CHK_TRY(chk_show_code(stored));
   chk_release(c);
   return on_exit;
@@ -169,6 +185,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   if (!chk_resuming(c, CHK_VENT)) {
     chk_begin(c, CHK_VENT);
   }
+  chk_park_into(self);
 
   const char *title = CHK_TEXT(vent__title);
 
@@ -224,7 +241,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
         .cfg = {.capacity = CHK_VENT_BASELINE_N},
         .on_sample = chk_baseline_sample,
     };
-    CHK_TRY(chk_measure(c, &baseline, self));
+    CHK_TRY(chk_measure(c, &baseline));
 
     // the baseline is the median of what the store holds, which is steadier
     // than a mean when a reading or two is off
@@ -244,7 +261,11 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
   /* Trigger */
 
   if (c->step == VENT_STEP_TRIGGER) {
-    al_buzzer_beep(1047, 80, false);
+    // cue the user, unless this is a timer wake re-entering the prompt they
+    // left on the table
+    if (scr_awake()) {
+      al_buzzer_beep(1047, 80, false);
+    }
     const chk_bubble_t open = {
         &img_robin_pointing,
         lvx_fmt(CHK_TEXT(vent__open_window), c->result[CHK_VENT_C0]),
@@ -275,8 +296,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
         .on_sample = vent_decay_sample,
         .floor = c->result[CHK_VENT_COUT],
     };
-    CHK_TRY(chk_measure(c, &decay, self));
+    CHK_TRY(chk_measure(c, &decay));
     c->step = VENT_STEP_RESULT;
+    c->phase = RESULT_PHASE_VERDICT;
   }
 
   /* Result */
@@ -309,7 +331,9 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
        lvx_fmt(CHK_TEXT(vent__verdict_half_life), half), CHK_TEXT(next)},
       {&img_robin_pointing, advice, CHK_TEXT(next)},
   };
-  CHK_TRY(chk_say(verdict, 2));
+  if (c->phase == RESULT_PHASE_VERDICT) {
+    CHK_TRY(chk_say(verdict, 2));
+  }
 
   /* Stats and share */
 
@@ -405,6 +429,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
   if (!chk_resuming(c, CHK_STOVE)) {
     chk_begin(c, CHK_STOVE);
   }
+  chk_park_into(self);
 
   const char *title = CHK_TEXT(stove__title);
 
@@ -445,7 +470,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
         .cfg = {.capacity = CHK_STOVE_BASELINE_N},
         .on_sample = chk_baseline_sample,
     };
-    CHK_TRY(chk_measure(c, &baseline, self));
+    CHK_TRY(chk_measure(c, &baseline));
 
     c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
     c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
@@ -476,7 +501,9 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
     // the prompt, unless the pass is already under way: a resume into a
     // measurement must not ask for the burner again
     if (c->run.began == 0) {
-      al_buzzer_beep(1047, 80, false);
+      if (scr_awake()) {
+        al_buzzer_beep(1047, 80, false);
+      }
       const chk_bubble_t prompt = {&img_robin_pointing, pass->prompt, pass->action};
       CHK_TRY(chk_say(&prompt, 1));
     }
@@ -497,7 +524,7 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
         .floor = c->result[CHK_STOVE_C0],
         .range = pass->burning ? CHK_STOVE_BURN_RISE : c->result[CHK_STOVE_PEAK] - c->result[CHK_STOVE_C0],
     };
-    CHK_TRY(chk_measure(c, &measure, self));
+    CHK_TRY(chk_measure(c, &measure));
 
     // where this pass ended, so the page can band the chart per pass
     chk_mark(c);
@@ -511,7 +538,10 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
     // the next pass starts fresh
     chk_measure_reset(&c->run);
   }
-  c->step = STOVE_STEP_RESULT;
+  if (c->step != STOVE_STEP_RESULT) {
+    c->step = STOVE_STEP_RESULT;
+    c->phase = RESULT_PHASE_VERDICT;
+  }
 
   /* Result */
 
@@ -537,7 +567,9 @@ void *chk_stove_run(void *on_exit, void *on_idle, void *self) {
        lvx_fmt(CHK_TEXT(stove__verdict), percent), CHK_TEXT(next)},
       {&img_robin_pointing, advice, CHK_TEXT(next)},
   };
-  CHK_TRY(chk_say(verdict, 2));
+  if (c->phase == RESULT_PHASE_VERDICT) {
+    CHK_TRY(chk_say(verdict, 2));
+  }
 
   /* Stats and share */
 

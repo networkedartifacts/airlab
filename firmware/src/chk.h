@@ -92,6 +92,11 @@ chk_t *chk_context(void);
 // flow should resume rather than start over.
 bool chk_resuming(const chk_t *c, uint8_t id);
 
+// True once the check has folded in a reading, which is the baseline under
+// way. Before that the user is looking; from here on they have started the
+// check and are waiting for it, which decides what a prompt left alone does.
+bool chk_started(const chk_t *c);
+
 typedef enum {
   CHK_DE,
   CHK_EN,
@@ -185,8 +190,10 @@ typedef enum {
   CHK_STOVE,
 } chk_id_t;
 
-// How long a check waits on a prompt before giving the device back. A check
-// left standing on a table should not hold the screen awake indefinitely.
+// How long a prompt waits for its key before deciding nobody is there. A
+// check nobody has started gives the device back to the idle screen; one
+// that has been started stays on the prompt, sleeping through the wait
+// where the cadence allows, until it is dismissed.
 #define CHK_ACTION_TIMEOUT 60000
 
 // One thing Robin says, with the sign under the A key.
@@ -256,6 +263,12 @@ int32_t chk_elapsed(const chk_t *c);
 
 // Selects the language for check copy, using the same indices as scr_lang_t.
 void chk_init(int lang);
+
+// Names the screen the running flow is on, which a measurement or a prompt
+// left alone parks the device on and wakes back into. Each flow sets it on
+// entry and chk_release forgets it, so a result shown from the past list,
+// which runs no flow, never parks.
+void chk_park_into(void *screen);
 
 // Returns a check string, falling back to English when the selected language
 // has none. The offset is a byte offset into chk_trans_t, as produced by
@@ -338,8 +351,8 @@ int chk_cadence(void);
 // that has already been entered (its `began` is set) is continued rather
 // than started, which is how a measurement picks up after a deep sleep. At a
 // slow cadence the wait between readings is spent in a deep sleep that wakes
-// back into `resume`, the flow's own screen, so the run continues there.
-chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume);
+// back into the flow's own screen, so the run continues there.
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen);
 
 // Runs the ventilation check. The three arguments are the screens each
 // outcome lands on: leaving, timing out, and starting over.

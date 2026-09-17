@@ -408,6 +408,10 @@ static sig_event_t scr_idle_await() {
   return event;
 }
 
+bool scr_awake(void) {
+  return scr_applied == SCR_AWAKE;
+}
+
 void scr_park(int32_t interval_s, int32_t duration_ms, void* resume) {
   // wake back into the given screen, whether the timer or a key ends the
   // sleep: without this the wake lands in the menu
@@ -3775,10 +3779,9 @@ static void* scr_checks() {
 }
 
 // Runs the ventilation check, telling it which screen each outcome lands on.
-// A check that times out on a prompt hands over to the idle screen and keeps
-// its context, so picking it from the list again resumes it; a check that
-// sleeps mid-measurement wakes straight back into itself, by handing its own
-// screen to scr_park.
+// A check nobody has started yet hands over to the idle screen when a prompt
+// is left alone; a started one sleeps on its prompts and measurements and
+// wakes straight back into itself, by handing its own screen to scr_park.
 static void* scr_check_vent() {
   chk_init(scr_lang());
   return chk_vent_run(scr_checks, scr_idle, scr_check_vent);
