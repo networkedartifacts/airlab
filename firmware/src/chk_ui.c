@@ -158,22 +158,31 @@ chk_result_t chk_say(const chk_bubble_t *bubbles, size_t count) {
   return CHK_NEXT;
 }
 
+// the most items a checklist holds
+#define CHK_LIST_MAX 8
+
 chk_result_t chk_list(const char *title, const char *stage, const char *const *items, size_t count) {
+  if (count > CHK_LIST_MAX) {
+    count = CHK_LIST_MAX;
+  }
+
   // begin draw
   gfx_begin(false, false);
 
   // add chrome
   chk_chrome(title, stage);
 
-  // add items, each with a box the user ticks off by reading it
+  // add items, each with a box the user ticks off with the key
+  lv_obj_t *boxes[CHK_LIST_MAX];
   for (size_t i = 0; i < count; i++) {
-    lv_obj_t *box = lv_obj_create(lv_scr_act());
-    lv_obj_align(box, LV_ALIGN_TOP_LEFT, 10, (lv_coord_t)(30 + i * 22));
-    lv_obj_set_size(box, 11, 11);
-    lv_obj_set_style_radius(box, 0, LV_PART_MAIN);
-    lv_obj_set_style_border_width(box, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(box, lv_color_black(), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(box, LV_OPA_TRANSP, LV_PART_MAIN);
+    boxes[i] = lv_obj_create(lv_scr_act());
+    lv_obj_align(boxes[i], LV_ALIGN_TOP_LEFT, 10, (lv_coord_t)(30 + i * 22));
+    lv_obj_set_size(boxes[i], 11, 11);
+    lv_obj_set_style_radius(boxes[i], 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(boxes[i], 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(boxes[i], lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(boxes[i], lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(boxes[i], LV_OPA_TRANSP, LV_PART_MAIN);
 
     lv_obj_t *lbl = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(lbl, &fnt_16, LV_PART_MAIN);
@@ -190,8 +199,31 @@ chk_result_t chk_list(const char *title, const char *stage, const char *const *i
   // end draw
   gfx_end(false, false);
 
-  // await the key
-  chk_result_t result = chk_prompt_await(CHK_ACTION_TIMEOUT);
+  // the key ticks the items off one at a time, and only moves on once every
+  // box is filled: the list is there to be read, not skipped
+  size_t ticked = 0;
+  chk_result_t result;
+  for (;;) {
+    result = chk_prompt_await(CHK_ACTION_TIMEOUT);
+    if (result != CHK_NEXT || ticked == count) {
+      break;
+    }
+
+    // begin draw
+    gfx_begin(false, false);
+
+    // fill the next box
+    lv_obj_set_style_bg_opa(boxes[ticked], LV_OPA_COVER, LV_PART_MAIN);
+    ticked++;
+
+    // relabel the key once the list is done
+    if (ticked == count) {
+      lvx_sign_set_text(&ok, CHK_TEXT(next));
+    }
+
+    // end draw
+    gfx_end(false, false);
+  }
 
   // cleanup
   gui_cleanup(false);

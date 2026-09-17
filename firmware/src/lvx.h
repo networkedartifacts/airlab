@@ -49,6 +49,9 @@ typedef struct {
 
 void lvx_sign_create(lvx_sign_t *sign, lv_obj_t *parent);
 
+// Changes the text of a created sign in place.
+void lvx_sign_set_text(lvx_sign_t *sign, const char *text);
+
 /* Status */
 
 typedef struct {

@@ -315,6 +315,11 @@ void lvx_sign_create(lvx_sign_t* sign, lv_obj_t* parent) {
   }
 }
 
+void lvx_sign_set_text(lvx_sign_t* sign, const char* text) {
+  sign->text = text;
+  lv_label_set_text(sign->_text, text);
+}
+
 /* Status */
 
 void lvx_status_create(lvx_status_t* status, lv_obj_t* parent) {
