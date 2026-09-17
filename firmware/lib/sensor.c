@@ -606,6 +606,21 @@ void al_sensor_set_interval(int32_t seconds) {
   naos_unlock(al_sensor_mutex);
 }
 
+int32_t al_sensor_get_interval() {
+  // read the requested interval
+  naos_lock(al_sensor_mutex);
+  int32_t seconds = al_sensor_seconds;
+  naos_unlock(al_sensor_mutex);
+
+  // map it onto the mode's own cadence, the way al_sensor_set_interval() does
+  if (seconds >= AL_SENSOR_MANUAL_INTERVAL) {
+    return seconds;
+  } else if (seconds >= AL_SENSOR_LOW_POWER_INTERVAL) {
+    return AL_SENSOR_LOW_POWER_INTERVAL;
+  }
+  return AL_SENSOR_MIN_INTERVAL;
+}
+
 void al_sensor_set_gas_window(int32_t seconds) {
   // store window, applied on the next al_sensor_set_interval() call
   naos_lock(al_sensor_mutex);

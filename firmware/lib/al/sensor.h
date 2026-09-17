@@ -38,6 +38,16 @@ al_sample_t al_sensor_next(int64_t *epoch);
 void al_sensor_set_interval(int32_t seconds);
 
 /**
+ * Get the cadence at which samples are actually taken and ingested. This is
+ * the selected mode's own period rather than the requested interval: 5s in
+ * the periodic mode, 30s in the low power mode, and the requested interval
+ * once single-shot measurements are taken.
+ *
+ * @return The cadence in seconds.
+ */
+int32_t al_sensor_get_interval();
+
+/**
  * Set the SGP41 active window per measurement cycle in manual mode. When zero
  * (the default), the SGP41 runs continuously with its heater always on, which
  * preserves full signal quality. When set, the sensor is duty-cycled: per
