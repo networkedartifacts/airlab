@@ -13,18 +13,19 @@
 // change the page breaks every code this firmware draws.
 
 static const char* VENT_DIGITS =
-    "12153417726290059227092302175294306990979621683678011818858133378728778430865725846584044520174637821520"
-    "32404";
+    "31112749379027852418000570666471608232269532654405854977750303453368147075447037245069366838930136166603"
+    "9697512";
 
 static const char* STOVE_DIGITS =
-    "81598215788142912121880038426422785026277202135556321872379742069563700469451943456249196235323508458593"
-    "23395989637725660242072283823529445245843485573750488657449194879039586218867395225227385858640835069576"
-    "0042408920630234902132693682354138112115557359869924086997641827975579246801";
+    "20889143241590655319545191127851952922185282863603337230964716166795751136151598730562340742913543160532"
+    "54316342520280726820136277479308660602255410395443946178642055131719799130671014023166780208856877220573"
+    "7193565641504905780031862848146125808658033372236627072058347484235116801368184";
 
 // the same header the reference was given: minute 1000000 with the room two
-// hours east of UTC, which the field carries as 56 quarter hours from -12:00
+// hours east of UTC, which the field carries as 56 quarter hours from -12:00,
+// on the device named AL5AB12C
 #define TEST_META(id) \
-  { .check = (id), .minute = 1000000, .offset = 120, .device = 0xAB12, .room = 0, .cadence = 2 }
+  { .check = (id), .minute = 1000000, .offset = 120, .device = 0x5AB12C, .room = 0, .cadence = 2 }
 
 static void vent_samples(float* out, size_t n) {
   for (size_t i = 0; i < n; i++) {
@@ -48,7 +49,7 @@ static void test_a_ventilation_payload_matches_the_page() {
 
   TEST_ASSERT_EQUAL_STRING(VENT_DIGITS, digits);
   TEST_ASSERT_EQUAL_INT_MESSAGE(1, step, "a short check keeps the finest step");
-  TEST_ASSERT_EQUAL_size_t(45, bytes);
+  TEST_ASSERT_EQUAL_size_t(46, bytes);
 }
 
 static void test_a_stove_payload_matches_the_page() {
@@ -67,7 +68,7 @@ static void test_a_stove_payload_matches_the_page() {
   TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 10, samples, 120, 153, digits, sizeof(digits), &step, &bytes));
 
   TEST_ASSERT_EQUAL_STRING(STOVE_DIGITS, digits);
-  TEST_ASSERT_EQUAL_size_t(118, bytes);
+  TEST_ASSERT_EQUAL_size_t(119, bytes);
 }
 
 static void test_a_long_check_loses_resolution_rather_than_failing() {
@@ -206,11 +207,11 @@ static void test_the_payload_ends_with_its_checksum() {
 
   uint8_t bytes[CHK_CODE_MAX_BYTES];
   size_t len = digits_to_bytes(VENT_DIGITS, bytes, sizeof(bytes));
-  TEST_ASSERT_EQUAL_size_t(45, len);
+  TEST_ASSERT_EQUAL_size_t(46, len);
   TEST_ASSERT_EQUAL_HEX8(reference_crc8(bytes, len - 1), bytes[len - 1]);
 
   len = digits_to_bytes(STOVE_DIGITS, bytes, sizeof(bytes));
-  TEST_ASSERT_EQUAL_size_t(118, len);
+  TEST_ASSERT_EQUAL_size_t(119, len);
   TEST_ASSERT_EQUAL_HEX8(reference_crc8(bytes, len - 1), bytes[len - 1]);
 }
 

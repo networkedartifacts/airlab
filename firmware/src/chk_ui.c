@@ -28,7 +28,7 @@
 #include "lvx.h"
 #include "sig.h"
 
-static uint16_t chk_device_tag(void);
+static uint32_t chk_device_tag(void);
 
 // Below this cadence a deep sleep is not worth a reset cycle, so a check
 // simply stays awake. The trial's checks sample every five seconds and never
@@ -768,19 +768,19 @@ chk_result_t chk_qr(const char *title, const char *digits, const char *caption) 
 // is what the panel height allows rather than what the format could hold.
 #define CHK_SHARE_MAX_BYTES 153
 
-// The payload carries sixteen bits of device, shown on the page as a hex tag.
-// `device-id` is a hex string and the device name is "AL" plus its last six
-// characters, so taking the last four puts a tag on the page that the user can
-// match against the name on their own device.
-static uint16_t chk_device_tag(void) {
+// The payload carries twenty-four bits of device, shown on the page as a hex
+// tag. `device-id` is a hex string and the device name is "AL" plus its last
+// six characters, so taking those six puts the name on the page exactly as the
+// user reads it on their own device.
+static uint32_t chk_device_tag(void) {
   const char *id = naos_get_s("device-id");
   size_t len = id != NULL ? strlen(id) : 0;
-  if (len < 4) {
+  if (len < 6) {
     return 0;
   }
 
-  uint16_t tag = 0;
-  for (const char *p = id + len - 4; *p != '\0'; p++) {
+  uint32_t tag = 0;
+  for (const char *p = id + len - 6; *p != '\0'; p++) {
     int digit;
     if (*p >= '0' && *p <= '9') {
       digit = *p - '0';
@@ -791,7 +791,7 @@ static uint16_t chk_device_tag(void) {
     } else {
       return 0;  // not hex after all, so there is no tag worth showing
     }
-    tag = (uint16_t)((tag << 4) | digit);
+    tag = (tag << 4) | (uint32_t)digit;
   }
 
   return tag;

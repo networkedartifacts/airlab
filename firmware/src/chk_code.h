@@ -56,7 +56,7 @@ typedef struct {
   uint8_t check;     // a chk_code_check_t, which also picks the layout
   uint32_t minute;   // minutes since 2025-01-01 in UTC
   int16_t offset;    // the room's UTC offset in minutes east, or CHK_CODE_OFFSET_UNKNOWN
-  uint16_t device;   // device id, shown as a hex tag
+  uint32_t device;   // the last six hex characters of the device id, the name after "AL"
   uint8_t room;      // index into the page's room names, 0 when unknown
   uint8_t cadence;   // index into chk_code_cadences
 } chk_code_meta_t;

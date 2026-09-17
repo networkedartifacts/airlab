@@ -17,7 +17,7 @@ typedef struct {
 
 // mark, check, minute, offset, device, room, cadence
 static const chk_code_field_t chk_code_header[] = {
-    {1, 1}, {5, 1}, {23, 1}, {7, 1}, {16, 1}, {4, 1}, {3, 1},
+    {1, 1}, {5, 1}, {23, 1}, {7, 1}, {24, 1}, {4, 1}, {3, 1},
 };
 
 // the offset rides in quarter hours from -12:00, so 0 is UTC-12, 48 is UTC and
