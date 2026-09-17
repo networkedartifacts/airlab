@@ -24,12 +24,34 @@ bool chk_vent_observe(chk_t *c, float co2, int32_t t_ms) {
   return true;
 }
 
+int32_t chk_vent_remaining(chk_t *c, float share) {
+  // the slope is the rate, and until the fit solves there is nothing to say.
+  // A rising or flat signal is not a decay, and has no end to count towards
+  float slope, r2;
+  if (!chk_accum_fit(&c->accum[0], CHK_VENT_FIT_MIN, &slope, &r2) || slope >= 0) {
+    return -1;
+  }
+  float ach = -slope;
+
+  // where the run ends, and where it stands now, both as an excess over the
+  // floor the decay falls towards
+  float target = (1.0f - share) * (c->result[CHK_VENT_C0] - c->result[CHK_VENT_COUT]);
+  float excess = c->result[CHK_VENT_CLAST] - c->result[CHK_VENT_COUT];
+  if (!(target > 0) || !(excess > target)) {
+    return 0;
+  }
+
+  // the excess decays at the fitted rate, so the time to fall to the target
+  // is the log of the ratio over that rate, which is per hour
+  return (int32_t)(logf(excess / target) / ach * 3600000.0f);
+}
+
 chk_vent_quality_t chk_vent_evaluate(chk_t *c, int32_t elapsed_ms) {
   float drop = c->result[CHK_VENT_C0] - c->result[CHK_VENT_CLAST];
 
   // solve the fit, needing enough points for the slope to mean anything
   float slope, r2;
-  bool solved = chk_accum_fit(&c->accum[0], 12, &slope, &r2);
+  bool solved = chk_accum_fit(&c->accum[0], CHK_VENT_FIT_MIN, &slope, &r2);
 
   // a rising or flat signal is not a decay, whatever the fit says
   if (solved && slope < 0 && r2 >= CHK_VENT_GATE_R2 && drop >= CHK_VENT_GATE_DROP) {

@@ -230,14 +230,7 @@ bool chk_settle_done(const chk_measure_run_t *r) {
   return r->settle.settled;
 }
 
-int32_t chk_measure_remaining(const chk_measure_cfg_t *cfg, const chk_measure_run_t *r, int32_t elapsed) {
-  if (!cfg->settle) {
-    return -1;
-  }
-
-  // what the last two windows promise, or the floor while there are not two
-  int32_t left = r->settle.eta >= 0 ? r->settle.eta - elapsed : cfg->min_ms - elapsed;
-
+int32_t chk_measure_bound(const chk_measure_cfg_t *cfg, int32_t left, int32_t elapsed) {
   // never before the floor, never after the cap
   if (left < cfg->min_ms - elapsed) {
     left = cfg->min_ms - elapsed;
@@ -250,6 +243,17 @@ int32_t chk_measure_remaining(const chk_measure_cfg_t *cfg, const chk_measure_ru
   }
 
   return left;
+}
+
+int32_t chk_measure_remaining(const chk_measure_cfg_t *cfg, const chk_measure_run_t *r, int32_t elapsed) {
+  if (!cfg->settle) {
+    return -1;
+  }
+
+  // what the last two windows promise, or the floor while there are not two
+  int32_t left = r->settle.eta >= 0 ? r->settle.eta - elapsed : cfg->min_ms - elapsed;
+
+  return chk_measure_bound(cfg, left, elapsed);
 }
 
 chk_run_state_t chk_measure_step(const chk_measure_cfg_t *cfg, chk_measure_run_t *r, int32_t elapsed, bool valid,

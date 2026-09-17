@@ -57,6 +57,11 @@ typedef enum {
 // contribute to a log fit (ASTM E741 decay via Persily 1997).
 #define CHK_VENT_LOG_MARGIN 10.0f
 
+// How many points the log fit needs before its slope means anything. The
+// same bar for the evaluation and for the estimate the screen shows while
+// the decay is still running.
+#define CHK_VENT_FIT_MIN 12
+
 // Quality gate. Both are the branch's own values, kept: below either, the
 // check reports a direction rather than a number.
 #define CHK_VENT_GATE_R2 0.8f
@@ -90,6 +95,17 @@ bool chk_vent_observe(chk_t *c, float co2, int32_t t_ms);
 // Solves the fit and fills the result fields. Returns whether the fit earned
 // a number; when it did not, the drop rate decides which direction to report.
 chk_vent_quality_t chk_vent_evaluate(chk_t *c, int32_t elapsed_ms);
+
+// How much longer the decay needs to shed `share` of the excess it started
+// with, in ms, or -1 while the fit cannot yet say. The run ends on that share,
+// so this is what the measuring screen counts down.
+//
+// It reads the fit as it stands rather than the gated result: the quality
+// gate decides whether a rate may be reported, which is a question about the
+// verdict, not about a rough time to go. An early fit can be wide of the
+// mark, and the caller is expected to hold the answer to the run's own
+// limits, within which being wide of the mark costs little.
+int32_t chk_vent_remaining(chk_t *c, float share);
 
 // The remembered outdoor floor, one per device since outdoor air is the same
 // for every room of a flat. It lives in RTC memory: it survives the deep sleep

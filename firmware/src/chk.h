@@ -412,6 +412,12 @@ bool chk_settle_done(const chk_measure_run_t* r);
 // does not settle.
 int32_t chk_measure_remaining(const chk_measure_cfg_t* cfg, const chk_measure_run_t* r, int32_t elapsed);
 
+// Holds an estimate of what a run has left to the limits its config sets: it
+// may promise an end no earlier than the floor, none later than the cap, and
+// never one in the past. A rough estimate held this way is wrong by at most
+// the span between the two.
+int32_t chk_measure_bound(const chk_measure_cfg_t* cfg, int32_t left, int32_t elapsed);
+
 // How a run shows itself: a baseline counts samples towards a target, a
 // measurement draws the signal falling or rising over time.
 typedef enum {
@@ -421,6 +427,11 @@ typedef enum {
 
 // What a check makes of each reading.
 typedef chk_step_t (*chk_sample_fn)(chk_t* c, float value, int32_t t_ms);
+
+// What a check makes of how much longer it needs, in ms, or -1 while it
+// cannot say. A check whose run ends on its own reading of the signal knows
+// this better than the settle classifier does, and says so here.
+typedef int32_t (*chk_remaining_fn)(chk_t* c);
 
 typedef struct {
   const char* title;
@@ -433,8 +444,9 @@ typedef struct {
   al_sample_field_t field;  // which signal to read
   chk_measure_cfg_t cfg;
   chk_sample_fn on_sample;
-  float floor;  // the value a zero-height bar stands for
-  float range;  // the span the chart covers above the floor, 0 to size it
+  chk_remaining_fn on_remaining;  // the check's own estimate, or NULL for the classifier's
+  float floor;                    // the value a zero-height bar stands for
+  float range;                    // the span the chart covers above the floor, 0 to size it
 } chk_screen_t;
 
 // Seconds between the samples a check reads, which is the sensor's own

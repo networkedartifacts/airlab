@@ -473,6 +473,22 @@ static chk_result_t chk_await(void) {
   }
 }
 
+// what a run with an estimate has left to go, worded as the screens want it
+static const char *chk_settle_text(int32_t left) {
+  return left < 60000 ? CHK_TEXT(settle_soon) : lvx_fmt(CHK_TEXT(settle_left), (left + 59999) / 60000);
+}
+
+// how much longer the run needs: the check's own estimate where it has one,
+// the settle classifier's otherwise, and -1 where neither can say. Either way
+// the answer is held to the limits the run is configured with
+static int32_t chk_remaining(chk_t *c, const chk_screen_t *screen, int32_t elapsed) {
+  if (screen->on_remaining == NULL) {
+    return chk_measure_remaining(&screen->cfg, &c->run, elapsed);
+  }
+  int32_t left = screen->on_remaining(c);
+  return left < 0 ? -1 : chk_measure_bound(&screen->cfg, left, elapsed);
+}
+
 chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
   // prepare the canvas once and keep it: a check may run many times
   if (screen->show == CHK_SHOW_CHART && chk_canvas_buffer == NULL) {
@@ -515,6 +531,7 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
   lv_obj_t *bar = NULL;
   lv_obj_t *canvas = NULL;
   lv_obj_t *status = NULL;
+  lv_obj_t *remain = NULL;
 
   if (screen->show == CHK_SHOW_PROGRESS) {
     // a baseline is counting, so centre the value and count beneath it. The
@@ -552,6 +569,15 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     status = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(status, &fnt_8, LV_PART_MAIN);
     lv_obj_align(status, LV_ALIGN_BOTTOM_LEFT, 8, -3);
+
+    // a run that can estimate its end says so under the clock it counts
+    // against. The label is made for one that might: an estimate that has
+    // not come good yet leaves it empty rather than moving what is around it
+    if (screen->on_remaining != NULL || screen->cfg.settle) {
+      remain = lv_label_create(lv_scr_act());
+      lv_obj_set_style_text_font(remain, &fnt_8, LV_PART_MAIN);
+      lv_obj_align(remain, LV_ALIGN_BOTTOM_RIGHT, -8, -3);
+    }
   }
 
   // label the key where the check says what it does
@@ -595,13 +621,12 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
 
     // update the progress or the chart
     if (bar != NULL) {
-      int32_t left = chk_measure_remaining(&screen->cfg, run, elapsed);
+      int32_t left = chk_remaining(c, screen, elapsed);
       if (left < 0) {
         lv_bar_set_value(bar, run->count, LV_ANIM_OFF);
       } else {
         lv_bar_set_value(bar, (int32_t)((int64_t)elapsed * CHK_BAR_SPAN / (elapsed + left)), LV_ANIM_OFF);
-        lv_label_set_text(hint, left < 60000 ? CHK_TEXT(settle_soon)
-                                             : lvx_fmt(CHK_TEXT(settle_left), (left + 59999) / 60000));
+        lv_label_set_text(hint, chk_settle_text(left));
       }
     } else {
       lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
@@ -619,6 +644,11 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
             {.x = (lv_coord_t)(1 + i * 4), .y = (lv_coord_t)(48 - h)},
         };
         lv_canvas_draw_line(canvas, points, 2, &dsc);
+      }
+
+      if (remain != NULL) {
+        int32_t left = chk_remaining(c, screen, elapsed);
+        lv_label_set_text(remain, left < 0 ? "" : chk_settle_text(left));
       }
     }
 

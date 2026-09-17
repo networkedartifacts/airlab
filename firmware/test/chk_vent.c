@@ -171,6 +171,38 @@ static void test_a_pm_check_is_hidden_without_the_sensor() {
   fake_pm_present = false;
 }
 
+static void test_the_decay_counts_down_to_where_it_ends() {
+  // a 600 ppm excess falling at 3 air changes an hour, fed for 95 s: twenty
+  // points, enough for the fit, and nowhere near the fifth of the excess the
+  // run ends on
+  chk_t c;
+  feed(&c, 1000, 400, 3.0f, 20, 5, 0);
+
+  // 554 ppm of the excess is left and the run ends at 480, which at that rate
+  // is ln(554/480) / 3 of an hour away
+  TEST_ASSERT_INT32_WITHIN(8000, 172800, chk_vent_remaining(&c, 0.2f));
+
+  // the same decay carried past that point has nothing left to wait for
+  feed(&c, 1000, 400, 3.0f, 61, 5, 0);
+  TEST_ASSERT_EQUAL_INT32(0, chk_vent_remaining(&c, 0.2f));
+}
+
+static void test_the_countdown_says_nothing_it_cannot_know() {
+  // too few points for a slope
+  chk_t c;
+  memset(&c, 0, sizeof(c));
+  c.result[CHK_VENT_COUT] = 400;
+  c.result[CHK_VENT_C0] = 1000;
+  for (int i = 0; i < 4; i++) {
+    chk_vent_observe(&c, 1000 - i * 5.0f, i * 5000);
+  }
+  TEST_ASSERT_EQUAL_INT32(-1, chk_vent_remaining(&c, 0.2f));
+
+  // a rising signal is not a decay and has no end to count towards
+  feed(&c, 600, 400, -2.0f, 20, 5, 0);
+  TEST_ASSERT_EQUAL_INT32(-1, chk_vent_remaining(&c, 0.2f));
+}
+
 void suite_chk_vent() {
   RUN_TEST(test_a_clean_airing_solves);
   RUN_TEST(test_samples_near_the_floor_are_excluded);
@@ -182,5 +214,7 @@ void suite_chk_vent() {
   RUN_TEST(test_a_rising_signal_is_never_solid);
   RUN_TEST(test_the_verdict_scale);
   RUN_TEST(test_decay_quantities);
+  RUN_TEST(test_the_decay_counts_down_to_where_it_ends);
+  RUN_TEST(test_the_countdown_says_nothing_it_cannot_know);
   RUN_TEST(test_a_pm_check_is_hidden_without_the_sensor);
 }

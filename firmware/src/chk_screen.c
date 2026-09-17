@@ -227,6 +227,11 @@ static chk_step_t vent_decay_sample(chk_t *c, float value, int32_t t_ms) {
   return CHK_STEP_WAIT;
 }
 
+// the run ends on the share above, so the screen counts down to the same one
+static int32_t vent_decay_remaining(chk_t *c) {
+  return chk_vent_remaining(c, CHK_VENT_EARLY);
+}
+
 static void chk_view_vent(const float *r, const int32_t *marks, uint8_t cadence, chk_view_t *v) {
   v->title = CHK_TEXT(vent__title);
   v->check = CHK_CODE_VENT;
@@ -462,6 +467,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
                   .capacity = CHK_VENT_SAMPLES,
                   .nudge_ms = CHK_VENT_NUDGE_MS},
           .on_sample = vent_decay_sample,
+          .on_remaining = vent_decay_remaining,
           .floor = c->result[CHK_VENT_COUT],
       };
       CHK_TRY(chk_measure(c, &decay), CHK_LEAVE);
