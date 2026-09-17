@@ -41,7 +41,7 @@
         back = true;                                                           \
         continue;                                                              \
       }                                                                        \
-      if (_b == CHK_STAYED || (chk_underway(c) && !chk_confirm_stop())) {      \
+      if (_b == CHK_STAYED || ((_b == CHK_ASK || chk_underway(c)) && !chk_confirm_stop())) { \
         back = false;                                                          \
         continue;                                                              \
       }                                                                        \
@@ -54,23 +54,25 @@
     back = false;                                                              \
   }
 
-// what the B key did: went somewhere, stayed after a question, or has
-// nowhere to go
+// what the B key did: went somewhere, stayed after a question, has nowhere
+// to go, or has nowhere to go and should ask before leaving regardless
 enum {
   CHK_NOWHERE,
   CHK_WENT,
   CHK_STAYED,
+  CHK_ASK,
 };
 
 // where the B key goes: a step, a step with the check started over once the
 // user has agreed to lose the baseline (out of one, or back into one), a
-// phase of the result, or out
+// phase of the result, out, or out after asking
 #define CHK_STEP(s) (c->step = (s), CHK_WENT)
 #define CHK_REDO(s)                                                                                        \
   (chk_confirm_discard() ? (naos_log("chk: redo from step %u", c->step), chk_restart(c), c->step = (s), CHK_WENT) \
                          : CHK_STAYED)
 #define CHK_PHASE(p) (c->phase = (p), CHK_WENT)
 #define CHK_LEAVE CHK_NOWHERE
+#define CHK_LEAVE_ASKING CHK_ASK
 
 // Releases the check after a closing bubble and picks where to land: a
 // timeout goes idle, "again" restarts when the caller offers a screen for it,
@@ -126,8 +128,11 @@ static void *chk_finish(chk_t *c, uint8_t id, uint16_t stored, const chk_bubble_
 
   bool back = false;
   for (;;) {
+    // the verdict is the one part of the result a reopened check does not
+    // show again, so leaving from it is put as a question even though the
+    // record is safe
     if (c->phase == RESULT_PHASE_VERDICT) {
-      CHK_TRY(chk_say_from(said, count, back ? count - 1 : 0), CHK_LEAVE);
+      CHK_TRY(chk_say_from(said, count, back ? count - 1 : 0), CHK_LEAVE_ASKING);
       c->phase = RESULT_PHASE_STATS;
     }
 
