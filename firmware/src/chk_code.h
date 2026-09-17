@@ -44,8 +44,10 @@ typedef enum {
 #define CHK_CODE_MAX_SAMPLES 512
 #define CHK_CODE_MAX_FIELDS 12
 
-// Seconds between samples, indexed by the header's cadence field.
-extern const int chk_code_cadences[8];
+// Seconds between samples, indexed by the header's cadence field. The first
+// eight are the cadences a device samples at while awake; the rest are for
+// checks that sleep between samples.
+extern const int chk_code_cadences[16];
 
 // The room registry the page shares, fixed like the checks: an index names a
 // room for good, and the order is the order a picker lists them, likeliest

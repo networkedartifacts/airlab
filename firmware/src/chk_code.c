@@ -7,7 +7,7 @@
 #define CHK_CODE_BLOCK 16  // samples per Rice block
 #define CHK_CODE_MAX_Q 64   // longest unary run the encoder will emit
 
-const int chk_code_cadences[8] = {1, 2, 5, 10, 15, 20, 30, 60};
+const int chk_code_cadences[16] = {1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600, 900, 1200, 1800, 3600, 7200};
 
 // a field: how many bits it takes and the fixed point it is stored at
 typedef struct {
@@ -17,7 +17,7 @@ typedef struct {
 
 // mark, check, minute, offset, device, room, cadence
 static const chk_code_field_t chk_code_header[] = {
-    {1, 1}, {5, 1}, {23, 1}, {7, 1}, {24, 1}, {4, 1}, {3, 1},
+    {1, 1}, {5, 1}, {23, 1}, {7, 1}, {24, 1}, {4, 1}, {4, 1},
 };
 
 // the offset rides in quarter hours from -12:00, so 0 is UTC-12, 48 is UTC and

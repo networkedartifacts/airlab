@@ -902,7 +902,7 @@ chk_result_t chk_show_code(uint16_t num) {
   }
 
   uint8_t cadence = 2;
-  for (uint8_t i = 0; i < 8; i++) {
+  for (uint8_t i = 0; i < 16; i++) {
     if (chk_code_cadences[i] == file->head.cadence) {
       cadence = i;
       break;
