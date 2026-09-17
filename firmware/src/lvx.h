@@ -46,7 +46,8 @@ typedef struct {
   const char *title;
   const char *text;
   lv_align_t align;
-  lv_coord_t offset;
+  lv_coord_t offset;  // moved down by this much
+  lv_coord_t shift;   // moved right by this much
   // ---
   lv_obj_t *_row;
   lv_obj_t *_title;

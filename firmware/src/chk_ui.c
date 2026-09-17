@@ -74,9 +74,9 @@ static chk_result_t chk_prompt_await(int32_t timeout) {
 }
 
 // the header every non-dialogue check screen carries: the check on the left,
-// the stage on the right, a rule beneath. It starts at `from`, so a screen
-// whose left side is spoken for keeps its header on the right.
-static void chk_chrome_from(lv_coord_t from, const char *title, const char *stage) {
+// the stage on the right, a rule beneath. It spans `from` to `to`, so a
+// screen with a column spoken for keeps its header to the other one.
+static void chk_chrome_span(lv_coord_t from, lv_coord_t to, const char *title, const char *stage) {
   // add title
   lv_obj_t *lbl = lv_label_create(lv_scr_act());
   lv_obj_set_style_text_font(lbl, &fnt_8, LV_PART_MAIN);
@@ -86,13 +86,13 @@ static void chk_chrome_from(lv_coord_t from, const char *title, const char *stag
   // add stage
   lv_obj_t *right = lv_label_create(lv_scr_act());
   lv_obj_set_style_text_font(right, &fnt_8, LV_PART_MAIN);
-  lv_obj_align(right, LV_ALIGN_TOP_RIGHT, -8, 6);
+  lv_obj_align(right, LV_ALIGN_TOP_RIGHT, (lv_coord_t)(to - 296 - 8), 6);
   lv_label_set_text(right, stage);
 
   // add rule
   lv_obj_t *line = lv_obj_create(lv_scr_act());
   lv_obj_align(line, LV_ALIGN_TOP_LEFT, from, 19);
-  lv_obj_set_width(line, (lv_coord_t)(296 - from));
+  lv_obj_set_width(line, (lv_coord_t)(to - from));
   lv_obj_set_height(line, 1);
   lv_obj_set_style_border_width(line, 1, LV_PART_MAIN);
   lv_obj_set_style_border_side(line, LV_BORDER_SIDE_TOP, LV_PART_MAIN);
@@ -100,33 +100,39 @@ static void chk_chrome_from(lv_coord_t from, const char *title, const char *stag
 }
 
 void chk_chrome(const char *title, const char *stage) {
-  chk_chrome_from(0, title, stage);
+  chk_chrome_span(0, 296, title, stage);
 }
+
+// how far robin and his bubble stand above their menu-screen spot, which
+// clears the bottom edge for the two signs
+#define CHK_BUBBLE_LIFT (-20)
 
 // one bubble, awaited
 static chk_result_t chk_say_one(const chk_bubble_t *bubble) {
   // begin draw
   gfx_begin(false, false);
 
-  // add robin, standing where he stands on the menu screen whatever the
-  // bubble says, so he does not hop about as the text changes
+  // add robin, standing as he does on the menu screen but a sign's height
+  // up, on the same spot whatever the bubble says, so he does not hop about
+  // as the text changes
   lv_obj_t *robin = lv_img_create(lv_scr_act());
   lv_img_set_src(robin, bubble->mood);
-  lv_obj_align(robin, LV_ALIGN_BOTTOM_LEFT, 20, -10);
+  lv_obj_align(robin, LV_ALIGN_BOTTOM_LEFT, 20, -10 + CHK_BUBBLE_LIFT);
 
-  // add bubble, growing upwards from its place on the menu screen
+  // add bubble, lifted with him and growing upwards
   lvx_bubble_t frame_obj = {.text = bubble->text};
   lvx_bubble_create(&frame_obj, lv_scr_act());
   lvx_bubble_update(&frame_obj);
+  lv_obj_align(frame_obj._frame, LV_ALIGN_BOTTOM_LEFT, 60, -30 + CHK_BUBBLE_LIFT);
+  lv_obj_align(frame_obj._label, LV_ALIGN_BOTTOM_LEFT, 76, -38 + CHK_BUBBLE_LIFT);
 
-  // add signs: robin has the bottom left, the bubble reaches over the right,
-  // so the second key sits between them
+  // add signs along the bottom edge
   lvx_sign_t sign = {
       .title = "A",
       .text = bubble->action != NULL ? bubble->action : CHK_TEXT(next),
       .align = LV_ALIGN_BOTTOM_RIGHT,
   };
-  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_MID};
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_LEFT};
   lvx_sign_create(&sign, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
@@ -258,17 +264,18 @@ chk_result_t chk_stats(const char *title, const char *stage, const char *const *
     lv_label_set_text(lbl, lines[i]);
   }
 
-  // add note, which says what the numbers above are rather than what they mean
+  // add note, which says what the numbers above are rather than what they
+  // mean, between the signs
   if (note != NULL) {
     lv_obj_t *lbl = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(lbl, &fnt_8, LV_PART_MAIN);
-    lv_obj_align(lbl, LV_ALIGN_BOTTOM_LEFT, 10, -5);
+    lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_label_set_text(lbl, note);
   }
 
-  // add signs, stacked on the right as the note has the left
+  // add signs
   lvx_sign_t sign = {.title = "A", .text = CHK_TEXT(done), .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -20};
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_LEFT};
   lvx_sign_create(&sign, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
@@ -652,6 +659,9 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
 // limit.
 #define CHK_QR_PX 2
 
+// the column the symbol's canvas takes, quiet zone included
+#define CHK_QR_SIDE 128
+
 static uint8_t chk_qr_symbol[CHK_CODE_QR_BUFFER_LEN];
 static lv_color_t *chk_qr_canvas_buffer;
 
@@ -664,9 +674,10 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
   // before it does not scan as well as one on clean white
   gfx_begin(true, false);
 
-  // the symbol and its quiet zone take the left column to within three
-  // pixels of the top, so the header keeps to the right of it
-  chk_chrome_from(ok ? 128 : 0, title, CHK_TEXT(stage__share));
+  // the symbol and its quiet zone take the right column to within three
+  // pixels of the top, so the header keeps to the left of it, where the keys
+  // are too
+  chk_chrome_span(0, ok ? 296 - CHK_QR_SIDE : 296, title, CHK_TEXT(stage__share));
 
   if (!ok) {
     // the result did not fit a symbol the panel can show, which is a bug
@@ -687,7 +698,7 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
     lv_obj_t *canvas = lv_canvas_create(lv_scr_act());
     memset(chk_qr_canvas_buffer, 0, LV_CANVAS_BUF_SIZE_TRUE_COLOR(128, 128));
     lv_canvas_set_buffer(canvas, chk_qr_canvas_buffer, 128, 128, LV_IMG_CF_TRUE_COLOR);
-    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_align(canvas, LV_ALIGN_TOP_RIGHT, 0, 0);
 
     // the white ground around the symbol is the quiet zone
     lv_canvas_fill_bg(canvas, lv_color_white(), LV_OPA_COVER);
@@ -723,15 +734,20 @@ chk_result_t chk_qr(const char *title, char letter, const char *digits, const ch
     // the caption sits beside the symbol, not under it
     lv_obj_t *lbl = lv_label_create(lv_scr_act());
     lv_obj_set_style_text_font(lbl, &fnt_16, LV_PART_MAIN);
-    lv_obj_set_width(lbl, 296 - 136);
+    lv_obj_set_width(lbl, 296 - CHK_QR_SIDE - 16);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
-    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 136, 34);
+    lv_obj_align(lbl, LV_ALIGN_TOP_LEFT, 8, 34);
     lv_label_set_text(lbl, caption != NULL ? caption : CHK_TEXT(share_scan));
   }
 
-  // add signs, stacked on the right as the symbol has the left
-  lvx_sign_t sign = {.title = "A", .text = CHK_TEXT(done), .align = LV_ALIGN_BOTTOM_RIGHT};
-  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_RIGHT, .offset = -20};
+  // add signs, both keeping to the left column while the symbol has the right
+  lvx_sign_t sign = {
+      .title = "A",
+      .text = CHK_TEXT(done),
+      .align = LV_ALIGN_BOTTOM_RIGHT,
+      .shift = ok ? -CHK_QR_SIDE : 0,
+  };
+  lvx_sign_t back = {.title = "B", .text = CHK_TEXT(back), .align = LV_ALIGN_BOTTOM_LEFT};
   lvx_sign_create(&sign, lv_scr_act());
   lvx_sign_create(&back, lv_scr_act());
 
