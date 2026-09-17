@@ -22,26 +22,29 @@
 
 // Runs a kit call and routes every outcome but "next". The B key goes where
 // the step says, `on_back` naming the step or phase before it, or leaves when
-// there is nothing to go back to; leaving a check that is under way is first
-// put as a question, and declining it shows the screen again. Every other way
-// out releases the check: escape is the user abandoning it, and a timeout
-// only reaches here before the baseline, when the user was looking rather
-// than waiting, so the next run starts over. A started check never times
-// out: its prompts park the device on the flow's screen and wake back into
-// it.
+// there is nothing to go back to. Going back past the baseline, or leaving a
+// check that is under way, is first put as a question, and declining it
+// shows the screen again. Every other way out releases the check: escape is
+// the user abandoning it, and a timeout only reaches here before the
+// baseline, when the user was looking rather than waiting, so the next run
+// starts over. A started check never times out: its prompts park the device
+// on the flow's screen and wake back into it.
 //
 // A block rather than a statement, as going back continues the step loop it
 // sits in. Expects `c`, `back`, `on_exit`, `on_idle` and `self` in scope.
 #define CHK_TRY(expr, on_back)                                                 \
   {                                                                            \
     chk_result_t _r = (expr);                                                  \
-    if (_r == CHK_BACK && (on_back)) {                                         \
-      back = true;                                                             \
-      continue;                                                                \
-    }                                                                          \
-    if (_r == CHK_BACK && chk_underway(c) && !chk_confirm_stop()) {            \
-      back = false;                                                            \
-      continue;                                                                \
+    if (_r == CHK_BACK) {                                                      \
+      int _b = (on_back);                                                      \
+      if (_b == CHK_WENT) {                                                    \
+        back = true;                                                           \
+        continue;                                                              \
+      }                                                                        \
+      if (_b == CHK_STAYED || (chk_underway(c) && !chk_confirm_stop())) {      \
+        back = false;                                                          \
+        continue;                                                              \
+      }                                                                        \
     }                                                                          \
     if (_r != CHK_NEXT) {                                                      \
       naos_log("chk: leaving step %u on %d", c->step, _r);                     \
@@ -51,12 +54,23 @@
     back = false;                                                              \
   }
 
-// where the B key goes: a step, a step with the check started over (out of a
-// baseline, or back into one), a phase of the result, or out
-#define CHK_STEP(s) (c->step = (s), true)
-#define CHK_REDO(s) (naos_log("chk: redo from step %u", c->step), chk_restart(c), c->step = (s), true)
-#define CHK_PHASE(p) (c->phase = (p), true)
-#define CHK_LEAVE false
+// what the B key did: went somewhere, stayed after a question, or has
+// nowhere to go
+enum {
+  CHK_NOWHERE,
+  CHK_WENT,
+  CHK_STAYED,
+};
+
+// where the B key goes: a step, a step with the check started over once the
+// user has agreed to lose the baseline (out of one, or back into one), a
+// phase of the result, or out
+#define CHK_STEP(s) (c->step = (s), CHK_WENT)
+#define CHK_REDO(s)                                                                                        \
+  (chk_confirm_discard() ? (naos_log("chk: redo from step %u", c->step), chk_restart(c), c->step = (s), CHK_WENT) \
+                         : CHK_STAYED)
+#define CHK_PHASE(p) (c->phase = (p), CHK_WENT)
+#define CHK_LEAVE CHK_NOWHERE
 
 // Releases the check after a closing bubble and picks where to land: a
 // timeout goes idle, "again" restarts when the caller offers a screen for it,

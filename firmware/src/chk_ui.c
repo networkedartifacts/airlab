@@ -862,6 +862,10 @@ bool chk_confirm_stop(void) {
   return gui_choose(CHK_TEXT(stop), CHK_TEXT(carry_on), true, CHK_ACTION_TIMEOUT) == 1;
 }
 
+bool chk_confirm_discard(void) {
+  return gui_choose(CHK_TEXT(discard), CHK_TEXT(carry_on), true, CHK_ACTION_TIMEOUT) == 1;
+}
+
 void chk_restart(chk_t *c) {
   // the record so far goes, it holds what is being redone
   if (c->file != 0) {

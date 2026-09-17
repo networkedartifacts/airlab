@@ -115,6 +115,7 @@ typedef struct {
   const char* check;
   const char* back;
   const char* stop;
+  const char* discard;
   const char* carry_on;
   const char* sensor_errors;
   const char* no_checks;
@@ -270,6 +271,10 @@ bool chk_underway(const chk_t *c);
 // Asks whether to stop the check, the way a recording asks on the way out.
 // Returns true to stop; a timeout keeps going.
 bool chk_confirm_stop(void);
+
+// Asks whether to throw the baseline away, which going back past it means.
+// Returns true to discard; a timeout keeps going.
+bool chk_confirm_discard(void);
 
 // The index of the first sample in a source taken after the given moment, or
 // -1 when there is none. A binary search, so a check picks up where it left

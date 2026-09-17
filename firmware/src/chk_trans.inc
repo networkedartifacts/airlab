@@ -12,6 +12,7 @@ static const chk_trans_t chk_trans_map[] = {
             .check = "Check",
             .back = "Back",
             .stop = "Stop check",
+            .discard = "Discard baseline",
             .carry_on = "Continue check",
             .start_check = "Start a check",
             .no_checks = "No checks for this device.",
