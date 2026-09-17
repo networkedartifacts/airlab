@@ -339,37 +339,48 @@ static const char* scr_enter_doze() {
   return NULL;
 }
 
-static sig_event_t scr_idle_sleep() {
+// Sleeps for the given duration, sampling at the given interval meanwhile. A
+// sleep is a reset, so this does not return when it sleeps. It returns when
+// the device has to stay awake instead, having woken it up fully: with the
+// key that arrived while doze was entered, which a PM measurement can stretch
+// by several seconds, or with no event at all when something else holds the
+// device. Other events arriving meanwhile are dropped, the sleep discards
+// them anyway.
+static sig_event_t scr_sleep(int32_t interval_s, int32_t duration_ms) {
   // enter doze, unless something holds the device
   const char* stay_awake = scr_enter_doze();
   if (stay_awake != NULL) {
-    // the device stays awake, so wake up fully
     scr_wake_up(stay_awake);
-
-    // wait some time
-    sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_INTERRUPT | SIG_LAUNCH | SIG_REFRESH, 60 * 1000);
-
-    // start engine on launch
-    if (event.type == SIG_LAUNCH) {
-      scr_launch(event.plugin.file, event.plugin.mode);
-    }
-
-    return event;
+    return (sig_event_t){.type = 0};
   }
 
   // set sensor interval
-  al_sensor_set_interval(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"));
+  al_sensor_set_interval(interval_s);
 
-  // check for a key press that arrived while preparing, as a PM measurement
-  // may have extended the wake by several seconds, and wake up instead of
-  // sleeping through it (other events are dropped, the sleep discards them
-  // anyway)
+  // wake up on a key that arrived meanwhile, rather than sleeping through it
   sig_event_t pending = sig_await(SIG_KEYS, 10);
   if (pending.type & SIG_KEYS) {
     scr_wake_up("key");
     return pending;
   }
 
+  // wake earlier if a PM measurement becomes due, as readings are only cached
+  // for twice the rate and would otherwise not cover the whole sleep, bounded
+  // to not wake up too often (compared in seconds, as the due time is
+  // unbounded without a PM sensor)
+  int32_t pm_due = al_sensor_pm_due();
+  if (pm_due < duration_ms / 1000) {
+    duration_ms = (pm_due < 60 ? 60 : pm_due) * 1000;
+  }
+
+  // sleep (no return)
+  al_sleep(true, duration_ms);
+
+  return (sig_event_t){.type = 0};
+}
+
+// Sleeps until the next display refresh, at the sleep or record rate.
+static sig_event_t scr_idle_sleep() {
   // determine display interval (a full ULP reading buffer may wake us earlier)
   int32_t display_interval = naos_get_l("display-rate");
   if (display_interval < SCR_DISPLAY_MIN) {
@@ -378,20 +389,21 @@ static sig_event_t scr_idle_sleep() {
     display_interval = SCR_DISPLAY_MAX;
   }
 
-  // wake earlier if a PM measurement becomes due, as readings are only cached
-  // for twice the rate and would otherwise not cover the whole sleep, bounded
-  // to not wake up too often
-  int32_t pm_due = al_sensor_pm_due();
-  if (pm_due < display_interval) {
-    display_interval = pm_due < 60 ? 60 : pm_due;
+  return scr_sleep(naos_get_l(rec_running() ? "record-rate" : "sleep-rate"), display_interval * 1000);
+}
+
+// Waits awake in place of a refused sleep, for the events a wake up would
+// bring, starting a plugin launched meanwhile.
+static sig_event_t scr_idle_await() {
+  // wait some time
+  sig_event_t event = sig_await(SIG_KEYS | SIG_TIMEOUT | SIG_INTERRUPT | SIG_LAUNCH | SIG_REFRESH, 60 * 1000);
+
+  // start engine on launch
+  if (event.type == SIG_LAUNCH) {
+    scr_launch(event.plugin.file, event.plugin.mode);
   }
 
-  // sleep until next display refresh (no return)
-  al_sleep(true, display_interval * 1000);
-
-  return (sig_event_t){
-      .type = SIG_TIMEOUT,
-  };
+  return event;
 }
 
 /* Translations */
@@ -857,8 +869,11 @@ static void* scr_idle() {
     // reset skipped counter
     skipped = 0;
 
-    // sleep until woken
+    // sleep until woken, or wait awake if the sleep was refused
     sig_event_t event = scr_idle_sleep();
+    if (event.type == 0) {
+      event = scr_idle_await();
+    }
 
     // handle left/right
     if (event.type == SIG_LEFT) {
@@ -1006,8 +1021,11 @@ static void* scr_idle() {
     // end draw
     gfx_end(false, true);
 
-    // sleep until next update
+    // sleep until next update, or wait awake if the sleep was refused
     sig_event_t event = scr_idle_sleep();
+    if (event.type == 0) {
+      event = scr_idle_await();
+    }
 
     // restart on launch (plugin cleaned up screen) or refresh
     if (event.type == SIG_LAUNCH || event.type == SIG_REFRESH) {
