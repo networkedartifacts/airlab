@@ -3820,7 +3820,7 @@ static void* scr_check_start() {
   }
 
   // select a check
-  selected = gui_list_strings(selected, &offset, labels, scr_trans()->next, scr_trans()->back, GUI_INACTION);
+  selected = gui_list_strings(selected, &offset, labels, CHK_TEXT(start), scr_trans()->back, GUI_INACTION);
   if (selected < 0 || selected >= num) {
     return scr_checks;
   }
