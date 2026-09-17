@@ -209,6 +209,23 @@ static size_t chk_code_decimal(const uint8_t *bytes, size_t n, char *out, size_t
   return len;
 }
 
+/* Checksum */
+
+// CRC-8 with polynomial 0x07, no reflection and zero init and xorout, the
+// SMBus one. It closes the payload: the structure alone catches most damage to
+// a link, and this catches 255 in 256 of what that misses. A scanned symbol
+// has its own error correction, so this is for the link after the scan.
+static uint8_t chk_code_crc8(const uint8_t *bytes, size_t len) {
+  uint8_t c = 0;
+  for (size_t i = 0; i < len; i++) {
+    c ^= bytes[i];
+    for (int k = 0; k < 8; k++) {
+      c = (uint8_t)((c & 0x80) ? ((c << 1) ^ 0x07) : (c << 1));
+    }
+  }
+  return c;
+}
+
 /* Packing */
 
 static bool chk_code_pack_fields(chk_code_writer_t *w, const chk_code_field_t *spec, size_t num,
@@ -306,6 +323,13 @@ bool chk_code_pack(const chk_code_meta_t *meta, const float *fields, size_t num_
       continue;  // a jump too large for this step, or simply too long
     }
     chk_code_finish(&w);
+
+    // the checksum, over the padded bytes before it
+    if (w.len >= sizeof(w.bytes)) {
+      continue;
+    }
+    w.bytes[w.len] = chk_code_crc8(w.bytes, w.len);
+    w.len++;
 
     if (w.len > max_bytes) {
       continue;

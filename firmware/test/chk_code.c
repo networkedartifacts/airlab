@@ -13,13 +13,13 @@
 // change the page breaks every code this firmware draws.
 
 static const char* VENT_DIGITS =
-    "47474287993320543855829305372243386683514147201867233667414583510659290745569241588218923906932178990313"
-    "76";
+    "12153417726290059227092302175294306990979621683678011818858133378728778430865725846584044520174637821520"
+    "32404";
 
 static const char* STOVE_DIGITS =
-    "31874303042243325047609390010321400400889532084201688231398336745923320495879665412597342279423245491637"
-    "98201558452236586032059485868566189549157611552246284631816091749624838366745076259854447601031576199053"
-    "12665659846211855086455834696695852000451395936991890964834538390529606432";
+    "81598215788142912121880038426422785026277202135556321872379742069563700469451943456249196235323508458593"
+    "23395989637725660242072283823529445245843485573750488657449194879039586218867395225227385858640835069576"
+    "0042408920630234902132693682354138112115557359869924086997641827975579246801";
 
 // the same header the reference was given: minute 1000000 with the room two
 // hours east of UTC, which the field carries as 56 quarter hours from -12:00
@@ -48,7 +48,7 @@ static void test_a_ventilation_payload_matches_the_page() {
 
   TEST_ASSERT_EQUAL_STRING(VENT_DIGITS, digits);
   TEST_ASSERT_EQUAL_INT_MESSAGE(1, step, "a short check keeps the finest step");
-  TEST_ASSERT_EQUAL_size_t(44, bytes);
+  TEST_ASSERT_EQUAL_size_t(45, bytes);
 }
 
 static void test_a_stove_payload_matches_the_page() {
@@ -67,7 +67,7 @@ static void test_a_stove_payload_matches_the_page() {
   TEST_ASSERT_TRUE(chk_code_pack(&meta, fields, 10, samples, 120, 153, digits, sizeof(digits), &step, &bytes));
 
   TEST_ASSERT_EQUAL_STRING(STOVE_DIGITS, digits);
-  TEST_ASSERT_EQUAL_size_t(117, bytes);
+  TEST_ASSERT_EQUAL_size_t(118, bytes);
 }
 
 static void test_a_long_check_loses_resolution_rather_than_failing() {
@@ -154,6 +154,64 @@ static void test_a_field_past_its_width_saturates() {
   TEST_ASSERT_TRUE(chk_code_pack(&meta, c0_ceiling, 7, samples, 8, 153, want, sizeof(want), NULL, NULL));
   TEST_ASSERT_TRUE(chk_code_pack(&meta, c0_past, 7, samples, 8, 153, got, sizeof(got), NULL, NULL));
   TEST_ASSERT_EQUAL_STRING(want, got);
+}
+
+// the page's own CRC-8, written out again here so the test does not share the
+// encoder's implementation: SMBus, polynomial 0x07, zero init and xorout
+static uint8_t reference_crc8(const uint8_t* bytes, size_t len) {
+  uint8_t c = 0;
+  for (size_t i = 0; i < len; i++) {
+    c ^= bytes[i];
+    for (int k = 0; k < 8; k++) {
+      c = (uint8_t)((c & 0x80) ? ((c << 1) ^ 0x07) : (c << 1));
+    }
+  }
+  return c;
+}
+
+// reads the digits back into bytes, the way the page does: repeated division
+// by 256 of the decimal number, which is slow but independent of the encoder
+static size_t digits_to_bytes(const char* digits, uint8_t* out, size_t out_len) {
+  uint8_t dec[CHK_CODE_MAX_DIGITS];
+  size_t n = strlen(digits);
+  for (size_t i = 0; i < n; i++) {
+    dec[i] = (uint8_t)(digits[i] - '0');
+  }
+  uint8_t rev[CHK_CODE_MAX_BYTES];
+  size_t len = 0;
+  size_t start = 0;
+  while (start < n) {
+    int rem = 0;
+    for (size_t i = start; i < n; i++) {
+      int cur = rem * 10 + dec[i];
+      dec[i] = (uint8_t)(cur / 256);
+      rem = cur % 256;
+    }
+    while (start < n && dec[start] == 0) {
+      start++;
+    }
+    if (len >= out_len) {
+      return 0;
+    }
+    rev[len++] = (uint8_t)rem;
+  }
+  for (size_t i = 0; i < len; i++) {
+    out[i] = rev[len - 1 - i];
+  }
+  return len;
+}
+
+static void test_the_payload_ends_with_its_checksum() {
+  TEST_ASSERT_EQUAL_HEX8(0xf4, reference_crc8((const uint8_t*)"123456789", 9));
+
+  uint8_t bytes[CHK_CODE_MAX_BYTES];
+  size_t len = digits_to_bytes(VENT_DIGITS, bytes, sizeof(bytes));
+  TEST_ASSERT_EQUAL_size_t(45, len);
+  TEST_ASSERT_EQUAL_HEX8(reference_crc8(bytes, len - 1), bytes[len - 1]);
+
+  len = digits_to_bytes(STOVE_DIGITS, bytes, sizeof(bytes));
+  TEST_ASSERT_EQUAL_size_t(118, len);
+  TEST_ASSERT_EQUAL_HEX8(reference_crc8(bytes, len - 1), bytes[len - 1]);
 }
 
 static void test_the_digits_are_only_digits() {
@@ -248,4 +306,5 @@ void suite_chk_code() {
   RUN_TEST(test_the_offset_is_carried_or_declared_unknown);
   RUN_TEST(test_a_field_past_its_width_saturates);
   RUN_TEST(test_the_digits_are_only_digits);
+  RUN_TEST(test_the_payload_ends_with_its_checksum);
 }
