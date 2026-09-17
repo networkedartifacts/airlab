@@ -136,7 +136,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
       .cfg = {.capacity = CHK_STOVE_BASELINE_N},
       .on_sample = stove_baseline_sample,
   };
-  STOVE_TRY(chk_measure(c, &baseline));
+  STOVE_TRY(chk_measure(c, &baseline, self));
 
     c->result[CHK_STOVE_C0] = chk_vent_baseline_median(CHK_STOVE_BASELINE_N);
     c->result[CHK_STOVE_PEAK] = c->result[CHK_STOVE_C0];
@@ -179,7 +179,7 @@ void* chk_stove_run(void* on_exit, void* on_idle, void* self) {
         .on_sample = stove_sample,
         .floor = c->result[CHK_STOVE_C0],
     };
-    STOVE_TRY(chk_measure(c, &measure));
+    STOVE_TRY(chk_measure(c, &measure, self));
 
     // where this pass ended, so the page can band the chart per pass
     chk_mark(c);

@@ -317,8 +317,10 @@ typedef struct {
 
 // Runs a measurement: draws the screen, samples at the device's cadence,
 // feeds each reading to the check, and stops when the policy says so. The
-// run is filled in as it goes, so the caller can see what happened.
-chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen);
+// run is filled in as it goes, so the caller can see what happened. At a
+// slow cadence the wait between readings is spent in a deep sleep that wakes
+// back into `resume`, the flow's own screen, so the run continues there.
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume);
 
 // Runs the ventilation check. The three arguments are the screens each
 // outcome lands on: leaving, timing out, and starting over.

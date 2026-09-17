@@ -3775,28 +3775,19 @@ static void* scr_checks() {
 }
 
 // Runs the ventilation check, telling it which screen each outcome lands on.
+// A check that times out on a prompt hands over to the idle screen and keeps
+// its context, so picking it from the list again resumes it; a check that
+// sleeps mid-measurement wakes straight back into itself, by handing its own
+// screen to scr_park.
 static void* scr_check_vent() {
   chk_init(scr_lang());
-
-  // a check that times out is asleep rather than finished, so park it as the
-  // screen to wake back into
-  void* next = chk_vent_run(scr_checks, scr_idle, scr_check_vent);
-  if (next == scr_idle) {
-    scr_return_timeout = scr_check_vent;
-  }
-  return next;
+  return chk_vent_run(scr_checks, scr_idle, scr_check_vent);
 }
 
-// Runs the gas stove check.
+// Runs the gas stove check, the same way.
 static void* scr_check_stove() {
   chk_init(scr_lang());
-
-  // as above: waking returns to the check, not to the lab
-  void* next = chk_stove_run(scr_checks, scr_idle, scr_check_stove);
-  if (next == scr_idle) {
-    scr_return_timeout = scr_check_stove;
-  }
-  return next;
+  return chk_stove_run(scr_checks, scr_idle, scr_check_stove);
 }
 
 // Lists the checks already run, newest first, so one can be shown again
@@ -3812,8 +3803,7 @@ static gui_list_item_t scr_check_past_item(int num, void* ctx) {
 
   // the result block alone says what this check was
   chk_view_t view;
-  if (!chk_describe(file->head.check, file->head.result, file->head.bounds, CHK_MARKS, file->head.cadence,
-                    &view)) {
+  if (!chk_view_of(file->head.num, &view)) {
     return (gui_list_item_t){.title = "?", .info = ""};
   }
 

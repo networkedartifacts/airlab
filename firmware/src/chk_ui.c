@@ -19,6 +19,7 @@
 #include "qrcodegen.h"
 
 #include "chk.h"
+#include "scr.h"
 #include "chk_code.h"
 #include "chk_store.h"
 #include "fnt.h"
@@ -223,6 +224,12 @@ static float chk_read(al_sample_field_t field) {
   return al_sample_read(sample, field);
 }
 
+// Below this cadence a deep sleep is not worth a reset cycle, so a check
+// simply stays awake. The trial's checks sample every five seconds and never
+// sleep; the long condition checks, which sample every minute or slower, spend
+// nearly all their time asleep.
+#define CHK_SLEEP_MIN_S 30
+
 // awaits the next reading, or the user giving up
 static chk_result_t chk_await(void) {
   for (;;) {
@@ -235,7 +242,7 @@ static chk_result_t chk_await(void) {
   }
 }
 
-chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
+chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen, void *resume) {
   // prepare the canvas once and keep it: a check may run many times
   if (screen->show == CHK_SHOW_CHART && chk_canvas_buffer == NULL) {
     chk_canvas_buffer = al_calloc(1, LV_CANVAS_BUF_SIZE_TRUE_COLOR(280, 50));
@@ -315,11 +322,20 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     range = 50;
   }
 
-  int64_t began = naos_millis();
+  // the cadence the device is sampling at, which decides whether waiting for
+  // the next reading is worth a sleep
+  int interval = al_store_get_interval();
+  if (interval <= 0) {
+    interval = 5;
+  }
+
+  // a run is timed from the check's own start, not from when this screen was
+  // drawn: a resumed measurement is drawn again but has not begun again
+  int64_t began = al_clock_get_epoch() - run->elapsed;
   chk_run_state_t state = CHK_RUN_GO;
 
   while (state == CHK_RUN_GO) {
-    int32_t elapsed = (int32_t)(naos_millis() - began);
+    int32_t elapsed = (int32_t)(al_clock_get_epoch() - began);
 
     // begin draw
     gfx_begin(false, false);
@@ -360,12 +376,21 @@ chk_result_t chk_measure(chk_t *c, const chk_screen_t *screen) {
     // end draw
     gfx_end(false, false);
 
-    // await the next reading
+    // wait for the next reading. At a slow cadence that wait is worth a deep
+    // sleep: the ULP keeps sampling into the store while the device is off,
+    // the panel holds this screen, and waking re-enters the flow at this step.
+    // The call returns only when the device has to stay awake after all, in
+    // which case the wait happens here instead.
+    if (interval >= CHK_SLEEP_MIN_S) {
+      gfx_end(false, false);
+      scr_park(interval, interval * 1000, resume);
+    }
+
     if (chk_await() != CHK_NEXT) {
       gui_cleanup(false);
       return CHK_EXIT;
     }
-    elapsed = (int32_t)(naos_millis() - began);
+    elapsed = (int32_t)(al_clock_get_epoch() - began);
 
     // take it
     value = chk_read(screen->field);

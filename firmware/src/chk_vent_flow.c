@@ -155,7 +155,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       .cfg = {.capacity = CHK_VENT_BASELINE_N},
       .on_sample = vent_baseline_sample,
   };
-  VENT_TRY(chk_measure(c, &baseline));
+  VENT_TRY(chk_measure(c, &baseline, self));
 
     // the baseline is the median of what the store holds, which is steadier
     // than a mean when a reading or two is off
@@ -205,7 +205,7 @@ void *chk_vent_run(void *on_exit, void *on_idle, void *self) {
       .on_sample = vent_decay_sample,
       .floor = c->result[CHK_VENT_COUT],
   };
-  VENT_TRY(chk_measure(c, &decay));
+  VENT_TRY(chk_measure(c, &decay, self));
     c->step = VENT_STEP_RESULT;
   }
 
