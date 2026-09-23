@@ -13,10 +13,11 @@
 #define NUM_LANGS (sizeof(chk_trans_map) / sizeof(chk_trans_t))
 #define NUM_STRINGS (sizeof(chk_trans_t) / sizeof(const char*))
 
-// The checks ship English-only for the first trial, so this is the weaker
-// rule scr_trans.inc does not get: English must be complete, the other
-// languages may be absent entirely, and anything they do set must not be
-// blank. chk_text_at() falls back to English for the rest.
+// The checks shipped English-only for the first trial and gain languages one
+// at a time, so this is the weaker rule scr_trans.inc does not get: English
+// must be complete, the other languages may be absent entirely, and anything
+// they do set must not be blank. chk_text_at() falls back to English for the
+// rest.
 // chk_init() is handed scr_lang(), so the two enums have to agree.
 static void test_language_order_matches_scr() {
   _Static_assert((int)CHK_DE == (int)SCR_DE, "check language order must match scr_lang_t");
@@ -58,8 +59,8 @@ static void test_other_languages_are_not_blank() {
 }
 
 static void test_missing_translation_falls_back_to_english() {
-  // German is not populated yet, so every lookup must yield the English text
-  chk_init(SCR_DE);
+  // Spanish is not populated yet, so every lookup must yield the English text
+  chk_init(SCR_ES);
   TEST_ASSERT_EQUAL_STRING(chk_trans_map[CHK_EN].vent__intro_1, CHK_TEXT(vent__intro_1));
 
   chk_init(CHK_EN);

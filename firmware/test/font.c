@@ -6,7 +6,9 @@
 #include "fnt.h"
 #include "stm.h"
 
+#include "chk.h"
 #include "scr_trans.inc"
+#include "chk_trans.inc"
 
 extern stm_entry_t stm_entries[];
 extern const size_t stm_num_entries;
@@ -73,7 +75,20 @@ static void test_translation_glyphs() {
   TEST_ASSERT_EQUAL_INT_MESSAGE(0, failures, "some translations use unavailable glyphs (see above)");
 }
 
+static void test_check_glyphs() {
+  // check all check strings in all languages
+  int failures = 0;
+  for (size_t l = 0; l < sizeof(chk_trans_map) / sizeof(chk_trans_t); l++) {
+    const char* const* strings = (const char* const*)&chk_trans_map[l];
+    for (size_t s = 0; s < sizeof(chk_trans_t) / sizeof(const char*); s++) {
+      failures += check_string("check", strings[s]);
+    }
+  }
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, failures, "some check strings use unavailable glyphs (see above)");
+}
+
 void suite_font() {
   RUN_TEST(test_statement_glyphs);
   RUN_TEST(test_translation_glyphs);
+  RUN_TEST(test_check_glyphs);
 }
