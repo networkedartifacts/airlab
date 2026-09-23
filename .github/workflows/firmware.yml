@@ -16,6 +16,8 @@ jobs:
         working-directory: firmware
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # git describe needs the tags for the app version
       - name: Install BMV080 SDK
         uses: actions/checkout@v4
         with:
