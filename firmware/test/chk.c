@@ -5,8 +5,10 @@
 #include <time.h>
 
 #include <unity.h>
+#include <lvgl.h>
 
 #include "chk.h"
+#include "fnt.h"
 #include "scr_trans.inc"
 #include "chk_trans.inc"
 
@@ -69,6 +71,33 @@ static void test_missing_translation_falls_back_to_english() {
   // an out-of-range language must not read past the table
   chk_init(99);
   TEST_ASSERT_EQUAL_STRING(chk_trans_map[CHK_EN].vent__intro_1, CHK_TEXT(vent__intro_1));
+}
+
+// Every check string is shown in a bubble at worst, whose tallest frame holds
+// three lines of fnt_16 at 200px, the same layout call lvx_bubble_update
+// makes. Rows and stats lines are shorter still, so the one rule covers the
+// whole table.
+#define BUBBLE_WIDTH 200
+#define BUBBLE_LINES 3
+
+static void test_strings_fit_the_bubble() {
+  int failures = 0;
+  for (size_t l = 0; l < NUM_LANGS; l++) {
+    const char* const* strings = (const char* const*)&chk_trans_map[l];
+    for (size_t s = 0; s < NUM_STRINGS; s++) {
+      if (strings[s] == NULL) {
+        continue;
+      }
+      lv_point_t size;
+      lv_txt_get_size(&size, strings[s], &fnt_16, 0, 0, BUBBLE_WIDTH, 0);
+      int lines = size.y / fnt_16.line_height;
+      if (lines > BUBBLE_LINES) {
+        printf("check string %zu in language %zu needs %d lines: \"%s\"\n", s, l, lines, strings[s]);
+        failures++;
+      }
+    }
+  }
+  TEST_ASSERT_EQUAL_INT_MESSAGE(0, failures, "some check strings overflow the bubble (see above)");
 }
 
 // The array-based fit the checks-demo branch carries, kept here as the
@@ -258,6 +287,7 @@ void suite_chk() {
   RUN_TEST(test_english_is_complete);
   RUN_TEST(test_other_languages_are_not_blank);
   RUN_TEST(test_missing_translation_falls_back_to_english);
+  RUN_TEST(test_strings_fit_the_bubble);
   RUN_TEST(test_streaming_fit_matches_the_array_fit);
   RUN_TEST(test_fit_refuses_too_few_samples);
   RUN_TEST(test_fit_refuses_a_flat_signal);

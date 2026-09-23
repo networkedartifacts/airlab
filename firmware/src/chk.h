@@ -310,6 +310,7 @@ typedef struct {
   const char* bath__list_place;
   const char* bath__baseline_hint;
   const char* bath__shower_ask;
+  const char* bath__shower_go;
   const char* bath__shower_is_on;
   const char* bath__stage_shower;
   const char* bath__shower_done;

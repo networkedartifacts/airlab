@@ -1415,12 +1415,12 @@ void *chk_bath_run(void *on_exit, void *on_idle, void *self) {
       if (scr_awake()) {
         al_buzzer_beep(1047, 80, false);
       }
-      const chk_bubble_t shower = {
-          &img_robin_pointing,
-          lvx_fmt(CHK_TEXT(bath__shower_ask), c->result[CHK_BATH_RH0]),
-          CHK_TEXT(bath__shower_is_on),
+      // the instructions and the cue are two bubbles, so each fits its frame
+      const chk_bubble_t shower[] = {
+          {&img_robin_pointing, lvx_fmt(CHK_TEXT(bath__shower_ask), c->result[CHK_BATH_RH0]), NULL},
+          {&img_robin_pointing, CHK_TEXT(bath__shower_go), CHK_TEXT(bath__shower_is_on)},
       };
-      CHK_TRY(chk_say(&shower, 1), CHK_REDO(BATH_STEP_BASELINE));
+      CHK_TRY(chk_say(shower, 2), CHK_REDO(BATH_STEP_BASELINE));
 
       // the water is running now
       chk_mark(c, CHK_BATH_MARK_SHOWER_ON);
