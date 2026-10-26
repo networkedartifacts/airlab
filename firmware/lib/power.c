@@ -158,7 +158,6 @@ void al_power_check() {
   }
 
   // determine conditions
-  bool has_usb = cc1 > 10 || cc2 > 10;
   bool can_fast = cc1 > 700 || cc2 > 700;  // 1.5A
 
   // read config
@@ -191,6 +190,10 @@ void al_power_check() {
                al_power_memory.reg9.wd_fault);
     }
   }
+
+  // determine USB power, also from the charger's input detection, as a source
+  // without CC termination (e.g. a non-compliant cable) leaves CC1/CC2 at 0V
+  bool has_usb = cc1 > 10 || cc2 > 10 || usb_pwr;
 
   // get ambient temperature
   float tmp = al_sensor_raw_temp();
