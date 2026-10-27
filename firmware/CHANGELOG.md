@@ -3,6 +3,12 @@
 This changelog lists notable user-facing changes per release. Minor changes,
 internal refactoring and development tooling are omitted.
 
+## v1.0.2 (2026-10-27)
+
+**Bug Fixes**
+
+- Fixed USB power not being detected with some chargers and cables, which let the device sleep and drop its MQTT connection
+
 ## v1.0.1 (2026-08-25)
 
 **Bug Fixes**
