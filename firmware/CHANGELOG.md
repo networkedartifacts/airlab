@@ -3,6 +3,12 @@
 This changelog lists notable user-facing changes per release. Minor changes,
 internal refactoring and development tooling are omitted.
 
+## v1.0.3 (2026-10-27)
+
+**Features**
+
+- Announce availability to Home Assistant, which now shows the Air Lab as unavailable when it stops reporting, e.g. after a network outage or while asleep on battery
+
 ## v1.0.2 (2026-10-27)
 
 **Bug Fixes**
