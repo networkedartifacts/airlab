@@ -310,6 +310,9 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
   ("{"                                          \
    "  \"name\": \"%s\","                        \
    "  \"state_topic\": \"%s/%s\","              \
+   "  \"availability_topic\": \"%s/status\","   \
+   "  \"payload_available\": \"online\","       \
+   "  \"payload_not_available\": \"offline\","  \
    "  %s"                                       \
    "  \"device_class\": \"%s\","                \
    "  \"state_class\": \"measurement\","        \
@@ -325,7 +328,7 @@ static void com_ha_config_sensor(const char *hat, const char *did, const char *f
    "    \"hw\": \"R%d\""                        \
    "  }"                                        \
    "}")
-  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, uom_field, dc, did, uid, sdp, did, fwv, did, hwr);
+  r = snprintf(buf + 128, 1024, SEN_TPL, n, bt, t, bt, uom_field, dc, did, uid, sdp, did, fwv, did, hwr);
   if (r < 0 || r >= 1024) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -352,25 +355,28 @@ static void com_ha_config_binary_sensor(const char *hat, const char *did, const 
   }
 
   // calculate message
-#define BIN_SEN_TPL                       \
-  ("{"                                    \
-   "  \"name\": \"%s\","                  \
-   "  \"state_topic\": \"%s/%s\","        \
-   "  \"device_class\": \"%s\","          \
-   "  \"payload_on\": \"ON\","            \
-   "  \"payload_off\": \"OFF\","          \
-   "  \"unique_id\": \"%s-%s\","          \
-   "  \"device\": {"                      \
-   "    \"ids\": \"%s\","                 \
-   "    \"name\": \"Air Lab\","           \
-   "    \"mf\": \"Networked Artifacts\"," \
-   "    \"mdl\": \"NA-AL1\","             \
-   "    \"sw\": \"%s\","                  \
-   "    \"sn\": \"%s\","                  \
-   "    \"hw\": \"R%d\""                  \
-   "  }"                                  \
+#define BIN_SEN_TPL                            \
+  ("{"                                         \
+   "  \"name\": \"%s\","                       \
+   "  \"state_topic\": \"%s/%s\","             \
+   "  \"availability_topic\": \"%s/status\","  \
+   "  \"payload_available\": \"online\","      \
+   "  \"payload_not_available\": \"offline\"," \
+   "  \"device_class\": \"%s\","               \
+   "  \"payload_on\": \"ON\","                 \
+   "  \"payload_off\": \"OFF\","               \
+   "  \"unique_id\": \"%s-%s\","               \
+   "  \"device\": {"                           \
+   "    \"ids\": \"%s\","                      \
+   "    \"name\": \"Air Lab\","                \
+   "    \"mf\": \"Networked Artifacts\","      \
+   "    \"mdl\": \"NA-AL1\","                  \
+   "    \"sw\": \"%s\","                       \
+   "    \"sn\": \"%s\","                       \
+   "    \"hw\": \"R%d\""                       \
+   "  }"                                       \
    "}")
-  r = snprintf(buf + 128, 1024, BIN_SEN_TPL, n, bt, t, dc, did, uid, did, fwv, did, hwr);
+  r = snprintf(buf + 128, 1024, BIN_SEN_TPL, n, bt, t, bt, dc, did, uid, did, fwv, did, hwr);
   if (r < 0 || r >= 1024) {
     ESP_ERROR_CHECK(ESP_FAIL);
   }
@@ -459,6 +465,10 @@ static void com_start_task() {
   naos_wifi_init();
   naos_mqtt_init(1);
   naos_connect_init();
+
+  // announce unavailability through the last will, as sleeping and network
+  // outages end the connection without a disconnect
+  naos_mqtt_lwt("status", "offline", 0, true, NAOS_LOCAL);
 
   // start sync
   naos_defer("sync", 2000, com_sync);
@@ -567,6 +577,9 @@ bool com_started() {
 }
 
 void com_online() {
+  // announce availability, retained to replace the offline last will
+  naos_publish_s("status", "online", 0, true, NAOS_LOCAL);
+
   // check if home assistant is enabled
   if (!com_mqtt_ha) {
     return;
