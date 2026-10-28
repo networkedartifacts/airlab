@@ -593,7 +593,7 @@ void com_online() {
   const char *hat = naos_get_s("mqtt-ha-topic");
   const char *did = naos_get_s("device-id");
   const char *av = naos_get_s("app-version");
-  const char *bt = naos_get_s("base-topic");
+  char *bt = naos_base_topic();
   int hwr = auth.revision;
 
   // configure primary sensors
@@ -614,6 +614,9 @@ void com_online() {
   com_ha_config_sensor(hat, did, av, bt, hwr, "al-bat", "bat", "Battery", "%", "battery", 0);
   com_ha_config_binary_sensor(hat, did, av, bt, hwr, "al-usb", "usb", "USB", "plug");
   com_ha_config_binary_sensor(hat, did, av, bt, hwr, "al-chg", "chg", "Charging", "power");
+
+  // free base topic
+  free(bt);
 }
 
 void com_log(const char *msg, size_t len) {
